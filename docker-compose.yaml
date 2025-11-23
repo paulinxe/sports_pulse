@@ -18,5 +18,19 @@ services:
     # Override command to use air for hot reloading
     command: air
 
+  provider:
+    build:
+      context: ./provider
+      dockerfile: ./Dockerfile
+    volumes:
+      # Mount source code for live reloading
+      - ./provider:/app
+      # Cache Go modules (speeds up rebuilds)
+      - go_modules:/go/pkg/mod
+    environment:
+      - GO_ENV=development
+    # Override command to use air for hot reloading
+    command: air
+
 volumes:
   go_modules:

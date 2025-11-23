@@ -2,3 +2,5 @@
 signer/tmp
 signer/testdata
 signer/private.key
+provider/tmp
+provider/testdata
