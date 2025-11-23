@@ -1,0 +1,38 @@
+Provider/provider-name/Crawler
+1. establish a connection with a 3rd party provider of football data
+2. fetch matches
+    to reduce the amount of calls, ask for all matches of a league.
+    here we want to get the next set of matches. most probably we should provide a timestamp.
+    we will ask for matches 1 week in advance.
+3. save the matches to a database
+    we will create a new table with:
+        - match_id (this comes from our canonical way of generating a match id)
+        - home_team_id (null) -> TeamRegistry.id
+        - home_team_name
+        - away_team_id (null) -> TeamRegistry.id
+        - away_team_name
+        - start
+        - end
+        - status (pending, processing, finished, signed, submitted)
+        - result (enum)
+        - transaction_hash (null) (will be used later by the Relayer)
+        - provider_match_id
+        - provider (enum)
+        - created_at
+        - updated_at
+    we will only save matches if there is at least one team in the TeamRegistry.
+    each team id will be provided via environment variable as they will be inserted in the Oracle contract.
+    this boosts the speed and avoid unnecessary calls to the TeamRegistry.
+
+Provider/provider-name/Resolver
+We will have a cronjob that runs every minute (or hour depending on the provider free tier).
+If there is a match where `end` is in the past AND the status is not `finished`, we will try to resolve the match (at the moment we don't care about postponed matches).
+To avoid concurrency issues, we will use a mutex to lock the match.
+We will call the provider API to get the match result.
+We will update the match result and the status to `finished`.
+We directly call now a Signer/signer-name/Signer to sign the match result and broadcast to the blockchain.
+
+Signer/Signer
+This service will be called by the Provider/provider-name/Resolver once a match is finished.
+We take care of signing the match result and updating the match status to `signed`. (we need a DB transaction)
+Apart from that, we will have a cronjob that will do this same stuff if a match is finished and not signed yet for longer than a certain time.
