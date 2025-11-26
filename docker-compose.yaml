@@ -29,6 +29,7 @@ services:
       - go_modules:/go/pkg/mod
     environment:
       - GO_ENV=development
+      - FOOTBALL_ORG_API_KEY=${FOOTBALL_ORG_API_KEY}
     # Override command to use air for hot reloading
     command: air
 
