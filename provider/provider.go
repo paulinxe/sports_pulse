@@ -16,25 +16,24 @@ const (
 )
 
 func main() {
-	// 1. Direct argument parsing (No flags/help text for cron usage)
-	// os.Args[0] is the program name, os.Args[1] is the first argument
-	args := os.Args
+	os.Exit(run(os.Args))
+}
 
-	if len(args) < 2 {
-		printError("Missing required argument: 'provider'")
-		os.Exit(1)
+func run(args []string) int {
+	if len(args) != 2 {
+		printError("Usage: provider <provider>")
+		return 1
 	}
 
-	// 2. Extract the provider argument
-	// We convert to lowercase to make it case-insensitive
 	provider := strings.ToLower(args[1])
 
-	// 3. Run logic based on the provider
 	err := runProviderLogic(provider)
 	if err != nil {
 		printError(err.Error())
-		os.Exit(1)
+		return 1
 	}
+
+	return 0
 }
 
 func runProviderLogic(provider string) error {
@@ -43,7 +42,9 @@ func runProviderLogic(provider string) error {
 	switch provider {
 	case "football_org":
 		fmt.Println("✅ Initializing Football Data API sync...")
-		sync_football_org()
+		if err := sync_football_org(); err != nil {
+			return err
+		}
 	default:
 		// Return an error if the provider is unknown
 		return fmt.Errorf("unknown provider '%s'. Supported providers: aws, gcp, azure, localhost, football_data_org", provider)

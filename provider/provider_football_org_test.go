@@ -7,7 +7,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 )
 
 func Test_we_can_handle_unauthorized_response(t *testing.T) {
@@ -28,38 +27,19 @@ func Test_we_can_handle_unauthorized_response(t *testing.T) {
 
 	t.Logf("Mock server URL: %s", mockServer.URL)
 
-	originalStdout := os.Stdout
-	originalStderr := os.Stderr
-
 	// Set up environment variable to point to mock server
 	os.Setenv("FOOTBALL_ORG_API_ENDPOINT", mockServer.URL)
 
-	// Set up os.Args to simulate: go run provider football_org
-	os.Args = []string{"provider", "football_org"}
-
 	// Capture stdout and stderr
+	// TODO: we need to use a Logger. This will simplify the code and make it more readable.
 	stdoutR, stdoutW, _ := os.Pipe()
 	stderrR, stderrW, _ := os.Pipe()
 	os.Stdout = stdoutW
 	os.Stderr = stderrW
 
-	// Run main() as if it were called from the CLI
-	// Since main() only calls os.Exit on errors, and our test should succeed,
-	// main() should complete normally. We run it in a goroutine and use a channel
-	// to know when it's done.
-	done := make(chan bool)
-	go func() {
-		main()
-		done <- true
-	}()
-
-	// Wait for main() to complete (with timeout)
-	select {
-	case <-done:
-		// Main completed successfully
-	case <-time.After(5 * time.Second):
-		t.Fatal("main() did not complete within 5 seconds")
-	}
+	// Call run() directly with the arguments
+	args := []string{"provider", "football_org"}
+	exitCode := run(args)
 
 	// Close write ends to flush any buffered output
 	stdoutW.Close()
@@ -71,15 +51,16 @@ func Test_we_can_handle_unauthorized_response(t *testing.T) {
 	stdoutN, _ := stdoutR.Read(stdoutBytes)
 	stderrN, _ := stderrR.Read(stderrBytes)
 
-	// Restore stdout/stderr
-	os.Stdout = originalStdout
-	os.Stderr = originalStderr
-
 	outputStr := string(stdoutBytes[:stdoutN]) + string(stderrBytes[:stderrN])
 
 	t.Log("=== Captured Output ===")
 	t.Log(outputStr)
 	t.Log("=======================")
+
+	// Verify the exit code was 1 (error)
+	if exitCode != 1 {
+		t.Errorf("Expected exit code 1, but got %d", exitCode)
+	}
 
 	// Verify the response contains the 403 Forbidden message
 	if !strings.Contains(outputStr, "403 Forbidden") {

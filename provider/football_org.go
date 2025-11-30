@@ -34,19 +34,18 @@ func NewFootballOrgClient() *FootballOrgClient {
 
 // sync_football_org fetches matches using the client configured via environment variables
 // Uses FOOTBALL_ORG_API_ENDPOINT env var if set, otherwise defaults to production API
-func sync_football_org() {
+func sync_football_org() error {
 	client := NewFootballOrgClient()
-	client.SyncMatches()
+	return client.SyncMatches()
 }
 
 // SyncMatches fetches matches from the Football Data API
 // TODO: we need a better error handling everywhere
-func (c *FootballOrgClient) SyncMatches() {
+func (c *FootballOrgClient) SyncMatches() error {
 	// LaLiga
 	base, err := url.Parse(c.APIEndpoint + "/competitions/2014/matches")
 	if err != nil {
-		buildError(fmt.Sprintf("failed to parse base URL: %v", err))
-		return
+		return buildError(fmt.Sprintf("failed to parse base URL: %v", err))
 	}
 
 	// TODO: calculations (make sure this algorithm is correct)
@@ -76,8 +75,7 @@ func (c *FootballOrgClient) SyncMatches() {
 	// 4. Create a new HTTP request with custom headers
 	req, err := http.NewRequest("GET", finalURL, nil)
 	if err != nil {
-		buildError(fmt.Sprintf("failed to create request: %v", err))
-		return
+		return buildError(fmt.Sprintf("failed to create request: %v", err))
 	}
 
 	// Add the X-Auth-Token header
@@ -86,16 +84,20 @@ func (c *FootballOrgClient) SyncMatches() {
 	// 5. Execute the GET request
 	resp, err := c.Client.Do(req)
 	if err != nil {
-		buildError(fmt.Sprintf("failed to get matches: %v", err))
-		return
+		return buildError(fmt.Sprintf("failed to get matches: %v", err))
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		buildError(fmt.Sprintf("failed to read response body: %v", err))
-		return
+		return buildError(fmt.Sprintf("failed to read response body: %v", err))
+	}
+
+	// Check for HTTP error status codes
+	if resp.StatusCode >= 400 {
+		return buildError(fmt.Sprintf("HTTP error: %d %s - %s", resp.StatusCode, resp.Status, string(body)))
 	}
 
 	fmt.Printf("%s\n[INFO] Response body: %s%s\n", ColorGreen, string(body), ColorReset)
+	return nil
 }
