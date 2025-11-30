@@ -30,6 +30,7 @@ services:
     environment:
       - GO_ENV=development
       - FOOTBALL_ORG_API_KEY=${FOOTBALL_ORG_API_KEY}
+      - FOOTBALL_ORG_API_ENDPOINT="https://api.football-data.org/v4"
     # Override command to use air for hot reloading
     command: air
 

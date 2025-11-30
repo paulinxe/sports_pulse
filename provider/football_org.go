@@ -5,17 +5,47 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"time"
 	"os"
+	"time"
 )
 
-const API_ENDPOINT = "https://api.football-data.org/v4"
+// HTTPClient interface for dependency injection in tests
+// TODO: we need to move this to somewhere else
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
 
+// FootballOrgClient wraps the HTTP client and API configuration
+type FootballOrgClient struct {
+	Client      HTTPClient
+	APIEndpoint string
+	APIKey      string
+}
+
+// NewFootballOrgClient creates a new client with default HTTP client
+// Uses FOOTBALL_ORG_API_ENDPOINT env var if set, otherwise defaults to the production API
+func NewFootballOrgClient() *FootballOrgClient {
+	return &FootballOrgClient{
+		Client:      &http.Client{},
+		APIEndpoint: os.Getenv("FOOTBALL_ORG_API_ENDPOINT"),
+		APIKey:      os.Getenv("FOOTBALL_ORG_API_KEY"),
+	}
+}
+
+// sync_football_org fetches matches using the client configured via environment variables
+// Uses FOOTBALL_ORG_API_ENDPOINT env var if set, otherwise defaults to production API
 func sync_football_org() {
+	client := NewFootballOrgClient()
+	client.SyncMatches()
+}
+
+// SyncMatches fetches matches from the Football Data API
+// TODO: we need a better error handling everywhere
+func (c *FootballOrgClient) SyncMatches() {
 	// LaLiga
-	base, err := url.Parse(API_ENDPOINT + "/competitions/2014/matches")
+	base, err := url.Parse(c.APIEndpoint + "/competitions/2014/matches")
 	if err != nil {
-		printError(fmt.Sprintf("failed to parse base URL: %v", err))
+		buildError(fmt.Sprintf("failed to parse base URL: %v", err))
 		return
 	}
 
@@ -46,25 +76,24 @@ func sync_football_org() {
 	// 4. Create a new HTTP request with custom headers
 	req, err := http.NewRequest("GET", finalURL, nil)
 	if err != nil {
-		printError(fmt.Sprintf("failed to create request: %v", err))
+		buildError(fmt.Sprintf("failed to create request: %v", err))
 		return
 	}
 
 	// Add the X-Auth-Token header
-	req.Header.Set("X-Auth-Token", os.Getenv("FOOTBALL_ORG_API_KEY"))
+	req.Header.Set("X-Auth-Token", c.APIKey)
 
 	// 5. Execute the GET request
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := c.Client.Do(req)
 	if err != nil {
-		printError(fmt.Sprintf("failed to get matches: %v", err))
+		buildError(fmt.Sprintf("failed to get matches: %v", err))
 		return
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		printError(fmt.Sprintf("failed to read response body: %v", err))
+		buildError(fmt.Sprintf("failed to read response body: %v", err))
 		return
 	}
 

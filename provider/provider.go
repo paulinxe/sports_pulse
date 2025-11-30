@@ -41,9 +41,9 @@ func runProviderLogic(provider string) error {
 	fmt.Printf("%sInitializing connection to provider: %s...%s\n", ColorCyan, strings.ToUpper(provider), ColorReset)
 
 	switch provider {
-    case "football_org":
-        fmt.Println("✅ Initializing Football Data API sync...")
-        sync_football_org()
+	case "football_org":
+		fmt.Println("✅ Initializing Football Data API sync...")
+		sync_football_org()
 	default:
 		// Return an error if the provider is unknown
 		return fmt.Errorf("unknown provider '%s'. Supported providers: aws, gcp, azure, localhost, football_data_org", provider)
@@ -51,6 +51,10 @@ func runProviderLogic(provider string) error {
 
 	fmt.Printf("%s\nSuccess! Operation completed for %s.%s\n", ColorGreen, provider, ColorReset)
 	return nil
+}
+
+func buildError(msg string) error {
+	return fmt.Errorf("%sError: %s%s", ColorRed, msg, ColorReset)
 }
 
 func printError(msg string) {
