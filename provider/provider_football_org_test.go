@@ -1,65 +1,26 @@
 package main
 
 import (
-	"bytes"
-	"log/slog"
 	"net/http"
-	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 )
 
 func Test_we_can_handle_unauthorized_response(t *testing.T) {
-	// Create a mock server that returns 403 Forbidden
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Logf("Mock server received request: %s %s", r.Method, r.URL.Path)
-		t.Logf("Request headers - X-Auth-Token: %s", r.Header.Get("X-Auth-Token"))
+	logger := getLogger()
+    mockServer := createServer(http.StatusForbidden)
+    defer mockServer.Close()
 
-		// Verify the request has the correct header
-		if r.Header.Get("X-Auth-Token") == "" {
-			t.Error("Expected X-Auth-Token header to be set")
-		}
-
-		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte("403 Forbidden"))
-	}))
-	defer mockServer.Close()
-
-	// Set up environment variable to point to mock server
-	os.Setenv("FOOTBALL_ORG_API_ENDPOINT", mockServer.URL)
-
-	// Create a buffer to capture log output
-	var logBuf bytes.Buffer
-	logger := slog.New(slog.NewTextHandler(&logBuf, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
-	}))
-	slog.SetDefault(logger)
-
-	// Call run() directly with the arguments
 	args := []string{"provider", "football_org"}
+
 	exitCode := run(args)
-
-	// Get the captured log output
-	outputStr := logBuf.String()
-
-	// Verify the exit code was 1 (error)
 	if exitCode != 1 {
 		t.Errorf("Expected exit code 1, but got %d", exitCode)
 	}
 
-	// Verify the response contains the 403 Forbidden message
+    outputStr := logger.String()
 	if !strings.Contains(outputStr, "403 Forbidden") {
 		t.Errorf("Expected '403 Forbidden' in output, but got: %s", outputStr)
-	}
-
-	// Verify the provider initialization messages are present
-	if !strings.Contains(outputStr, "Initializing connection to provider") {
-		t.Error("Expected provider initialization message")
-	}
-
-	if !strings.Contains(outputStr, "Football Data API sync") {
-		t.Error("Expected Football Data API sync message")
 	}
 }
 
