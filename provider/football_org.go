@@ -71,7 +71,7 @@ func (c *FootballOrgClient) SyncMatches() error {
 	base.RawQuery = params.Encode()
 	finalURL := base.String()
 
-	slog.Info("Sending GET request", "url", finalURL)
+	slog.Debug("Sending GET request", "url", finalURL)
 
 	// 4. Create a new HTTP request with custom headers
 	req, err := http.NewRequest("GET", finalURL, nil)

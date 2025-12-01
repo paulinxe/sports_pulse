@@ -47,5 +47,6 @@ func runProviderLogic(provider string) error {
 }
 
 func buildError(msg string) error {
+	slog.Error("Error", "error", msg)
 	return fmt.Errorf("%s", msg)
 }
