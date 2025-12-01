@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -70,7 +71,7 @@ func (c *FootballOrgClient) SyncMatches() error {
 	base.RawQuery = params.Encode()
 	finalURL := base.String()
 
-	fmt.Printf("%s\n[INFO] Sending GET request to: %s%s\n", ColorYellow, finalURL, ColorReset)
+	slog.Info("Sending GET request", "url", finalURL)
 
 	// 4. Create a new HTTP request with custom headers
 	req, err := http.NewRequest("GET", finalURL, nil)
@@ -95,9 +96,13 @@ func (c *FootballOrgClient) SyncMatches() error {
 
 	// Check for HTTP error status codes
 	if resp.StatusCode >= 400 {
-		return buildError(fmt.Sprintf("HTTP error: %d %s - %s", resp.StatusCode, resp.Status, string(body)))
+		slog.Error("HTTP error response",
+			"status_code", resp.StatusCode,
+			"status", resp.Status,
+			"body", string(body))
+		return buildError(fmt.Sprintf("HTTP error: %d %s", resp.StatusCode, resp.Status))
 	}
 
-	fmt.Printf("%s\n[INFO] Response body: %s%s\n", ColorGreen, string(body), ColorReset)
+	slog.Info("Response received", "body", string(body))
 	return nil
 }

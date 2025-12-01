@@ -1,0 +1,10 @@
+{
+  "name": "Go Alpine Dev",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go"
+      ]
+    }
+  }
+}

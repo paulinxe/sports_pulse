@@ -1,7 +1,8 @@
 package main
 
 import (
-	//"encoding/json"
+	"bytes"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -25,37 +26,22 @@ func Test_we_can_handle_unauthorized_response(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	t.Logf("Mock server URL: %s", mockServer.URL)
-
 	// Set up environment variable to point to mock server
 	os.Setenv("FOOTBALL_ORG_API_ENDPOINT", mockServer.URL)
 
-	// Capture stdout and stderr
-	// TODO: we need to use a Logger. This will simplify the code and make it more readable.
-	stdoutR, stdoutW, _ := os.Pipe()
-	stderrR, stderrW, _ := os.Pipe()
-	os.Stdout = stdoutW
-	os.Stderr = stderrW
+	// Create a buffer to capture log output
+	var logBuf bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logBuf, &slog.HandlerOptions{
+		Level: slog.LevelDebug,
+	}))
+	slog.SetDefault(logger)
 
 	// Call run() directly with the arguments
 	args := []string{"provider", "football_org"}
 	exitCode := run(args)
 
-	// Close write ends to flush any buffered output
-	stdoutW.Close()
-	stderrW.Close()
-
-	// Read captured output
-	stdoutBytes := make([]byte, 4096)
-	stderrBytes := make([]byte, 4096)
-	stdoutN, _ := stdoutR.Read(stdoutBytes)
-	stderrN, _ := stderrR.Read(stderrBytes)
-
-	outputStr := string(stdoutBytes[:stdoutN]) + string(stderrBytes[:stderrN])
-
-	t.Log("=== Captured Output ===")
-	t.Log(outputStr)
-	t.Log("=======================")
+	// Get the captured log output
+	outputStr := logBuf.String()
 
 	// Verify the exit code was 1 (error)
 	if exitCode != 1 {

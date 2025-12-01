@@ -2,17 +2,9 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
-)
-
-// ANSI color codes for pretty CLI output
-const (
-	ColorReset  = "\033[0m"
-	ColorRed    = "\033[31m"
-	ColorGreen  = "\033[32m"
-	ColorYellow = "\033[33m"
-	ColorCyan   = "\033[36m"
 )
 
 func main() {
@@ -21,7 +13,7 @@ func main() {
 
 func run(args []string) int {
 	if len(args) != 2 {
-		printError("Usage: provider <provider>")
+		slog.Error("Usage: provider <provider>")
 		return 1
 	}
 
@@ -29,7 +21,7 @@ func run(args []string) int {
 
 	err := runProviderLogic(provider)
 	if err != nil {
-		printError(err.Error())
+		slog.Error("Provider execution failed", "error", err)
 		return 1
 	}
 
@@ -37,11 +29,11 @@ func run(args []string) int {
 }
 
 func runProviderLogic(provider string) error {
-	fmt.Printf("%sInitializing connection to provider: %s...%s\n", ColorCyan, strings.ToUpper(provider), ColorReset)
+	slog.Info("Initializing connection to provider", "provider", strings.ToUpper(provider))
 
 	switch provider {
 	case "football_org":
-		fmt.Println("✅ Initializing Football Data API sync...")
+		slog.Info("Initializing Football Data API sync")
 		if err := sync_football_org(); err != nil {
 			return err
 		}
@@ -50,14 +42,10 @@ func runProviderLogic(provider string) error {
 		return fmt.Errorf("unknown provider '%s'. Supported providers: aws, gcp, azure, localhost, football_data_org", provider)
 	}
 
-	fmt.Printf("%s\nSuccess! Operation completed for %s.%s\n", ColorGreen, provider, ColorReset)
+	slog.Info("Operation completed successfully", "provider", provider)
 	return nil
 }
 
 func buildError(msg string) error {
-	return fmt.Errorf("%sError: %s%s", ColorRed, msg, ColorReset)
-}
-
-func printError(msg string) {
-	fmt.Fprintf(os.Stderr, "%sError: %s%s\n", ColorRed, msg, ColorReset)
+	return fmt.Errorf("%s", msg)
 }
