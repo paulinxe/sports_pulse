@@ -1,4 +1,4 @@
-package main
+package football_org
 
 import (
 	"fmt"
@@ -16,15 +16,12 @@ type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-// FootballOrgClient wraps the HTTP client and API configuration
 type FootballOrgClient struct {
 	Client      HTTPClient
 	APIEndpoint string
 	APIKey      string
 }
 
-// NewFootballOrgClient creates a new client with default HTTP client
-// Uses FOOTBALL_ORG_API_ENDPOINT env var if set, otherwise defaults to the production API
 func NewFootballOrgClient() *FootballOrgClient {
 	return &FootballOrgClient{
 		Client:      &http.Client{},
@@ -33,9 +30,7 @@ func NewFootballOrgClient() *FootballOrgClient {
 	}
 }
 
-// sync_football_org fetches matches using the client configured via environment variables
-// Uses FOOTBALL_ORG_API_ENDPOINT env var if set, otherwise defaults to production API
-func sync_football_org() error {
+func Sync() error {
 	client := NewFootballOrgClient()
 	return client.SyncMatches()
 }
@@ -46,7 +41,8 @@ func (c *FootballOrgClient) SyncMatches() error {
 	// LaLiga
 	base, err := url.Parse(c.APIEndpoint + "/competitions/2014/matches")
 	if err != nil {
-		return buildError(fmt.Sprintf("failed to parse base URL: %v", err))
+		slog.Error("Failed to parse base URL", "error", err)
+		return fmt.Errorf("failed to parse base URL: %v", err)
 	}
 
 	// TODO: calculations (make sure this algorithm is correct)
@@ -76,7 +72,8 @@ func (c *FootballOrgClient) SyncMatches() error {
 	// 4. Create a new HTTP request with custom headers
 	req, err := http.NewRequest("GET", finalURL, nil)
 	if err != nil {
-		return buildError(fmt.Sprintf("failed to create request: %v", err))
+		slog.Error("Failed to create request", "error", err)
+		return fmt.Errorf("failed to create request: %v", err)
 	}
 
 	// Add the X-Auth-Token header
@@ -85,13 +82,15 @@ func (c *FootballOrgClient) SyncMatches() error {
 	// 5. Execute the GET request
 	resp, err := c.Client.Do(req)
 	if err != nil {
-		return buildError(fmt.Sprintf("failed to get matches: %v", err))
+		slog.Error("Failed to get matches", "error", err)
+		return fmt.Errorf("failed to get matches: %v", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return buildError(fmt.Sprintf("failed to read response body: %v", err))
+		slog.Error("Failed to read response body", "error", err)
+		return fmt.Errorf("failed to read response body: %v", err)
 	}
 
 	// Check for HTTP error status codes
@@ -100,7 +99,7 @@ func (c *FootballOrgClient) SyncMatches() error {
 			"status_code", resp.StatusCode,
 			"status", resp.Status,
 			"body", string(body))
-		return buildError(fmt.Sprintf("HTTP error: %d %s", resp.StatusCode, resp.Status))
+		return fmt.Errorf("HTTP error: %d %s", resp.StatusCode, resp.Status)
 	}
 
 	slog.Info("Response received", "body", string(body))

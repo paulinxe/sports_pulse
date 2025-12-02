@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"provider/football_org"
 	"strings"
 )
 
@@ -34,7 +35,7 @@ func runProviderLogic(provider string) error {
 	switch provider {
 	case "football_org":
 		slog.Info("Initializing Football Data API sync")
-		if err := sync_football_org(); err != nil {
+		if err := football_org.Sync(); err != nil {
 			return err
 		}
 	default:

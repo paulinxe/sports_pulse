@@ -3,10 +3,15 @@ FROM golang:1.25-alpine
 # Install air for hot reloading and other dev tools
 RUN go install github.com/air-verse/air@latest
 
-# Install build tools
-RUN apk add --no-cache git gcc musl-dev
+# Install build tools and utilities
+RUN apk add --no-cache git gcc musl-dev make bash libstdc++ libc6-compat
 
-RUN apk add --no-cache bash git libstdc++ libc6-compat
+# Ensure Go is in PATH (must be set early)
+ENV PATH="/usr/local/go/bin:${PATH}"
+
+# Add Go to PATH in profile.d for all shells (Alpine Linux standard)
+RUN echo 'export PATH="/usr/local/go/bin:$PATH"' > /etc/profile.d/go.sh && \
+    chmod +x /etc/profile.d/go.sh
 
 WORKDIR /app
 

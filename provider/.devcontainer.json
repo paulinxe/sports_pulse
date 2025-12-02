@@ -1,5 +1,13 @@
 {
   "name": "Go Alpine Dev",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": "."
+  },
+  "workspaceFolder": "/app",
+  "remoteEnv": {
+    "PATH": "/usr/local/go/bin:${containerEnv:PATH}"
+  },
   "customizations": {
     "vscode": {
       "extensions": [
