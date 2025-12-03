@@ -31,7 +31,6 @@ func Sync() error {
 	// Calculate the time 7 days (1 week) from now
 	to := from.Add(7 * 24 * time.Hour)
 
-	// Create query parameters
 	params := url.Values{}
 	params.Add("dateFrom", from.Format("2006-01-02"))
 	params.Add("dateTo", to.Format("2006-01-02"))
@@ -50,7 +49,6 @@ func Sync() error {
 		return fmt.Errorf("failed to create request: %v", err)
 	}
 
-	// Add the X-Auth-Token header
 	req.Header.Set("X-Auth-Token", apiKey)
 
 	// Execute the GET request
@@ -77,6 +75,6 @@ func Sync() error {
 		return fmt.Errorf("HTTP error: %d %s", resp.StatusCode, resp.Status)
 	}
 
-	slog.Info("Response received", "body", string(body))
+	slog.Debug("Response received", "body", string(body))
 	return nil
 }
