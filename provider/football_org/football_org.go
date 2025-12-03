@@ -10,36 +10,12 @@ import (
 	"time"
 )
 
-// HTTPClient interface for dependency injection in tests
-// TODO: we need to move this to somewhere else
-type HTTPClient interface {
-	Do(req *http.Request) (*http.Response, error)
-}
-
-type FootballOrgClient struct {
-	Client      HTTPClient
-	APIEndpoint string
-	APIKey      string
-}
-
-func NewFootballOrgClient() *FootballOrgClient {
-	return &FootballOrgClient{
-		Client:      &http.Client{},
-		APIEndpoint: os.Getenv("FOOTBALL_ORG_API_ENDPOINT"),
-		APIKey:      os.Getenv("FOOTBALL_ORG_API_KEY"),
-	}
-}
-
 func Sync() error {
-	client := NewFootballOrgClient()
-	return client.SyncMatches()
-}
+	apiEndpoint := os.Getenv("FOOTBALL_ORG_API_ENDPOINT")
+	apiKey := os.Getenv("FOOTBALL_ORG_API_KEY")
 
-// SyncMatches fetches matches from the Football Data API
-// TODO: we need a better error handling everywhere
-func (c *FootballOrgClient) SyncMatches() error {
 	// LaLiga
-	base, err := url.Parse(c.APIEndpoint + "/competitions/2014/matches")
+	base, err := url.Parse(apiEndpoint + "/competitions/2014/matches")
 	if err != nil {
 		slog.Error("Failed to parse base URL", "error", err)
 		return fmt.Errorf("failed to parse base URL: %v", err)
@@ -55,21 +31,19 @@ func (c *FootballOrgClient) SyncMatches() error {
 	// Calculate the time 7 days (1 week) from now
 	to := from.Add(7 * 24 * time.Hour)
 
-	// 2. Create a new Values object for query parameters.
-	// This is the cleanest way to handle query parameters as it automatically handles URL encoding.
+	// Create query parameters
 	params := url.Values{}
-	// Add your query parameters here
 	params.Add("dateFrom", from.Format("2006-01-02"))
 	params.Add("dateTo", to.Format("2006-01-02"))
 	//params.Add("status", "FINISHED")
 
-	// 3. Encode the parameters and append them to the base URL.
+	// Encode the parameters and append them to the base URL
 	base.RawQuery = params.Encode()
 	finalURL := base.String()
 
 	slog.Debug("Sending GET request", "url", finalURL)
 
-	// 4. Create a new HTTP request with custom headers
+	// Create a new HTTP request with custom headers
 	req, err := http.NewRequest("GET", finalURL, nil)
 	if err != nil {
 		slog.Error("Failed to create request", "error", err)
@@ -77,10 +51,11 @@ func (c *FootballOrgClient) SyncMatches() error {
 	}
 
 	// Add the X-Auth-Token header
-	req.Header.Set("X-Auth-Token", c.APIKey)
+	req.Header.Set("X-Auth-Token", apiKey)
 
-	// 5. Execute the GET request
-	resp, err := c.Client.Do(req)
+	// Execute the GET request
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		slog.Error("Failed to get matches", "error", err)
 		return fmt.Errorf("failed to get matches: %v", err)
