@@ -1,6 +1,7 @@
 package football_org
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -75,6 +76,15 @@ func Sync() error {
 		return fmt.Errorf("HTTP error: %d %s", resp.StatusCode, resp.Status)
 	}
 
-	slog.Debug("Response received", "body", string(body))
+	//slog.Info("Response received", "body", string(body))
+
+	var matchesResponse MatchesResponse
+	if err := json.Unmarshal(body, &matchesResponse); err != nil {
+		slog.Error("Failed to parse JSON response", "error", err, "body", string(body))
+		return fmt.Errorf("failed to parse JSON response: %v", err)
+	}
+
+	slog.Info(fmt.Sprintf("Successfully parsed %d matches", len(matchesResponse.Matches)))
+
 	return nil
 }
