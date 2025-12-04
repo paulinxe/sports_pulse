@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"provider/football_org"
+	"provider/db"
 	"strings"
 )
 
@@ -19,6 +20,12 @@ func run(args []string) int {
 	}
 
 	provider := strings.ToLower(args[1])
+
+	if err := db.Init(); err != nil {
+		slog.Error("Failed to initialize database", "error", err)
+		return 1
+	}
+	defer db.Close()
 
 	err := runProviderLogic(provider)
 	if err != nil {
