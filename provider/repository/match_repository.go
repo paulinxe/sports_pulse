@@ -23,15 +23,15 @@ func Save(match entity.Match) error {
     `
 
     result, err := db.DB.Exec(query,
-        match.ID,       // id (use provider_match_id for uniqueness)
-        match.HomeTeamID, // home_team_id
-        match.AwayTeamID, // away_team_id
-        match.Start,             // start
-        match.End,               // end
-        match.Status,                // status
-        match.HomeTeamScore,             // home_team_score
-        match.AwayTeamScore,             // away_team_score
-        match.ProviderMatchID,       // provider_match_id (convert int to string)
+        match.ID,       
+        match.HomeTeamID,
+        match.AwayTeamID,
+        match.Start,
+        match.End,
+        match.Status,
+        match.HomeTeamScore,
+        match.AwayTeamScore,
+        match.ProviderMatchID,
         match.Provider,
         "test",
         "test",

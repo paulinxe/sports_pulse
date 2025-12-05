@@ -27,8 +27,10 @@ func NewMatch(
     awayTeamID int,
     homeTeamScore int,
     awayTeamScore int,
+	competition Competition,
 ) Match {
     id := "1" // TODO: we need to use our Canonical way of generating the id.
+	// keccak256(abi.encodePacked(competition, home, away, utcDate))
 
     startTime, err := time.Parse(time.RFC3339, start)
     if err != nil {
@@ -43,6 +45,7 @@ func NewMatch(
     // TODO: avoid magic numbers
     endTime := startTime.Add(2 * time.Hour)
 
+	// TODO: we need to store the competition
     return Match{
         ID: id,
         Start: startTime,

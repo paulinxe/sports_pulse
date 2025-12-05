@@ -96,10 +96,11 @@ func Sync() error {
             footballOrgMatch.UTCDate,
             entity.FootballOrg,
             fmt.Sprintf("%d", footballOrgMatch.ID),
-            footballOrgMatch.HomeTeam.ID,
-            footballOrgMatch.AwayTeam.ID,
+            footballOrgMatch.HomeTeam.ID, // TODO: map this value to our internal team id
+            footballOrgMatch.AwayTeam.ID, // TODO: map this value to our internal team id
             footballOrgMatch.Score.FullTime.Home,
             footballOrgMatch.Score.FullTime.Away,
+            entity.LaLiga, // TODO: we need to map this value
         )
 
         if err := repository.Save(match); err != nil {
