@@ -53,8 +53,3 @@ func runProviderLogic(provider string) error {
 	slog.Info("Operation completed successfully", "provider", provider)
 	return nil
 }
-
-func buildError(msg string) error {
-	slog.Error("Error", "error", msg)
-	return fmt.Errorf("%s", msg)
-}

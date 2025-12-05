@@ -10,7 +10,7 @@ type Match struct {
     Start           time.Time
     End             time.Time
     Status          string
-    Provider        int
+    Provider        Provider
     ProviderMatchID string
     HomeTeamID      int
     AwayTeamID      int
@@ -21,7 +21,7 @@ type Match struct {
 func NewMatch(
     start string,
     end string,
-    provider int,
+    provider Provider,
     providerMatchID string,
     homeTeamID int,
     awayTeamID int,

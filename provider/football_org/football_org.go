@@ -94,7 +94,7 @@ func Sync() error {
         match := entity.NewMatch(
             footballOrgMatch.UTCDate,
             footballOrgMatch.UTCDate,
-            1, // TODO: use provider ID from some mapping or env var
+            entity.FootballOrg,
             fmt.Sprintf("%d", footballOrgMatch.ID),
             footballOrgMatch.HomeTeam.ID,
             footballOrgMatch.AwayTeam.ID,
