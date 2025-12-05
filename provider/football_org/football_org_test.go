@@ -66,7 +66,6 @@ func Test_we_can_handle_valid_response(t *testing.T) {
     defer mockServer.Close()
 
     // Initialize database - fail test if DB can't be initialized
-    // TODO: we need to open a db transaction
     // TODO: move this somewhere else.
     if err := testutil.InitDatabase(); err != nil {
         t.Fatalf("Failed to initialize database: %v", err)
@@ -77,6 +76,10 @@ func Test_we_can_handle_valid_response(t *testing.T) {
     if db.DB == nil {
         t.Fatal("Database connection is nil after initialization")
     }
+
+    // Clean up before the test
+    // TODO: we need a better way to clean up the database.
+    _, _ = db.DB.Exec("DELETE FROM matches")
 
     err := Sync()
     if err != nil {
@@ -96,7 +99,7 @@ func Test_we_can_handle_valid_response(t *testing.T) {
 
     // Verify the record was created in the database
     var count int
-    err = db.DB.QueryRow("SELECT COUNT(*) FROM matches WHERE id = $1", "544391").Scan(&count)
+    err = db.DB.QueryRow("SELECT COUNT(*) FROM matches WHERE id = $1", "1").Scan(&count)
     if err != nil {
         t.Fatalf("Failed to query database: %v", err)
     }

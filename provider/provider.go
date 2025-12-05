@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"provider/football_org"
 	"provider/db"
+	"provider/football_org"
 	"strings"
 )
 

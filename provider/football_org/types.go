@@ -1,10 +1,10 @@
 package football_org
 
 type MatchesResponse struct {
-    Matches []Match `json:"matches"`
+    Matches []FootballOrgMatch `json:"matches"`
 }
 
-type Match struct {
+type FootballOrgMatch struct {
     ID       int    `json:"id"`
     UTCDate  string `json:"utcDate"`
     Status   string `json:"status"`
