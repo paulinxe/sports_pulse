@@ -99,13 +99,13 @@ func Test_we_can_handle_valid_response(t *testing.T) {
 
     // Verify the record was created in the database
     var count int
-    err = db.DB.QueryRow("SELECT COUNT(*) FROM matches WHERE id = $1", "1").Scan(&count)
+    err = db.DB.QueryRow("SELECT COUNT(*) FROM matches WHERE id = $1", "467586e6f2c61b8143f46226fe73a992cd6fafa5c599668707ce6d308ec6aa67").Scan(&count)
     if err != nil {
         t.Fatalf("Failed to query database: %v", err)
     }
 
     if count != 1 {
-        t.Errorf("Expected 1 record with id '544391', but found %d", count)
+        t.Errorf("Expected 1 record with id '467586e6f2c61b8143f46226fe73a992cd6fafa5c599668707ce6d308ec6aa67', but found %d", count)
     }
 
     // Optionally, verify some fields of the created record
