@@ -16,19 +16,18 @@ type Match struct {
     Status          string
     Provider        Provider
     ProviderMatchID string
-    HomeTeamID      int
-    AwayTeamID      int
+    HomeTeamID      Team
+    AwayTeamID      Team
     HomeTeamScore   int
     AwayTeamScore   int
 }
 
 func NewMatch(
     start string,
-    end string,
     provider Provider,
     providerMatchID string,
-    homeTeamID int,
-    awayTeamID int,
+    homeTeamID Team,
+    awayTeamID Team,
     homeTeamScore int,
     awayTeamScore int,
     competition Competition,

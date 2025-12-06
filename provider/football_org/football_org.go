@@ -90,14 +90,28 @@ func Sync() error {
 
     // Insert matches into database using repository
     for _, footballOrgMatch := range matchesResponse.Matches {
+        // Map external team IDs to internal team IDs
+        homeTeamID, ok := FootballOrgTeamMapping[footballOrgMatch.HomeTeam.ID]
+        if !ok {
+            slog.Warn("Failed to map home team ID, skipping match",
+                "external_team_id", footballOrgMatch.HomeTeam.ID,
+                "match_id", footballOrgMatch.ID)
+            continue
+        }
+        awayTeamID, ok := FootballOrgTeamMapping[footballOrgMatch.AwayTeam.ID]
+        if !ok {
+            slog.Warn("Failed to map away team ID, skipping match",
+                "external_team_id", footballOrgMatch.AwayTeam.ID,
+                "match_id", footballOrgMatch.ID)
+            continue
+        }
 
         match := entity.NewMatch(
             footballOrgMatch.UTCDate,
-            footballOrgMatch.UTCDate,
             entity.FootballOrg,
             fmt.Sprintf("%d", footballOrgMatch.ID),
-            footballOrgMatch.HomeTeam.ID, // TODO: map this value to our internal team id
-            footballOrgMatch.AwayTeam.ID, // TODO: map this value to our internal team id
+            homeTeamID,
+            awayTeamID,
             footballOrgMatch.Score.FullTime.Home,
             footballOrgMatch.Score.FullTime.Away,
             entity.LaLiga, // TODO: we need to map this value
