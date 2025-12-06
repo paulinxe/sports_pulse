@@ -7,6 +7,7 @@ import (
     "net/http/httptest"
     "os"
     "provider/db"
+    "testing"
 )
 
 func CreateServer(statusCode int, responseBody string) *httptest.Server {
@@ -33,8 +34,20 @@ func GetLogger() *bytes.Buffer {
     return &logBuf
 }
 
-func InitDatabase() error {
-    return db.Init()
+func InitDatabase(t *testing.T) {
+    err := db.Init()
+    if err != nil {
+        t.Fatalf("Failed to initialize database: %v", err)
+    }
+
+	// Verify database connection is ready
+    if db.DB == nil {
+        t.Fatalf("Database connection is nil after initialization")
+    }
+
+    // Clean up before the test
+    // TODO: we need a better way to clean up the database.
+    _, _ = db.DB.Exec("DELETE FROM matches")
 }
 
 func CloseDatabase() {

@@ -67,30 +67,12 @@ func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
     mockServer := testutil.CreateServer(http.StatusOK, homeTeamNotMappedResponse)
     defer mockServer.Close()
 
-    // Initialize database - fail test if DB can't be initialized
-    // TODO: move this somewhere else.
-    if err := testutil.InitDatabase(); err != nil {
-        t.Fatalf("Failed to initialize database: %v", err)
-    }
+    testutil.InitDatabase(t)
     defer testutil.CloseDatabase()
-
-    // Verify database connection is ready
-    if db.DB == nil {
-        t.Fatal("Database connection is nil after initialization")
-    }
-
-    // Clean up before the test
-    // TODO: we need a better way to clean up the database.
-    _, _ = db.DB.Exec("DELETE FROM matches")
 
     err := Sync()
     if err != nil {
-        outputStr := logger.String()
-        t.Logf("=== Full Log Output ===")
-        t.Logf("%s", outputStr)
-        t.Logf("=======================")
         t.Errorf("Expected no error but got: %v", err)
-        return
     }
 
     outputStr := logger.String()
@@ -116,30 +98,12 @@ func Test_we_can_handle_valid_response(t *testing.T) {
     mockServer := testutil.CreateServer(http.StatusOK, successResponse)
     defer mockServer.Close()
 
-    // Initialize database - fail test if DB can't be initialized
-    // TODO: move this somewhere else.
-    if err := testutil.InitDatabase(); err != nil {
-        t.Fatalf("Failed to initialize database: %v", err)
-    }
+    testutil.InitDatabase(t)
     defer testutil.CloseDatabase()
-
-    // Verify database connection is ready
-    if db.DB == nil {
-        t.Fatal("Database connection is nil after initialization")
-    }
-
-    // Clean up before the test
-    // TODO: we need a better way to clean up the database.
-    _, _ = db.DB.Exec("DELETE FROM matches")
 
     err := Sync()
     if err != nil {
-        outputStr := logger.String()
-        t.Logf("=== Full Log Output ===")
-        t.Logf("%s", outputStr)
-        t.Logf("=======================")
         t.Errorf("Expected no error but got: %v", err)
-        return
     }
 
     outputStr := logger.String()
