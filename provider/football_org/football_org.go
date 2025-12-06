@@ -90,17 +90,16 @@ func Sync() error {
 
     // Insert matches into database using repository
     for _, footballOrgMatch := range matchesResponse.Matches {
-        // Map external team IDs to internal team IDs
         homeTeamID, ok := FootballOrgTeamMapping[footballOrgMatch.HomeTeam.ID]
         if !ok {
-            slog.Warn("Failed to map home team ID, skipping match",
+            slog.Error("Failed to map home team ID, skipping match",
                 "external_team_id", footballOrgMatch.HomeTeam.ID,
                 "match_id", footballOrgMatch.ID)
             continue
         }
         awayTeamID, ok := FootballOrgTeamMapping[footballOrgMatch.AwayTeam.ID]
         if !ok {
-            slog.Warn("Failed to map away team ID, skipping match",
+            slog.Error("Failed to map away team ID, skipping match",
                 "external_team_id", footballOrgMatch.AwayTeam.ID,
                 "match_id", footballOrgMatch.ID)
             continue

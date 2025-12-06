@@ -9,8 +9,10 @@ import (
     "testing"
 )
 
-//go:embed sample.json
+//go:embed test/valid_response.json
 var successResponse string
+//go:embed test/home_team_not_mapped.json
+var homeTeamNotMappedResponse string
 
 func Test_we_can_handle_unauthorized_response(t *testing.T) {
     logger := testutil.GetLogger()
@@ -57,6 +59,55 @@ func Test_we_can_handle_internal_server_error_response(t *testing.T) {
     outputStr := logger.String()
     if !strings.Contains(outputStr, "500 Internal Server Error") {
         t.Errorf("Expected '500 Internal Server Error' in output, but got: %s", outputStr)
+    }
+}
+
+func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
+	logger := testutil.GetLogger()
+    mockServer := testutil.CreateServer(http.StatusOK, homeTeamNotMappedResponse)
+    defer mockServer.Close()
+
+    // Initialize database - fail test if DB can't be initialized
+    // TODO: move this somewhere else.
+    if err := testutil.InitDatabase(); err != nil {
+        t.Fatalf("Failed to initialize database: %v", err)
+    }
+    defer testutil.CloseDatabase()
+
+    // Verify database connection is ready
+    if db.DB == nil {
+        t.Fatal("Database connection is nil after initialization")
+    }
+
+    // Clean up before the test
+    // TODO: we need a better way to clean up the database.
+    _, _ = db.DB.Exec("DELETE FROM matches")
+
+    err := Sync()
+    if err != nil {
+        outputStr := logger.String()
+        t.Logf("=== Full Log Output ===")
+        t.Logf("%s", outputStr)
+        t.Logf("=======================")
+        t.Errorf("Expected no error but got: %v", err)
+        return
+    }
+
+    outputStr := logger.String()
+
+	if !strings.Contains(outputStr, "Failed to map home team ID, skipping match") {
+		t.Errorf("Expected 'Failed to map home team ID, skipping match' in output, but got: %s", outputStr)
+	}
+
+    // We should still create the Athletic - Real Madrid match
+    var count int
+    err = db.DB.QueryRow("SELECT COUNT(*) FROM matches WHERE id = $1", "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8").Scan(&count)
+    if err != nil {
+        t.Fatalf("Failed to query database: %v", err)
+    }
+
+    if count != 1 {
+        t.Errorf("Expected 1 record with id '58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8', but found %d", count)
     }
 }
 
