@@ -56,3 +56,12 @@ func CloseDatabase() {
         os.Exit(1)
     }
 }
+
+func MatchExists(t *testing.T, matchID string) bool {
+    var count int
+    err := db.DB.QueryRow("SELECT COUNT(*) FROM matches WHERE id = $1", matchID).Scan(&count)
+    if err != nil {
+        t.Fatalf("Failed to query database: %v", err)
+    }
+    return count > 0
+}

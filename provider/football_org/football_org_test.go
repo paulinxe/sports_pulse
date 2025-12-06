@@ -3,16 +3,17 @@ package football_org
 import (
     _ "embed"
     "net/http"
-    "provider/db"
     "provider/testutil"
     "strings"
     "testing"
 )
 
-//go:embed test/valid_response.json
+//go:embed test_data_provider/valid_response.json
 var successResponse string
-//go:embed test/home_team_not_mapped.json
+//go:embed test_data_provider/home_team_not_mapped.json
 var homeTeamNotMappedResponse string
+//go:embed test_data_provider/away_team_not_mapped.json
+var awayTeamNotMappedResponse string
 
 func Test_we_can_handle_unauthorized_response(t *testing.T) {
     logger := testutil.GetLogger()
@@ -82,14 +83,32 @@ func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
 	}
 
     // We should still create the Athletic - Real Madrid match
-    var count int
-    err = db.DB.QueryRow("SELECT COUNT(*) FROM matches WHERE id = $1", "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8").Scan(&count)
+    if !testutil.MatchExists(t, "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8") {
+        t.Errorf("Athletic - Real Madrid match should exist, but it does not")
+    }
+}
+
+func Test_we_skip_the_match_if_away_team_is_not_mapped(t *testing.T) {
+	logger := testutil.GetLogger()
+    mockServer := testutil.CreateServer(http.StatusOK, awayTeamNotMappedResponse)
+    defer mockServer.Close()
+
+    testutil.InitDatabase(t)
+    defer testutil.CloseDatabase()
+
+	err := Sync()
     if err != nil {
-        t.Fatalf("Failed to query database: %v", err)
+        t.Errorf("Expected no error but got: %v", err)
     }
 
-    if count != 1 {
-        t.Errorf("Expected 1 record with id '58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8', but found %d", count)
+    outputStr := logger.String()
+    if !strings.Contains(outputStr, "Failed to map away team ID, skipping match") {
+        t.Errorf("Expected 'Failed to map away team ID, skipping match' in output, but got: %s", outputStr)
+    }
+
+    // We should still create the Athletic - Real Madrid match
+    if !testutil.MatchExists(t, "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8") {
+        t.Errorf("Athletic - Real Madrid match should exist, but it does not")
     }
 }
 
@@ -113,14 +132,8 @@ func Test_we_can_handle_valid_response(t *testing.T) {
     }
 
     // Verify the record was created in the database
-    var count int
-    err = db.DB.QueryRow("SELECT COUNT(*) FROM matches WHERE id = $1", "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8").Scan(&count)
-    if err != nil {
-        t.Fatalf("Failed to query database: %v", err)
-    }
-
-    if count != 1 {
-        t.Errorf("Expected 1 record with id '58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8', but found %d", count)
+    if !testutil.MatchExists(t, "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8") {
+        t.Errorf("Athletic - Real Madrid match should exist, but it does not")
     }
 
     // Optionally, verify some fields of the created record
