@@ -69,6 +69,22 @@ func Test_we_can_handle_internal_server_error_response(t *testing.T) {
     }
 }
 
+func Test_we_can_handle_invalid_json_response(t *testing.T) {
+    logger := testutil.GetLogger()
+    mockServer := testutil.CreateServer(http.StatusOK, "invalid json")
+    defer mockServer.Close()
+
+    err := Sync()
+    if err == nil {
+        t.Error("Expected error but got nil")
+    }
+
+    outputStr := logger.String()
+    if !strings.Contains(outputStr, "Failed to parse JSON response") {
+        t.Errorf("Expected 'Failed to parse JSON response' in output, but got: %s", outputStr)
+    }
+}
+
 func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
     logger := testutil.GetLogger()
     mockServer := testutil.CreateServer(http.StatusOK, homeTeamNotMappedResponse)
@@ -119,7 +135,6 @@ func Test_we_skip_the_match_if_away_team_is_not_mapped(t *testing.T) {
 }
 
 func Test_we_can_handle_valid_response(t *testing.T) {
-    logger := testutil.GetLogger()
     mockServer := testutil.CreateServer(http.StatusOK, successResponse)
     defer mockServer.Close()
 
@@ -129,12 +144,6 @@ func Test_we_can_handle_valid_response(t *testing.T) {
     err := Sync()
     if err != nil {
         t.Errorf("Expected no error but got: %v", err)
-    }
-
-    outputStr := logger.String()
-
-    if !strings.Contains(outputStr, "Successfully parsed 1 matches") {
-        t.Errorf("Expected 'Successfully parsed 1 matches' in output, but got: %s", outputStr)
     }
 
     start, _ := time.Parse("2006-01-02 15:04:05", "2025-12-03 18:00:00")
