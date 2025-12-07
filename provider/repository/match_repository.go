@@ -57,7 +57,17 @@ func FindById(id string) (*entity.Match, error) {
         return nil, fmt.Errorf("database connection not initialized")
     }
     query := `
-        SELECT *
+        SELECT
+            id,
+            start,
+            "end",
+            status,
+            provider,
+            provider_match_id,
+            home_team_id,
+            away_team_id,
+            home_team_score,
+            away_team_score
         FROM matches 
         WHERE id = $1
     `

@@ -3,15 +3,21 @@ package football_org
 import (
     _ "embed"
     "net/http"
+    "provider/entity"
+    "provider/repository"
     "provider/testutil"
+    "reflect"
     "strings"
     "testing"
+    "time"
 )
 
 //go:embed test_data_provider/valid_response.json
 var successResponse string
+
 //go:embed test_data_provider/home_team_not_mapped.json
 var homeTeamNotMappedResponse string
+
 //go:embed test_data_provider/away_team_not_mapped.json
 var awayTeamNotMappedResponse string
 
@@ -64,7 +70,7 @@ func Test_we_can_handle_internal_server_error_response(t *testing.T) {
 }
 
 func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
-	logger := testutil.GetLogger()
+    logger := testutil.GetLogger()
     mockServer := testutil.CreateServer(http.StatusOK, homeTeamNotMappedResponse)
     defer mockServer.Close()
 
@@ -78,9 +84,9 @@ func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
 
     outputStr := logger.String()
 
-	if !strings.Contains(outputStr, "Failed to map home team ID, skipping match") {
-		t.Errorf("Expected 'Failed to map home team ID, skipping match' in output, but got: %s", outputStr)
-	}
+    if !strings.Contains(outputStr, "Failed to map home team ID, skipping match") {
+        t.Errorf("Expected 'Failed to map home team ID, skipping match' in output, but got: %s", outputStr)
+    }
 
     // We should still create the Athletic - Real Madrid match
     if !testutil.MatchExists(t, "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8") {
@@ -89,14 +95,14 @@ func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
 }
 
 func Test_we_skip_the_match_if_away_team_is_not_mapped(t *testing.T) {
-	logger := testutil.GetLogger()
+    logger := testutil.GetLogger()
     mockServer := testutil.CreateServer(http.StatusOK, awayTeamNotMappedResponse)
     defer mockServer.Close()
 
     testutil.InitDatabase(t)
     defer testutil.CloseDatabase()
 
-	err := Sync()
+    err := Sync()
     if err != nil {
         t.Errorf("Expected no error but got: %v", err)
     }
@@ -131,33 +137,33 @@ func Test_we_can_handle_valid_response(t *testing.T) {
         t.Errorf("Expected 'Successfully parsed 1 matches' in output, but got: %s", outputStr)
     }
 
-    // Verify the record was created in the database
-    if !testutil.MatchExists(t, "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8") {
-        t.Errorf("Athletic - Real Madrid match should exist, but it does not")
+    start, _ := time.Parse("2006-01-02 15:04:05", "2025-12-03 18:00:00")
+    end, _ := time.Parse("2006-01-02 15:04:05", "2025-12-03 20:00:00")
+
+    expectedMatch := entity.Match{
+        ID:              "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8",
+        Start:           start,
+        End:             end,
+        Status:          "pending",
+        Provider:        entity.FootballOrg,
+        ProviderMatchID: "544391",
+        HomeTeamID:      entity.AthleticClub,
+        AwayTeamID:      entity.RealMadrid,
+        HomeTeamScore:   0,
+        AwayTeamScore:   0,
+    }
+    actualMatch, err := repository.FindById("58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8")
+    if err != nil {
+        t.Errorf("Expected no error but got: %v", err)
+        return
     }
 
-    // Optionally, verify some fields of the created record
-    // var homeTeamID, awayTeamID int
-    // var status string
-    // err = db.DB.QueryRow(
-    // 	"SELECT home_team_id, away_team_id, status FROM matches WHERE id = $1",
-    // 	"544391",
-    // ).Scan(&homeTeamID, &awayTeamID, &status)
-    // if err != nil {
-    // 	if err == sql.ErrNoRows {
-    // 		t.Error("Record with id '544391' was not found in database")
-    // 	} else {
-    // 		t.Fatalf("Failed to query record details: %v", err)
-    // 	}
-    // 	return
-    // }
+    if actualMatch == nil {
+        t.Errorf("Expected match to be found, but it is nil")
+        return
+    }
 
-    // // Verify the record has expected values from sample.json
-    // // From sample.json: homeTeam.id=77, awayTeam.id=86
-    // if homeTeamID != 77 {
-    // 	t.Errorf("Expected home_team_id to be 77, but got %d", homeTeamID)
-    // }
-    // if awayTeamID != 86 {
-    // 	t.Errorf("Expected away_team_id to be 86, but got %d", awayTeamID)
-    // }
+    if !reflect.DeepEqual(*actualMatch, expectedMatch) {
+        t.Errorf("Expected match %+v, but got %+v", expectedMatch, actualMatch)
+    }
 }
