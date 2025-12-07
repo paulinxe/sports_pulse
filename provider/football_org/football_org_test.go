@@ -159,15 +159,30 @@ func Test_we_insert_a_match_when_no_matches_exist_for_competition(t *testing.T) 
         t.Errorf("Expected no error but got: %v", err)
     }
 
-    // TODO: we need to assert we asked the api with the correct date range
+    // When no matches exist, dateFrom should be today and dateTo should be 3 days from today
+    // TODO: would be nice to use some kind of Clock so we can mock the current time to avoid flakiness
+    now := time.Now()
+    expectedDateFrom := now.Format("2006-01-02")
+    expectedDateTo := now.Add(3 * 24 * time.Hour).Format("2006-01-02")
 
-    start, _ := time.Parse("2006-01-02 15:04:05", "2025-12-03 18:00:00")
-    end, _ := time.Parse("2006-01-02 15:04:05", "2025-12-03 20:00:00")
+    actualDateFrom := mockServer.GetQueryParam("dateFrom")
+    actualDateTo := mockServer.GetQueryParam("dateTo")
+
+    if actualDateFrom != expectedDateFrom {
+        t.Errorf("Expected dateFrom to be %s, but got %s", expectedDateFrom, actualDateFrom)
+    }
+
+    if actualDateTo != expectedDateTo {
+        t.Errorf("Expected dateTo to be %s, but got %s", expectedDateTo, actualDateTo)
+    }
+
+    expectedMatchStart, _ := time.Parse("2006-01-02 15:04:05", "2025-12-03 18:00:00")
+    expectedMatchEnd, _ := time.Parse("2006-01-02 15:04:05", "2025-12-03 20:00:00")
 
     expectedMatch := entity.Match{
         ID:              "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8",
-        Start:           start,
-        End:             end,
+        Start:           expectedMatchStart,
+        End:             expectedMatchEnd,
         Status:          "pending",
         Provider:        entity.FootballOrg,
         ProviderMatchID: "544391",
@@ -192,3 +207,6 @@ func Test_we_insert_a_match_when_no_matches_exist_for_competition(t *testing.T) 
         t.Errorf("Expected match %+v, but got %+v", expectedMatch, actualMatch)
     }
 }
+
+// TODO: add test for when matches exist for the competition
+// TODO: add also another test when we fetch nothing because the most recent match is already 3+ days in the future
