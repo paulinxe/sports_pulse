@@ -208,5 +208,31 @@ func Test_we_insert_a_match_when_no_matches_exist_for_competition(t *testing.T) 
     }
 }
 
+func Test_no_api_call_is_made_when_last_match_is_already_3_days_in_the_future(t *testing.T) {
+    testutil.InitDatabase(t)
+    defer testutil.CloseDatabase()
+
+    futureDate := time.Now().Add(3 * 24 * time.Hour)
+    repository.Save(entity.Match{
+        ID:              "1",
+        Start:           futureDate,
+        End:             futureDate.Add(2 * time.Hour),
+        Status:          "pending",
+        Provider:        entity.FootballOrg,
+        ProviderMatchID: "1",
+        CompetitionID:   entity.LaLiga,
+        HomeTeamID:      entity.AthleticClub,
+        AwayTeamID:      entity.RealMadrid,
+        HomeTeamScore:   0,
+        AwayTeamScore:   0,
+    })
+    
+    err := Sync()
+    if err != nil {
+        t.Errorf("Expected no error but got: %v", err)
+    }
+
+    // TODO: would be nice to assert the logs
+}
+
 // TODO: add test for when matches exist for the competition
-// TODO: add also another test when we fetch nothing because the most recent match is already 3+ days in the future
