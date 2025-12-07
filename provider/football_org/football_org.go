@@ -14,10 +14,16 @@ import (
 )
 
 func Sync() error {
-	body, err := fetchAPI()
-	if err != nil {
-		return err
-	}
+    body, err := fetchAPI()
+    if err != nil {
+        return err
+    }
+
+    // If body is nil, it means no fetch was needed (already have data 3+ days ahead)
+    if body == nil {
+        slog.Debug("No API fetch needed, database already has matches 3+ days in advance")
+        return nil
+    }
 
     var matchesResponse MatchesResponse
     if err := json.Unmarshal(body, &matchesResponse); err != nil {
@@ -55,6 +61,8 @@ func Sync() error {
         )
 
         if err := repository.Save(match); err != nil {
+            // TODO: if a match was moved, here we will have a duplicate key sql error.
+            // in this case, we need to remove the existing match and insert the new one.
             return fmt.Errorf("failed to insert matches: %v", err)
         }
     }
@@ -64,7 +72,7 @@ func Sync() error {
 }
 
 func fetchAPI() ([]byte, error) {
-	apiEndpoint := os.Getenv("FOOTBALL_ORG_API_ENDPOINT")
+    apiEndpoint := os.Getenv("FOOTBALL_ORG_API_ENDPOINT")
     apiKey := os.Getenv("FOOTBALL_ORG_API_KEY")
 
     // LaLiga
@@ -74,15 +82,35 @@ func fetchAPI() ([]byte, error) {
         return nil, fmt.Errorf("failed to parse base URL: %v", err)
     }
 
-    // TODO: calculations (make sure this algorithm is correct)
-    // from: here we should go to the db to get the most recent match stored.
-    //  If we don't have any, we start from now.
-    //  If from is already one week from now, we stop execution.
-    // to: we add 1 week to from.
-    from := time.Now()
+    // Calculate date range based on existing data in DB
+    // If no matches exist: fetch from today to 3 days in the future
+    // If matches exist: start from the most recent match date (excluding it) and fetch 3 days ahead
+    // If the most recent match is already 3+ days in the future, skip API call
+    // TODO: the call needs to be filtered by provider
+    mostRecentTimestamp, err := repository.FindMostRecentTimestamp(entity.LaLiga)
+    if err != nil {
+        slog.Error("Failed to find most recent timestamp", "error", err)
+        return nil, fmt.Errorf("failed to find most recent timestamp: %v", err)
+    }
 
-    // Calculate the time 7 days (1 week) from now
-    to := from.Add(7 * 24 * time.Hour)
+    now := time.Now()
+    var from time.Time
+    if mostRecentTimestamp == nil {
+        from = now
+    } else {
+        from = mostRecentTimestamp.Add(24 * time.Hour)
+    }
+
+    // If the starting point is already 3+ days in the future, we don't need to fetch
+    if from.After(now.Add(3 * 24 * time.Hour)) {
+        slog.Debug("Most recent match is already 3+ days in the future, skipping API call",
+            "most_recent_date", mostRecentTimestamp,
+            "from", from)
+        return nil, nil
+    }
+
+    // Calculate 3 days in advance from the starting point
+    to := from.Add(3 * 24 * time.Hour)
 
     params := url.Values{}
     params.Add("dateFrom", from.Format("2006-01-02"))
@@ -129,5 +157,5 @@ func fetchAPI() ([]byte, error) {
     }
 
     //slog.Info("Response received", "body", string(body))
-	return body, nil
+    return body, nil
 }

@@ -6,6 +6,7 @@ import (
     "log/slog"
     "provider/db"
     "provider/entity"
+    "time"
 )
 
 func Save(match entity.Match) error {
@@ -13,17 +14,17 @@ func Save(match entity.Match) error {
         slog.Warn("Database connection not initialized, skipping insert")
         return nil
     }
-    
+
     query := `
         INSERT INTO matches (
             id, home_team_id, away_team_id, start, "end", status,
-            home_team_score, away_team_score, provider_match_id,
-            provider, transaction_hash, signature
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            home_team_score, away_team_score, provider_match_id, competition_id,
+            provider
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
     `
 
     result, err := db.DB.Exec(query,
-        match.ID,       
+        match.ID,
         match.HomeTeamID,
         match.AwayTeamID,
         match.Start,
@@ -32,9 +33,8 @@ func Save(match entity.Match) error {
         match.HomeTeamScore,
         match.AwayTeamScore,
         match.ProviderMatchID,
+        match.CompetitionID,
         match.Provider,
-        "test",
-        "test",
     )
 
     if err != nil {
@@ -64,6 +64,7 @@ func FindById(id string) (*entity.Match, error) {
             status,
             provider,
             provider_match_id,
+            competition_id,
             home_team_id,
             away_team_id,
             home_team_score,
@@ -83,6 +84,7 @@ func FindById(id string) (*entity.Match, error) {
         &match.Status,
         &match.Provider,
         &match.ProviderMatchID,
+        &match.CompetitionID,
         &match.HomeTeamID,
         &match.AwayTeamID,
         &match.HomeTeamScore,
@@ -97,4 +99,27 @@ func FindById(id string) (*entity.Match, error) {
     }
 
     return &match, nil
+}
+
+func FindMostRecentTimestamp(competition entity.Competition) (*time.Time, error) {
+    if db.DB == nil {
+        return nil, fmt.Errorf("database connection not initialized")
+    }
+
+    query := `
+        SELECT start
+        FROM matches
+        WHERE competition_id = $1
+        ORDER BY start DESC
+        LIMIT 1
+    `
+    var timestamp time.Time
+    err := db.DB.QueryRow(query, competition).Scan(&timestamp)
+    if err != nil {
+        if err == sql.ErrNoRows {
+            return nil, nil
+        }
+        return nil, fmt.Errorf("failed to find most recent timestamp: %v", err)
+    }
+    return &timestamp, nil
 }

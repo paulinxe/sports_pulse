@@ -12,6 +12,7 @@ CREATE TABLE matches (
     home_team_score INTEGER DEFAULT 0,
     away_team_score INTEGER DEFAULT 0,
     provider_match_id VARCHAR(255) NOT NULL,
+    competition_id INTEGER NOT NULL,
     provider INTEGER NOT NULL,
     transaction_hash VARCHAR(255),
     signature VARCHAR(255),

@@ -22,6 +22,10 @@ var homeTeamNotMappedResponse string
 var awayTeamNotMappedResponse string
 
 func Test_we_can_handle_unauthorized_response(t *testing.T) {
+    // TODO: find a way to not duplicate the database initialization and cleanup code.
+    testutil.InitDatabase(t)
+    defer testutil.CloseDatabase()
+
     logger := testutil.GetLogger()
     mockServer := testutil.CreateServer(http.StatusForbidden, "")
     defer mockServer.Close()
@@ -38,6 +42,9 @@ func Test_we_can_handle_unauthorized_response(t *testing.T) {
 }
 
 func Test_we_can_handle_too_many_requests_response(t *testing.T) {
+    testutil.InitDatabase(t)
+    defer testutil.CloseDatabase()
+
     logger := testutil.GetLogger()
     mockServer := testutil.CreateServer(http.StatusTooManyRequests, "")
     defer mockServer.Close()
@@ -54,6 +61,9 @@ func Test_we_can_handle_too_many_requests_response(t *testing.T) {
 }
 
 func Test_we_can_handle_internal_server_error_response(t *testing.T) {
+    testutil.InitDatabase(t)
+    defer testutil.CloseDatabase()
+
     logger := testutil.GetLogger()
     mockServer := testutil.CreateServer(http.StatusInternalServerError, "")
     defer mockServer.Close()
@@ -70,6 +80,9 @@ func Test_we_can_handle_internal_server_error_response(t *testing.T) {
 }
 
 func Test_we_can_handle_invalid_json_response(t *testing.T) {
+    testutil.InitDatabase(t)
+    defer testutil.CloseDatabase()
+
     logger := testutil.GetLogger()
     mockServer := testutil.CreateServer(http.StatusOK, "invalid json")
     defer mockServer.Close()
@@ -86,12 +99,12 @@ func Test_we_can_handle_invalid_json_response(t *testing.T) {
 }
 
 func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
+    testutil.InitDatabase(t)
+    defer testutil.CloseDatabase()
+
     logger := testutil.GetLogger()
     mockServer := testutil.CreateServer(http.StatusOK, homeTeamNotMappedResponse)
     defer mockServer.Close()
-
-    testutil.InitDatabase(t)
-    defer testutil.CloseDatabase()
 
     err := Sync()
     if err != nil {
@@ -111,12 +124,12 @@ func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
 }
 
 func Test_we_skip_the_match_if_away_team_is_not_mapped(t *testing.T) {
+    testutil.InitDatabase(t)
+    defer testutil.CloseDatabase()
+
     logger := testutil.GetLogger()
     mockServer := testutil.CreateServer(http.StatusOK, awayTeamNotMappedResponse)
     defer mockServer.Close()
-
-    testutil.InitDatabase(t)
-    defer testutil.CloseDatabase()
 
     err := Sync()
     if err != nil {
@@ -134,17 +147,19 @@ func Test_we_skip_the_match_if_away_team_is_not_mapped(t *testing.T) {
     }
 }
 
-func Test_we_can_handle_valid_response(t *testing.T) {
-    mockServer := testutil.CreateServer(http.StatusOK, successResponse)
-    defer mockServer.Close()
-
+func Test_we_insert_a_match_when_no_matches_exist_for_competition(t *testing.T) {
     testutil.InitDatabase(t)
     defer testutil.CloseDatabase()
+
+    mockServer := testutil.CreateServer(http.StatusOK, successResponse)
+    defer mockServer.Close()
 
     err := Sync()
     if err != nil {
         t.Errorf("Expected no error but got: %v", err)
     }
+
+    // TODO: we need to assert we asked the api with the correct date range
 
     start, _ := time.Parse("2006-01-02 15:04:05", "2025-12-03 18:00:00")
     end, _ := time.Parse("2006-01-02 15:04:05", "2025-12-03 20:00:00")
@@ -156,6 +171,7 @@ func Test_we_can_handle_valid_response(t *testing.T) {
         Status:          "pending",
         Provider:        entity.FootballOrg,
         ProviderMatchID: "544391",
+        CompetitionID:   entity.LaLiga,
         HomeTeamID:      entity.AthleticClub,
         AwayTeamID:      entity.RealMadrid,
         HomeTeamScore:   0,

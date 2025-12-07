@@ -16,6 +16,7 @@ type Match struct {
     Status          string
     Provider        Provider
     ProviderMatchID string
+    CompetitionID   Competition
     HomeTeamID      Team
     AwayTeamID      Team
     HomeTeamScore   int
@@ -45,7 +46,6 @@ func NewMatch(
     // TODO: avoid magic numbers
     endTime := startTime.Add(2 * time.Hour)
 
-    // TODO: we need to store the competition
     return Match{
         ID:              generateMatchID(uint64(competition), uint64(homeTeamID), uint64(awayTeamID), startTime),
         Start:           startTime,
@@ -53,6 +53,7 @@ func NewMatch(
         Status:          "pending",
         Provider:        provider,
         ProviderMatchID: providerMatchID,
+        CompetitionID:   competition,
         HomeTeamID:      homeTeamID,
         AwayTeamID:      awayTeamID,
         HomeTeamScore:   homeTeamScore,
