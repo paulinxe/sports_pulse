@@ -17,6 +17,7 @@ type ServerWithRequestCapture struct {
     Server     *httptest.Server
     RequestURL *url.URL
     mu         sync.Mutex
+	RequestsCount uint
 }
 
 func CreateServer(statusCode int, responseBody string) *ServerWithRequestCapture {
@@ -25,6 +26,7 @@ func CreateServer(statusCode int, responseBody string) *ServerWithRequestCapture
     capture.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         capture.mu.Lock()
         capture.RequestURL = r.URL
+		capture.RequestsCount += 1
         capture.mu.Unlock()
 
         w.WriteHeader(statusCode)
