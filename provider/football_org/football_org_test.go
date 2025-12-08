@@ -179,8 +179,21 @@ func Test_we_insert_a_match_when_no_matches_exist_for_competition(t *testing.T) 
     expectedMatchStart, _ := time.Parse("2006-01-02 15:04:05", "2025-12-03 18:00:00")
     expectedMatchEnd, _ := time.Parse("2006-01-02 15:04:05", "2025-12-03 20:00:00")
 
+    canonicalID := "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8"
+    actualMatch, err := repository.FindByCanonicalID(canonicalID, entity.FootballOrg)
+    if err != nil {
+        t.Errorf("Expected no error but got: %v", err)
+        return
+    }
+
+    if actualMatch == nil {
+        t.Errorf("Expected match to be found, but it is nil")
+        return
+    }
+
     expectedMatch := entity.Match{
-        ID:              "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8",
+        ID:              actualMatch.ID, // Small hack to be able to compare the matches
+        CanonicalID:     canonicalID,
         Start:           expectedMatchStart,
         End:             expectedMatchEnd,
         Status:          "pending",
@@ -191,16 +204,6 @@ func Test_we_insert_a_match_when_no_matches_exist_for_competition(t *testing.T) 
         AwayTeamID:      entity.RealMadrid,
         HomeTeamScore:   0,
         AwayTeamScore:   0,
-    }
-    actualMatch, err := repository.FindById("58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8")
-    if err != nil {
-        t.Errorf("Expected no error but got: %v", err)
-        return
-    }
-
-    if actualMatch == nil {
-        t.Errorf("Expected match to be found, but it is nil")
-        return
     }
 
     if !reflect.DeepEqual(*actualMatch, expectedMatch) {
@@ -216,19 +219,17 @@ func Test_no_api_call_is_made_when_last_match_is_already_3_days_in_the_future(t 
     defer mockServer.Close()
 
     futureDate := time.Now().Add(3 * 24 * time.Hour)
-    repository.Save(entity.Match{
-        ID:              "1",
-        Start:           futureDate,
-        End:             futureDate.Add(2 * time.Hour),
-        Status:          "pending",
-        Provider:        entity.FootballOrg,
-        ProviderMatchID: "1",
-        CompetitionID:   entity.LaLiga,
-        HomeTeamID:      entity.AthleticClub,
-        AwayTeamID:      entity.RealMadrid,
-        HomeTeamScore:   0,
-        AwayTeamScore:   0,
-    })
+    match := entity.NewMatch(
+        futureDate,
+        entity.FootballOrg,
+        "1",
+        entity.AthleticClub,
+        entity.RealMadrid,
+        0,
+        0,
+        entity.LaLiga,
+    )
+    repository.Save(match)
     
     err := Sync()
     if err != nil {

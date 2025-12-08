@@ -17,14 +17,15 @@ func Save(match entity.Match) error {
 
     query := `
         INSERT INTO matches (
-            id, home_team_id, away_team_id, start, "end", status,
+            id, canonical_id, home_team_id, away_team_id, start, "end", status,
             home_team_score, away_team_score, provider_match_id, competition_id,
             provider
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
     `
 
-    result, err := db.DB.Exec(query,
+    _, err := db.DB.Exec(query,
         match.ID,
+        match.CanonicalID,
         match.HomeTeamID,
         match.AwayTeamID,
         match.Start,
@@ -39,26 +40,27 @@ func Save(match entity.Match) error {
 
     if err != nil {
         slog.Error("Failed to insert match",
-            "match_id", match.ID,
+            "id", match.ID,
+            "provider_match_id", match.ProviderMatchID,
             "error", err)
-        return fmt.Errorf("failed to insert match %s: %v", match.ID, err)
+        return fmt.Errorf("failed to insert match %s: %v", match.ProviderMatchID, err)
     }
 
-    rowsAffected, _ := result.RowsAffected()
     slog.Debug("Inserted match",
-        "match_id", match.ID,
-        "rows_affected", rowsAffected)
+        "id", match.ID,
+        "canonical_id", match.CanonicalID)
 
     return nil
 }
 
-func FindById(id string) (*entity.Match, error) {
+func FindByCanonicalID(canonicalID string, provider entity.Provider) (*entity.Match, error) {
     if db.DB == nil {
         return nil, fmt.Errorf("database connection not initialized")
     }
     query := `
         SELECT
             id,
+            canonical_id,
             start,
             "end",
             status,
@@ -70,15 +72,16 @@ func FindById(id string) (*entity.Match, error) {
             home_team_score,
             away_team_score
         FROM matches 
-        WHERE id = $1
+        WHERE canonical_id = $1 AND provider = $2
     `
 
     var (
         match entity.Match
     )
 
-    err := db.DB.QueryRow(query, id).Scan(
+    err := db.DB.QueryRow(query, canonicalID, provider).Scan(
         &match.ID,
+        &match.CanonicalID,
         &match.Start,
         &match.End,
         &match.Status,
@@ -95,13 +98,13 @@ func FindById(id string) (*entity.Match, error) {
         if err == sql.ErrNoRows {
             return nil, nil
         }
-        return nil, fmt.Errorf("failed to find match by id %s: %v", id, err)
+        return nil, fmt.Errorf("failed to find match by canonical_id %s and provider %v: %v", canonicalID, provider, err)
     }
 
     return &match, nil
 }
 
-func FindMostRecentTimestamp(competition entity.Competition) (*time.Time, error) {
+func FindMostRecentTimestamp(competition entity.Competition, provider entity.Provider) (*time.Time, error) {
     if db.DB == nil {
         return nil, fmt.Errorf("database connection not initialized")
     }
@@ -109,12 +112,12 @@ func FindMostRecentTimestamp(competition entity.Competition) (*time.Time, error)
     query := `
         SELECT start
         FROM matches
-        WHERE competition_id = $1
+        WHERE competition_id = $1 AND provider = $2
         ORDER BY start DESC
         LIMIT 1
     `
     var timestamp time.Time
-    err := db.DB.QueryRow(query, competition).Scan(&timestamp)
+    err := db.DB.QueryRow(query, competition, provider).Scan(&timestamp)
     if err != nil {
         if err == sql.ErrNoRows {
             return nil, nil

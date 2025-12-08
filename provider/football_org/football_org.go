@@ -49,8 +49,15 @@ func Sync() error {
             continue
         }
 
+        startTime, err := time.Parse(time.RFC3339, footballOrgMatch.UTCDate)
+        if err != nil {
+            // TODO: add test for this case
+            slog.Error("Failed to parse match date", "error", err, "match_id", footballOrgMatch.ID)
+            continue
+        }
+
         match := entity.NewMatch(
-            footballOrgMatch.UTCDate,
+            startTime,
             entity.FootballOrg,
             fmt.Sprintf("%d", footballOrgMatch.ID),
             homeTeamID,
@@ -86,8 +93,7 @@ func fetchAPI() ([]byte, error) {
     // If no matches exist: fetch from today to 3 days in the future
     // If matches exist: start from the most recent match date (excluding it) and fetch 3 days ahead
     // If the most recent match is already 3+ days in the future, skip API call
-    // TODO: the call needs to be filtered by provider
-    mostRecentTimestamp, err := repository.FindMostRecentTimestamp(entity.LaLiga)
+    mostRecentTimestamp, err := repository.FindMostRecentTimestamp(entity.LaLiga, entity.FootballOrg)
     if err != nil {
         slog.Error("Failed to find most recent timestamp", "error", err)
         return nil, fmt.Errorf("failed to find most recent timestamp: %v", err)

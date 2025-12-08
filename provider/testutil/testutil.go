@@ -17,7 +17,7 @@ type ServerWithRequestCapture struct {
     Server     *httptest.Server
     RequestURL *url.URL
     mu         sync.Mutex
-	RequestsCount uint
+    RequestsCount uint
 }
 
 func CreateServer(statusCode int, responseBody string) *ServerWithRequestCapture {
@@ -26,7 +26,7 @@ func CreateServer(statusCode int, responseBody string) *ServerWithRequestCapture
     capture.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         capture.mu.Lock()
         capture.RequestURL = r.URL
-		capture.RequestsCount += 1
+        capture.RequestsCount += 1
         capture.mu.Unlock()
 
         w.WriteHeader(statusCode)
@@ -90,9 +90,9 @@ func CloseDatabase() {
     }
 }
 
-func MatchExists(t *testing.T, matchID string) bool {
+func MatchExists(t *testing.T, canonicalID string) bool {
     var count int
-    err := db.DB.QueryRow("SELECT COUNT(*) FROM matches WHERE id = $1", matchID).Scan(&count)
+    err := db.DB.QueryRow("SELECT COUNT(*) FROM matches WHERE canonical_id = $1", canonicalID).Scan(&count)
     if err != nil {
         t.Fatalf("Failed to query database: %v", err)
     }

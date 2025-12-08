@@ -3,14 +3,15 @@ package entity
 import (
     "encoding/binary"
     "encoding/hex"
-    "log/slog"
     "time"
 
     "github.com/ethereum/go-ethereum/crypto"
+    "github.com/google/uuid"
 )
 
 type Match struct {
-    ID              string
+    ID              uuid.UUID
+    CanonicalID     string
     Start           time.Time
     End             time.Time
     Status          string
@@ -24,7 +25,7 @@ type Match struct {
 }
 
 func NewMatch(
-    start string,
+    start time.Time,
     provider Provider,
     providerMatchID string,
     homeTeamID Team,
@@ -33,22 +34,13 @@ func NewMatch(
     awayTeamScore int,
     competition Competition,
 ) Match {
-    startTime, err := time.Parse(time.RFC3339, start)
-    if err != nil {
-        // TODO: if we can't parse the date, we should log an error. we will manually need to set the start time of the match.
-        slog.Warn("Failed to parse match date, using current time",
-            "provider_match_id", providerMatchID,
-            "start", start,
-            "error", err)
-        startTime = time.Now() // TODO: we need to set the start time of the match.
-    }
-
     // TODO: avoid magic numbers
-    endTime := startTime.Add(2 * time.Hour)
+    endTime := start.Add(2 * time.Hour)
 
     return Match{
-        ID:              generateMatchID(uint64(competition), uint64(homeTeamID), uint64(awayTeamID), startTime),
-        Start:           startTime,
+        ID:              uuid.New(),
+        CanonicalID:     generateMatchID(uint64(competition), uint64(homeTeamID), uint64(awayTeamID), start),
+        Start:           start,
         End:             endTime,
         Status:          "pending",
         Provider:        provider,
