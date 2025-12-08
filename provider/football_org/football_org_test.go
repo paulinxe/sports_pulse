@@ -215,7 +215,7 @@ func Test_no_api_call_is_made_when_last_match_is_already_3_days_in_the_future(t 
     testutil.InitDatabase(t)
     defer testutil.CloseDatabase()
 
-    mockServer := testutil.CreateServer(http.StatusOK, awayTeamNotMappedResponse)
+    mockServer := testutil.CreateServer(http.StatusOK, "")
     defer mockServer.Close()
 
     futureDate := time.Now().Add(3 * 24 * time.Hour)
@@ -236,9 +236,7 @@ func Test_no_api_call_is_made_when_last_match_is_already_3_days_in_the_future(t 
         t.Errorf("Expected no error but got: %v", err)
     }
 
-    if mockServer.RequestsCount != 0 {
-        t.Errorf("Expected 0 requests, but got %d", mockServer.RequestsCount)
-    }
+    testutil.ExpectNumberOfRequests(t, mockServer, 0)
 }
 
 // TODO: add test for when matches exist for the competition
