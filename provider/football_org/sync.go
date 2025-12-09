@@ -120,7 +120,6 @@ func fetchAPI() ([]byte, error) {
     params := url.Values{}
     params.Add("dateFrom", from.Format("2006-01-02"))
     params.Add("dateTo", to.Format("2006-01-02"))
-    //params.Add("status", "FINISHED")
 
     // Encode the parameters and append them to the base URL
     base.RawQuery = params.Encode()
