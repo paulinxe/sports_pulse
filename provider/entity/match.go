@@ -34,7 +34,6 @@ func NewMatch(
     awayTeamScore int,
     competition Competition,
 ) Match {
-    // TODO: avoid magic numbers
     endTime := start.Add(2 * time.Hour)
 
     return Match{

@@ -21,6 +21,9 @@ var homeTeamNotMappedResponse string
 //go:embed test_data_provider/away_team_not_mapped.json
 var awayTeamNotMappedResponse string
 
+//go:embed test_data_provider/invalid_match_date.json
+var invalidMatchDateResponse string
+
 func Test_we_can_handle_unauthorized_response(t *testing.T) {
     // TODO: find a way to not duplicate the database initialization and cleanup code.
     testutil.InitDatabase(t)
@@ -237,6 +240,26 @@ func Test_no_api_call_is_made_when_last_match_is_already_3_days_in_the_future(t 
     }
 
     testutil.ExpectNumberOfRequests(t, mockServer, 0)
+}
+
+func Test_we_can_handle_invalid_match_date(t *testing.T) {
+    testutil.InitDatabase(t)
+    defer testutil.CloseDatabase()
+
+    logger := testutil.GetLogger()
+    mockServer := testutil.CreateServer(http.StatusOK, invalidMatchDateResponse)
+    defer mockServer.Close()
+
+    _ = Sync()
+
+    outputStr := logger.String()
+    if !strings.Contains(outputStr, "Failed to parse match date") {
+        t.Errorf("Expected 'Failed to parse match date' in output, but got: %s", outputStr)
+    }
+
+	if testutil.MatchExists(t, "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8") {
+        t.Errorf("Athletic - Real Madrid match should not exist, but it does")
+    }
 }
 
 // TODO: add test for when matches exist for the competition

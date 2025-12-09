@@ -51,7 +51,6 @@ func Sync() error {
 
         startTime, err := time.Parse(time.RFC3339, footballOrgMatch.UTCDate)
         if err != nil {
-            // TODO: add test for this case
             slog.Error("Failed to parse match date", "error", err, "match_id", footballOrgMatch.ID)
             continue
         }
