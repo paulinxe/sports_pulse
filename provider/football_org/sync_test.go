@@ -222,7 +222,7 @@ func Test_no_api_call_is_made_when_last_match_is_already_3_days_in_the_future(t 
     defer mockServer.Close()
 
     futureDate := time.Now().Add(3 * 24 * time.Hour)
-    match := entity.NewMatch(
+	match := entity.NewMatch(
         futureDate,
         entity.FootballOrg,
         "1",
@@ -232,7 +232,10 @@ func Test_no_api_call_is_made_when_last_match_is_already_3_days_in_the_future(t 
         0,
         entity.LaLiga,
     )
-    repository.Save(match)
+
+	tx, _ := testutil.BeginTransaction(t)
+    repository.Save(tx, match)
+	tx.Commit()
     
     err := Sync()
     if err != nil {

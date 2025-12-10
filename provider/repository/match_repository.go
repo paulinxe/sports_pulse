@@ -9,7 +9,7 @@ import (
     "time"
 )
 
-func Save(match entity.Match) error {
+func Save(transaction *sql.Tx, match entity.Match) error {
     if db.DB == nil {
         slog.Warn("Database connection not initialized, skipping insert")
         return nil
@@ -23,7 +23,7 @@ func Save(match entity.Match) error {
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
     `
 
-    _, err := db.DB.Exec(query,
+    _, err := transaction.Exec(query,
         match.ID,
         match.CanonicalID,
         match.HomeTeamID,

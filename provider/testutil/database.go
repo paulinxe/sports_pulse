@@ -5,6 +5,7 @@ import (
     "log/slog"
     "os"
     "testing"
+    "database/sql"
 )
 
 func InitDatabase(t *testing.T) {
@@ -27,6 +28,22 @@ func CloseDatabase() {
     if err := db.Close(); err != nil {
         slog.Error("Failed to close database", "error", err)
         os.Exit(1)
+    }
+}
+
+
+func BeginTransaction(t *testing.T) (*sql.Tx, error) {
+    tx, err := db.DB.Begin()
+    if err != nil {
+        t.Fatalf("Failed to begin transaction: %v", err)
+    }
+    return tx, nil
+}
+
+func RollbackTransaction(t *testing.T, transaction *sql.Tx) {
+    err := transaction.Rollback()
+    if err != nil {
+        t.Fatalf("Failed to rollback transaction: %v", err)
     }
 }
 

@@ -8,6 +8,7 @@ import (
     "net/http"
     "net/url"
     "os"
+    "provider/db"
     "provider/entity"
     "provider/repository"
     "time"
@@ -32,6 +33,13 @@ func Sync() error {
     }
 
     slog.Debug(fmt.Sprintf("Successfully parsed %d matches", len(matchesResponse.Matches)))
+
+	tx, err := db.DB.Begin()
+	if err != nil {
+		slog.Error("Failed to begin transaction", "error", err)
+		return fmt.Errorf("failed to begin transaction: %v", err)
+	}
+	defer tx.Rollback()
 
     for _, footballOrgMatch := range matchesResponse.Matches {
         homeTeamID, ok := FootballOrgTeamMapping[footballOrgMatch.HomeTeam.ID]
@@ -66,12 +74,18 @@ func Sync() error {
             entity.LaLiga, // TODO: we need to map this value
         )
 
-        if err := repository.Save(match); err != nil {
+        if err := repository.Save(tx, match); err != nil {
             // TODO: if a match was moved, here we will have a duplicate key sql error.
             // in this case, we need to remove the existing match and insert the new one.
-            return fmt.Errorf("failed to insert matches: %v", err)
+            slog.Error("Failed to insert match", "error", err, "match", match)
+			continue
         }
     }
+
+	if err := tx.Commit(); err != nil {
+		slog.Error("Failed to commit transaction", "error", err)
+		return fmt.Errorf("failed to commit transaction: %v", err)
+	}
 
     slog.Debug(fmt.Sprintf("Successfully inserted %d matches into database", len(matchesResponse.Matches)))
     return nil
