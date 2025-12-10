@@ -1,8 +1,10 @@
 package football_org
 
-import (
-    "provider/entity"
-)
+import "provider/entity"
+
+var CompetitionToFootballOrgID = map[entity.Competition]int{
+	entity.LaLiga: 2014,
+}
 
 // TODO: check if we can make this a constant.
 var FootballOrgTeamMapping = map[int]entity.Team{

@@ -233,7 +233,7 @@ func Test_no_api_call_is_made_when_last_match_is_already_3_days_in_the_future(t 
     mockServer := testutil.CreateServer(http.StatusOK, "")
     defer mockServer.Close()
 
-    futureDate := time.Now().Add(3 * 24 * time.Hour)
+    futureDate := time.Now().Add(3 * 24 * time.Hour).Add(1 * time.Minute)
     match := entity.NewMatch(
         futureDate,
         entity.FootballOrg,
