@@ -33,7 +33,7 @@ func Test_we_can_handle_unauthorized_response(t *testing.T) {
     mockServer := testutil.CreateServer(http.StatusForbidden, "")
     defer mockServer.Close()
 
-    err := Sync()
+    err := Sync(entity.LaLiga)
     if err == nil {
         t.Error("Expected error but got nil")
     }
@@ -52,7 +52,7 @@ func Test_we_can_handle_too_many_requests_response(t *testing.T) {
     mockServer := testutil.CreateServer(http.StatusTooManyRequests, "")
     defer mockServer.Close()
 
-    err := Sync()
+    err := Sync(entity.LaLiga)
     if err == nil {
         t.Error("Expected error but got nil")
     }
@@ -71,7 +71,7 @@ func Test_we_can_handle_internal_server_error_response(t *testing.T) {
     mockServer := testutil.CreateServer(http.StatusInternalServerError, "")
     defer mockServer.Close()
 
-    err := Sync()
+    err := Sync(entity.LaLiga)
     if err == nil {
         t.Error("Expected error but got nil")
     }
@@ -90,7 +90,7 @@ func Test_we_can_handle_invalid_json_response(t *testing.T) {
     mockServer := testutil.CreateServer(http.StatusOK, "invalid json")
     defer mockServer.Close()
 
-    err := Sync()
+    err := Sync(entity.LaLiga)
     if err == nil {
         t.Error("Expected error but got nil")
     }
@@ -98,6 +98,18 @@ func Test_we_can_handle_invalid_json_response(t *testing.T) {
     outputStr := logger.String()
     if !strings.Contains(outputStr, "Failed to parse JSON response") {
         t.Errorf("Expected 'Failed to parse JSON response' in output, but got: %s", outputStr)
+    }
+}
+
+func Test_we_can_handle_unknown_competition(t *testing.T) {
+    err := Sync(entity.Competition(0))
+    if err == nil {
+        t.Error("Expected error but got nil", err)
+    }
+
+    expectedError := "unknown competition: 0"
+    if err.Error() != expectedError {
+        t.Errorf("Expected error '%s', but got: %s", expectedError, err.Error())
     }
 }
 
@@ -109,7 +121,7 @@ func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
     mockServer := testutil.CreateServer(http.StatusOK, homeTeamNotMappedResponse)
     defer mockServer.Close()
 
-    err := Sync()
+    err := Sync(entity.LaLiga)
     if err != nil {
         t.Errorf("Expected no error but got: %v", err)
     }
@@ -134,7 +146,7 @@ func Test_we_skip_the_match_if_away_team_is_not_mapped(t *testing.T) {
     mockServer := testutil.CreateServer(http.StatusOK, awayTeamNotMappedResponse)
     defer mockServer.Close()
 
-    err := Sync()
+    err := Sync(entity.LaLiga)
     if err != nil {
         t.Errorf("Expected no error but got: %v", err)
     }
@@ -157,7 +169,7 @@ func Test_we_insert_a_match_when_no_matches_exist_for_competition(t *testing.T) 
     mockServer := testutil.CreateServer(http.StatusOK, successResponse)
     defer mockServer.Close()
 
-    err := Sync()
+    err := Sync(entity.LaLiga)
     if err != nil {
         t.Errorf("Expected no error but got: %v", err)
     }
@@ -222,7 +234,7 @@ func Test_no_api_call_is_made_when_last_match_is_already_3_days_in_the_future(t 
     defer mockServer.Close()
 
     futureDate := time.Now().Add(3 * 24 * time.Hour)
-	match := entity.NewMatch(
+    match := entity.NewMatch(
         futureDate,
         entity.FootballOrg,
         "1",
@@ -233,11 +245,11 @@ func Test_no_api_call_is_made_when_last_match_is_already_3_days_in_the_future(t 
         entity.LaLiga,
     )
 
-	tx, _ := testutil.BeginTransaction(t)
+    tx, _ := testutil.BeginTransaction(t)
     repository.Save(tx, match)
-	tx.Commit()
+    tx.Commit()
     
-    err := Sync()
+    err := Sync(entity.LaLiga)
     if err != nil {
         t.Errorf("Expected no error but got: %v", err)
     }
@@ -253,14 +265,14 @@ func Test_we_can_handle_invalid_match_date(t *testing.T) {
     mockServer := testutil.CreateServer(http.StatusOK, invalidMatchDateResponse)
     defer mockServer.Close()
 
-    _ = Sync()
+    _ = Sync(entity.LaLiga)
 
     outputStr := logger.String()
     if !strings.Contains(outputStr, "Failed to parse match date") {
         t.Errorf("Expected 'Failed to parse match date' in output, but got: %s", outputStr)
     }
 
-	if testutil.MatchExists(t, "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8") {
+    if testutil.MatchExists(t, "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8") {
         t.Errorf("Athletic - Real Madrid match should not exist, but it does")
     }
 }

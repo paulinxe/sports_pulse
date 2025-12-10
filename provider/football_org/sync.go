@@ -14,8 +14,16 @@ import (
     "time"
 )
 
-func Sync() error {
-    body, err := fetchAPI()
+var competitionToFootballOrgID = map[entity.Competition]int{
+    entity.LaLiga: 2014,
+}
+
+func Sync(competition entity.Competition) error {
+    if _, ok := competitionToFootballOrgID[competition]; !ok {
+        return fmt.Errorf("unknown competition: %v", competition)
+    }
+
+    body, err := fetchAPI(competition)
     if err != nil {
         return err
     }
@@ -34,12 +42,12 @@ func Sync() error {
 
     slog.Debug(fmt.Sprintf("Successfully parsed %d matches", len(matchesResponse.Matches)))
 
-	tx, err := db.DB.Begin()
-	if err != nil {
-		slog.Error("Failed to begin transaction", "error", err)
-		return fmt.Errorf("failed to begin transaction: %v", err)
-	}
-	defer tx.Rollback()
+    tx, err := db.DB.Begin()
+    if err != nil {
+        slog.Error("Failed to begin transaction", "error", err)
+        return fmt.Errorf("failed to begin transaction: %v", err)
+    }
+    defer tx.Rollback()
 
     for _, footballOrgMatch := range matchesResponse.Matches {
         homeTeamID, ok := FootballOrgTeamMapping[footballOrgMatch.HomeTeam.ID]
@@ -71,32 +79,32 @@ func Sync() error {
             awayTeamID,
             footballOrgMatch.Score.FullTime.Home,
             footballOrgMatch.Score.FullTime.Away,
-            entity.LaLiga, // TODO: we need to map this value
+            competition,
         )
 
         if err := repository.Save(tx, match); err != nil {
             // TODO: if a match was moved, here we will have a duplicate key sql error.
             // in this case, we need to remove the existing match and insert the new one.
             slog.Error("Failed to insert match", "error", err, "match", match)
-			continue
+            continue
         }
     }
 
-	if err := tx.Commit(); err != nil {
-		slog.Error("Failed to commit transaction", "error", err)
-		return fmt.Errorf("failed to commit transaction: %v", err)
-	}
+    if err := tx.Commit(); err != nil {
+        slog.Error("Failed to commit transaction", "error", err)
+        return fmt.Errorf("failed to commit transaction: %v", err)
+    }
 
     slog.Debug(fmt.Sprintf("Successfully inserted %d matches into database", len(matchesResponse.Matches)))
     return nil
 }
 
-func fetchAPI() ([]byte, error) {
+func fetchAPI(competition entity.Competition) ([]byte, error) {
     apiEndpoint := os.Getenv("FOOTBALL_ORG_API_ENDPOINT")
     apiKey := os.Getenv("FOOTBALL_ORG_API_KEY")
 
     // LaLiga
-    base, err := url.Parse(apiEndpoint + "/competitions/2014/matches")
+    base, err := url.Parse(apiEndpoint + fmt.Sprintf("/competitions/%d/matches", competitionToFootballOrgID[competition]))
     if err != nil {
         slog.Error("Failed to parse base URL", "error", err)
         return nil, fmt.Errorf("failed to parse base URL: %v", err)
@@ -106,7 +114,7 @@ func fetchAPI() ([]byte, error) {
     // If no matches exist: fetch from today to 3 days in the future
     // If matches exist: start from the most recent match date (excluding it) and fetch 3 days ahead
     // If the most recent match is already 3+ days in the future, skip API call
-    mostRecentTimestamp, err := repository.FindMostRecentTimestamp(entity.LaLiga, entity.FootballOrg)
+    mostRecentTimestamp, err := repository.FindMostRecentTimestamp(competition, entity.FootballOrg)
     if err != nil {
         slog.Error("Failed to find most recent timestamp", "error", err)
         return nil, fmt.Errorf("failed to find most recent timestamp: %v", err)
