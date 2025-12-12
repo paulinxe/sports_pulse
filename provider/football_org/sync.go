@@ -9,6 +9,9 @@ import (
 	"time"
 )
 
+// This Sync function is intended to run once a day to fetch the latest matches and insert them into the database.
+// It will skip the sync if the most recent match is already 3+ days in the future.
+// In reconcile.go we take care of updating the matches that are already in the database.
 func Sync(competition entity.Competition) error {
 	if err := validateCompetition(competition); err != nil {
 		return err

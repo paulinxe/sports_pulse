@@ -133,8 +133,8 @@ func DeleteByCanonicalID(canonicalID string, provider entity.Provider) error {
     }
 
     query := `
-        DELETE FROM matches WHERE canonical_id = $1 AND provider = $2 AND status = 'pending'
+        DELETE FROM matches WHERE canonical_id = $1 AND provider = $2 AND status = $3
     `
-    _, err := db.DB.Exec(query, canonicalID, provider)
+    _, err := db.DB.Exec(query, canonicalID, provider, entity.Pending)
     return err
 }

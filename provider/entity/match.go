@@ -14,7 +14,7 @@ type Match struct {
     CanonicalID     string
     Start           time.Time
     End             time.Time
-    Status          string
+    Status          MatchStatus
     Provider        Provider
     ProviderMatchID string
     CompetitionID   Competition
@@ -23,6 +23,14 @@ type Match struct {
     HomeTeamScore   int
     AwayTeamScore   int
 }
+
+type MatchStatus int
+const (
+    _ MatchStatus = iota
+    Pending
+	Processing
+	Finished
+)
 
 func NewMatch(
     start time.Time,
@@ -41,7 +49,7 @@ func NewMatch(
         CanonicalID:     generateMatchID(uint64(competition), uint64(homeTeamID), uint64(awayTeamID), start),
         Start:           start,
         End:             endTime,
-        Status:          "pending",
+        Status:          Pending,
         Provider:        provider,
         ProviderMatchID: providerMatchID,
         CompetitionID:   competition,

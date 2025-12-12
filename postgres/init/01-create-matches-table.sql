@@ -1,6 +1,3 @@
--- Create status enum type
-CREATE TYPE match_status AS ENUM ('pending', 'processing', 'finished', 'signed', 'submitted', 'stored');
-
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -12,7 +9,7 @@ CREATE TABLE matches (
     away_team_id INTEGER NOT NULL,
     start TIMESTAMP NOT NULL,
     "end" TIMESTAMP NOT NULL,
-    status match_status NOT NULL,
+    status INTEGER NOT NULL,
     home_team_score INTEGER DEFAULT 0,
     away_team_score INTEGER DEFAULT 0,
     provider_match_id VARCHAR(255) NOT NULL,

@@ -211,7 +211,7 @@ func Test_we_insert_a_match_when_no_matches_exist_for_competition(t *testing.T) 
         CanonicalID:     canonicalID,
         Start:           expectedMatchStart,
         End:             expectedMatchEnd,
-        Status:          "pending",
+        Status:          entity.Pending,
         Provider:        entity.FootballOrg,
         ProviderMatchID: "544391",
         CompetitionID:   entity.LaLiga,
