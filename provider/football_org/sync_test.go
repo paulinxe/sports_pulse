@@ -277,4 +277,50 @@ func Test_we_can_handle_invalid_match_date(t *testing.T) {
     }
 }
 
-// TODO: add test for when matches exist for the competition
+func Test_we_are_able_to_process_a_match_that_is_already_in_the_database_and_is_in_pending_status(t *testing.T) {
+    testutil.InitDatabase(t)
+    defer testutil.CloseDatabase()
+
+    mockServer := testutil.CreateServer(http.StatusOK, successResponse)
+    defer mockServer.Close()
+
+	startTime, _ := time.Parse("2006-01-02 15:04:05", "2025-12-03 18:00:00")
+    match := entity.NewMatch(
+        startTime,
+        entity.FootballOrg,
+        "544391",
+        entity.AthleticClub,
+        entity.RealMadrid,
+        1,
+        2,
+        entity.LaLiga,
+    )
+    tx, _ := testutil.BeginTransaction(t)
+    repository.Save(tx, match)
+    tx.Commit()
+
+    err := Sync(entity.LaLiga)
+    if err != nil {
+        t.Errorf("Expected no error but got: %v", err)
+    }
+
+	actualMatch, err := repository.FindByCanonicalID(match.CanonicalID, entity.FootballOrg)
+	if err != nil {
+		t.Errorf("Expected no error but got: %v", err)
+	}
+
+	if actualMatch == nil {
+		t.Errorf("Expected match to be found, but it is nil")
+		return
+	}
+	
+	if actualMatch.HomeTeamScore != 0 {
+		t.Errorf("Expected match to have home team score 0, but it is %d", actualMatch.HomeTeamScore)
+	}
+
+	if actualMatch.AwayTeamScore != 0 {
+		t.Errorf("Expected match to have away team score 0, but it is %d", actualMatch.AwayTeamScore)
+	}
+
+    testutil.ExpectNumberOfRequests(t, mockServer, 1)
+}

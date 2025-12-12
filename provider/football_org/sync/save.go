@@ -29,11 +29,14 @@ func SaveMatches(footballOrgMatches []api.FootballOrgMatch, competition entity.C
 			continue // Already logged in convertToEntityMatch
 		}
 
+		// As a match may be rescheduled, we need to delete the existing match in case it already exists.
+		if err := repository.DeleteByCanonicalID(match.CanonicalID, entity.FootballOrg); err != nil {
+			slog.Error("Failed to delete match", "error", err, "match", match)
+		}
+
 		if err := repository.Save(tx, *match); err != nil {
-			// TODO: if a match was moved, here we will have a duplicate key sql error.
-			// in this case, we need to remove the existing match and insert the new one.
 			slog.Error("Failed to insert match", "error", err, "match", match)
-			continue
+			return fmt.Errorf("failed to insert match: %v", err)
 		}
 	}
 

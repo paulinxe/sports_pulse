@@ -126,3 +126,15 @@ func FindMostRecentTimestamp(competition entity.Competition, provider entity.Pro
     }
     return &timestamp, nil
 }
+
+func DeleteByCanonicalID(canonicalID string, provider entity.Provider) error {
+    if db.DB == nil {
+        return fmt.Errorf("database connection not initialized")
+    }
+
+    query := `
+        DELETE FROM matches WHERE canonical_id = $1 AND provider = $2 AND status = 'pending'
+    `
+    _, err := db.DB.Exec(query, canonicalID, provider)
+    return err
+}
