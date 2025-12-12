@@ -9,7 +9,7 @@ import (
 	"log/slog"
 )
 
-const RECONCILE_INTERVAL = -1 * 24 * time.Hour
+const RECONCILE_INTERVAL = -24 * time.Hour
 
 // The purpose of this reconcile is to update the matches that are already in the database.
 // We only check matches that should have ended by now and 1 day ago and are still in Pending status.
