@@ -5,7 +5,7 @@ type MatchesResponse struct {
 }
 
 type FootballOrgMatch struct {
-	ID       int    `json:"id"`
+	ID       uint    `json:"id"`
 	UTCDate  string `json:"utcDate"`
 	Status   string `json:"status"`
 	HomeTeam Team   `json:"homeTeam"`
@@ -14,7 +14,7 @@ type FootballOrgMatch struct {
 }
 
 type Team struct {
-	ID int `json:"id"`
+	ID uint `json:"id"`
 }
 
 type Score struct {
@@ -22,7 +22,7 @@ type Score struct {
 }
 
 type ScoreTime struct {
-	Home int `json:"home"`
-	Away int `json:"away"`
+	Home uint `json:"home"`
+	Away uint `json:"away"`
 }
 

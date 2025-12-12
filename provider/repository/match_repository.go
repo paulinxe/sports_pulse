@@ -7,6 +7,7 @@ import (
     "provider/db"
     "provider/entity"
     "time"
+    "github.com/google/uuid"
 )
 
 func Save(transaction *sql.Tx, match entity.Match) error {
@@ -136,5 +137,48 @@ func DeleteByCanonicalID(canonicalID string, provider entity.Provider) error {
         DELETE FROM matches WHERE canonical_id = $1 AND provider = $2 AND status = $3
     `
     _, err := db.DB.Exec(query, canonicalID, provider, entity.Pending)
+    return err
+}
+
+func FindMatchesToReconcile(provider entity.Provider, start time.Time, end time.Time) ([]entity.ReconciliableMatch, error) {
+    if db.DB == nil {
+        return nil, fmt.Errorf("database connection not initialized")
+    }
+
+    query := `
+        SELECT id, provider_match_id, home_team_score, away_team_score
+        FROM matches 
+        WHERE provider = $1 AND status = $2 AND "end" >= $3 AND "end" <= $4
+    `
+    rows, err := db.DB.Query(query, provider, entity.Pending, start, end)
+    if err != nil {
+        return nil, fmt.Errorf("failed to find matches to reconcile: %v", err)
+    }
+    defer rows.Close()
+
+    var matches []entity.ReconciliableMatch
+    for rows.Next() {
+        var match entity.ReconciliableMatch
+        err := rows.Scan(&match.ID, &match.ProviderMatchID, &match.HomeTeamScore, &match.AwayTeamScore)
+        if err != nil {
+            // TODO: log error
+            continue
+        }
+
+        matches = append(matches, match)
+    }
+
+    return matches, nil
+}
+
+func FinishMatch(matchID uuid.UUID, homeTeamScore uint, awayTeamScore uint) error {
+    if db.DB == nil {
+        return fmt.Errorf("database connection not initialized")
+    }
+
+    query := `
+        UPDATE matches SET status = $1, home_team_score = $2, away_team_score = $3, updated_at = now() WHERE id = $4
+    `
+    _, err := db.DB.Exec(query, entity.Finished, homeTeamScore, awayTeamScore, matchID)
     return err
 }

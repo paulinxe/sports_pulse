@@ -20,8 +20,8 @@ type Match struct {
     CompetitionID   Competition
     HomeTeamID      Team
     AwayTeamID      Team
-    HomeTeamScore   int
-    AwayTeamScore   int
+    HomeTeamScore   uint
+    AwayTeamScore   uint
 }
 
 type MatchStatus int
@@ -38,8 +38,8 @@ func NewMatch(
     providerMatchID string,
     homeTeamID Team,
     awayTeamID Team,
-    homeTeamScore int,
-    awayTeamScore int,
+    homeTeamScore uint,
+    awayTeamScore uint,
     competition Competition,
 ) Match {
     endTime := start.Add(2 * time.Hour)

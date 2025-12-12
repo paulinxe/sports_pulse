@@ -2,11 +2,11 @@ package football_org
 
 import "provider/entity"
 
-var CompetitionToFootballOrgID = map[entity.Competition]int{
+var CompetitionToFootballOrgID = map[entity.Competition]uint{
 	entity.LaLiga: 2014,
 }
 
-var FootballOrgTeamMapping = map[int]entity.Team{
+var FootballOrgTeamMapping = map[uint]entity.Team{
 	263:  entity.Alaves,
 	77:   entity.AthleticClub,
 	78:   entity.AtleticoMadrid,

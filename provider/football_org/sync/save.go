@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func SaveMatches(footballOrgMatches []api.FootballOrgMatch, competition entity.Competition, teamMapping map[int]entity.Team) error {
+func SaveMatches(footballOrgMatches []api.FootballOrgMatch, competition entity.Competition, teamMapping map[uint]entity.Team) error {
 	tx, err := db.DB.Begin()
 	if err != nil {
 		slog.Error("Failed to begin transaction", "error", err)
@@ -48,7 +48,7 @@ func SaveMatches(footballOrgMatches []api.FootballOrgMatch, competition entity.C
 	return nil
 }
 
-func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition entity.Competition, teamMapping map[int]entity.Team) (*entity.Match, error) {
+func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition entity.Competition, teamMapping map[uint]entity.Team) (*entity.Match, error) {
 	homeTeamID, ok := teamMapping[footballOrgMatch.HomeTeam.ID]
 	if !ok {
 		slog.Error("Failed to map home team ID, skipping match",
