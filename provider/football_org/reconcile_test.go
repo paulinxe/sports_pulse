@@ -2,12 +2,12 @@ package football_org
 
 import (
 	_ "embed"
-	"net/http"	
+	"net/http"
+	"provider/entity"
+	"provider/repository"
 	"provider/testutil"
 	"testing"
 	"time"
-	"provider/entity"
-	"provider/repository"
 )
 
 //go:embed test_data_provider/matches/not_finished_match.json
@@ -39,7 +39,7 @@ func Test_we_ignore_matches_that_are_pending_for_more_than_24_hours(t *testing.T
 	defer mockServer.Close()
 
 	// 26 hours ago is the start so the end is 24 hours ago
-	startTime, _ := time.Parse("2006-01-02 15:04:05", time.Now().Add(-26 * time.Hour).Format("2006-01-02 15:04:05"))
+	startTime, _ := time.Parse("2006-01-02 15:04:05", time.Now().Add(-26*time.Hour).Format("2006-01-02 15:04:05"))
 	createMatch(t, startTime)
 
 	err := Reconcile()
@@ -57,7 +57,7 @@ func Test_we_dont_update_the_match_if_the_status_is_not_finished(t *testing.T) {
 	mockServer := testutil.CreateServer(http.StatusOK, notFinishedMatchResponse)
 	defer mockServer.Close()
 
-	startTime, _ := time.Parse("2006-01-02 15:04:05", time.Now().Add(-22 * time.Hour).Format("2006-01-02 15:04:05"))
+	startTime, _ := time.Parse("2006-01-02 15:04:05", time.Now().Add(-22*time.Hour).Format("2006-01-02 15:04:05"))
 	match := createMatch(t, startTime)
 
 	err := Reconcile()
@@ -98,7 +98,7 @@ func Test_we_update_the_match_if_the_status_is_finished(t *testing.T) {
 	mockServer := testutil.CreateServer(http.StatusOK, finishedMatchResponse)
 	defer mockServer.Close()
 
-	startTime, _ := time.Parse("2006-01-02 15:04:05", time.Now().Add(-22 * time.Hour).Format("2006-01-02 15:04:05"))
+	startTime, _ := time.Parse("2006-01-02 15:04:05", time.Now().Add(-22*time.Hour).Format("2006-01-02 15:04:05"))
 	match := createMatch(t, startTime)
 
 	err := Reconcile()
@@ -116,7 +116,7 @@ func Test_we_update_the_match_if_the_status_is_finished(t *testing.T) {
 		t.Errorf("Expected match to be found, but it is nil")
 		return
 	}
-	
+
 	if actualMatch.Status != entity.Finished {
 		t.Errorf("Expected match to be in finished status, but it is %d", actualMatch.Status)
 	}
@@ -124,9 +124,43 @@ func Test_we_update_the_match_if_the_status_is_finished(t *testing.T) {
 	if actualMatch.HomeTeamScore != 0 {
 		t.Errorf("Expected match to have home team score 0, but it is %d", actualMatch.HomeTeamScore)
 	}
-	
+
 	if actualMatch.AwayTeamScore != 3 {
 		t.Errorf("Expected match to have away team score 3, but it is %d", actualMatch.AwayTeamScore)
+	}
+
+	testutil.ExpectNumberOfRequests(t, mockServer, 1)
+}
+
+func Test_we_continue_when_api_call_fails_during_reconciliation(t *testing.T) {
+	testutil.InitDatabase(t)
+	defer testutil.CloseDatabase()
+
+	mockServer := testutil.CreateServer(http.StatusInternalServerError, "")
+	defer mockServer.Close()
+
+	startTime, _ := time.Parse("2006-01-02 15:04:05", time.Now().Add(-22*time.Hour).Format("2006-01-02 15:04:05"))
+	match := createMatch(t, startTime)
+
+	err := Reconcile()
+	if err != nil {
+		t.Errorf("Expected no error but got: %v", err)
+	}
+
+	// Match should still be in pending status since API call failed
+	actualMatch, err := repository.FindByCanonicalID(match.CanonicalID, entity.FootballOrg)
+	if err != nil {
+		t.Errorf("Expected no error but got: %v", err)
+		return
+	}
+
+	if actualMatch == nil {
+		t.Errorf("Expected match to be found, but it is nil")
+		return
+	}
+
+	if actualMatch.Status != entity.Pending {
+		t.Errorf("Expected match to still be in pending status, but it is %d", actualMatch.Status)
 	}
 
 	testutil.ExpectNumberOfRequests(t, mockServer, 1)
