@@ -5,13 +5,16 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
-	"math/big"
+	//"math/big"
 	"os"
+	"log/slog"
+	"signer/db"
+	"signer/repository"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
+	//"github.com/ethereum/go-ethereum/common"
+	//"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/signer/core/apitypes"
+	//"github.com/ethereum/go-ethereum/signer/core/apitypes"
 )
 
 // ecPrivateKey represents the ASN.1 structure of an EC private key (SEC1 format)
@@ -20,6 +23,43 @@ type ecPrivateKey struct {
 	PrivateKey    []byte
 	NamedCurveOID asn1.ObjectIdentifier `asn1:"optional,explicit,tag:0"`
 	PublicKey     asn1.BitString         `asn1:"optional,explicit,tag:1"`
+}
+
+func main() {
+	os.Exit(Run())
+}
+
+func Run() int {
+	if err := db.Init(); err != nil {
+		slog.Error("Failed to initialize database", "error", err)
+		return 1
+	}
+	defer db.Close()
+
+	matches, err := repository.FindMatchesToSign()
+	if err != nil {
+		slog.Error("Failed to find matches to sign", "error", err)
+		return 1
+	}
+
+	slog.Debug(fmt.Sprintf("Found %d matches to sign", len(matches)))
+
+	if len(matches) == 0 {
+		return 0
+	}
+
+	privKey, err := loadPrivateKey(os.Getenv("PRIVATE_KEY_FILE"))
+	if err != nil {
+		slog.Error("Failed to load private key", "error", err)
+		return 1
+	}
+
+	for _, match := range matches {
+		fmt.Println(match)
+		fmt.Println(privKey)
+	}
+
+	return 0
 }
 
 func loadPrivateKey(keyFile string) (*ecdsa.PrivateKey, error) {
@@ -65,66 +105,79 @@ func loadPrivateKey(keyFile string) (*ecdsa.PrivateKey, error) {
 	return privKey, nil
 }
 
-func main() {
-	privKey, err := loadPrivateKey(os.Getenv("PRIVATE_KEY_FILE"))
-	if err != nil {
-		panic(err)
-	}
+// func main() {
+// 	if err := db.Init(); err != nil {
+// 		slog.Error("Failed to initialize database", "error", err)
+// 		os.Exit(1)
+// 	}
+// 	defer db.Close()
 
-	// EIP712 domain
-	chainIdStr := os.Getenv("CHAIN_ID")
-	chainIdBig, ok := new(big.Int).SetString(chainIdStr, 10)
-	if !ok {
-		panic("invalid chain ID: " + chainIdStr)
-	}
-	chainId := (*math.HexOrDecimal256)(chainIdBig)
-	domain := apitypes.TypedDataDomain{
-		Name:              "FanTokenPulse",
-		Version:           "1",
-		ChainId:           chainId,
-		VerifyingContract: os.Getenv("ORACLE_CONTRACT_ADDRESS"), // Replace
-	}
+// 	matches, err := repository.FindMatchesToSign()
+// 	if err != nil {
+// 		slog.Error("Failed to find matches to sign", "error", err)
+// 		os.Exit(1)
+// 	}
 
-	// Declare EIP-712 type structure
-	types := apitypes.Types{
-		"MatchResult": []apitypes.Type{
-			{Name: "matchId", Type: "uint256"},
-			{Name: "homeScore", Type: "uint8"},
-			{Name: "awayScore", Type: "uint8"},
-			{Name: "timestamp", Type: "uint256"},
-		},
-	}
+	
+// 	privKey, err := loadPrivateKey(os.Getenv("PRIVATE_KEY_FILE"))
+// 	if err != nil {
+// 		panic(err)
+// 	}
 
-	// The actual message to sign
-	message := apitypes.TypedData{
-		Types:       types,
-		PrimaryType: "MatchResult",
-		Domain:      domain,
-		Message: map[string]any{
-			"matchId":   big.NewInt(123456),
-			"homeScore": big.NewInt(3),
-			"awayScore": big.NewInt(1),
-			"timestamp": big.NewInt(1737492000),
-		},
-	}
+// 	// EIP712 domain
+// 	chainIdStr := os.Getenv("CHAIN_ID")
+// 	chainIdBig, ok := new(big.Int).SetString(chainIdStr, 10)
+// 	if !ok {
+// 		panic("invalid chain ID: " + chainIdStr)
+// 	}
+// 	chainId := (*math.HexOrDecimal256)(chainIdBig)
+// 	domain := apitypes.TypedDataDomain{
+// 		Name:              "FanTokenPulse",
+// 		Version:           "1",
+// 		ChainId:           chainId,
+// 		VerifyingContract: os.Getenv("ORACLE_CONTRACT_ADDRESS"), // Replace
+// 	}
 
-	// Compute digest (EIP-712)
-	digest, err := message.HashStruct(message.PrimaryType, message.Message)
-	if err != nil {
-		panic(err)
-	}
-	domainSeparator, _ := message.HashStruct("EIP712Domain", message.Domain.Map())
-	finalHash := crypto.Keccak256Hash(
-		[]byte("\x19\x01"),
-		domainSeparator,
-		digest,
-	)
+// 	// Declare EIP-712 type structure
+// 	types := apitypes.Types{
+// 		"MatchResult": []apitypes.Type{
+// 			{Name: "matchId", Type: "uint256"},
+// 			{Name: "homeScore", Type: "uint8"},
+// 			{Name: "awayScore", Type: "uint8"},
+// 			{Name: "timestamp", Type: "uint256"},
+// 		},
+// 	}
 
-	// Sign the hash
-	signature, err := crypto.Sign(finalHash.Bytes(), privKey)
-	if err != nil {
-		panic(err)
-	}
+// 	// The actual message to sign
+// 	message := apitypes.TypedData{
+// 		Types:       types,
+// 		PrimaryType: "MatchResult",
+// 		Domain:      domain,
+// 		Message: map[string]any{
+// 			"matchId":   big.NewInt(123456),
+// 			"homeScore": big.NewInt(3),
+// 			"awayScore": big.NewInt(1),
+// 			"timestamp": big.NewInt(1737492000),
+// 		},
+// 	}
 
-	fmt.Println("Signature:", common.Bytes2Hex(signature))
-}
+// 	// Compute digest (EIP-712)
+// 	digest, err := message.HashStruct(message.PrimaryType, message.Message)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	domainSeparator, _ := message.HashStruct("EIP712Domain", message.Domain.Map())
+// 	finalHash := crypto.Keccak256Hash(
+// 		[]byte("\x19\x01"),
+// 		domainSeparator,
+// 		digest,
+// 	)
+
+// 	// Sign the hash
+// 	signature, err := crypto.Sign(finalHash.Bytes(), privKey)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+
+// 	fmt.Println("Signature:", common.Bytes2Hex(signature))
+// }
