@@ -58,6 +58,7 @@ func shouldSkipSync(mostRecentTimestamp *time.Time) bool {
 	if mostRecentTimestamp.After(now.Add(3 * 24 * time.Hour)) {
 		slog.Debug("Most recent match is already 3+ days in the future, skipping API call",
 			"most_recent_date", mostRecentTimestamp)
+
 		return true
 	}
 

@@ -13,7 +13,6 @@ import (
 func SaveMatches(footballOrgMatches []api.FootballOrgMatch, competition entity.Competition, teamMapping map[uint]entity.Team) error {
 	tx, err := db.DB.Begin()
 	if err != nil {
-		slog.Error("Failed to begin transaction", "error", err)
 		return fmt.Errorf("failed to begin transaction: %v", err)
 	}
 	defer tx.Rollback()
@@ -21,7 +20,6 @@ func SaveMatches(footballOrgMatches []api.FootballOrgMatch, competition entity.C
 	for _, footballOrgMatch := range footballOrgMatches {
 		match, err := convertToEntityMatch(footballOrgMatch, competition, teamMapping)
 		if err != nil {
-			slog.Error("Failed to convert match", "error", err, "match_id", footballOrgMatch.ID)
 			continue
 		}
 
@@ -35,13 +33,11 @@ func SaveMatches(footballOrgMatches []api.FootballOrgMatch, competition entity.C
 		}
 
 		if err := repository.Save(tx, *match); err != nil {
-			slog.Error("Failed to insert match", "error", err, "match", match)
 			return fmt.Errorf("failed to insert match: %v", err)
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		slog.Error("Failed to commit transaction", "error", err)
 		return fmt.Errorf("failed to commit transaction: %v", err)
 	}
 

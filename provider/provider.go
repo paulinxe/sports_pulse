@@ -14,15 +14,36 @@ func main() {
 }
 
 func run(args []string) int {
-	if len(args) != 3 {
-		slog.Error("Usage: provider <provider> <competition>")
+	// Parse arguments and check for --debug flag
+	debugMode := false
+	filteredArgs := []string{args[0]} // Keep program name
+
+	for i := 1; i < len(args); i++ {
+		if args[i] == "--debug" {
+			debugMode = true
+			continue
+		}
+		filteredArgs = append(filteredArgs, args[i])
+	}
+
+	if len(filteredArgs) != 3 {
+		slog.Error("Usage: provider <provider> <competition> [--debug]")
 		return 1
 	}
 
-	provider := strings.ToLower(args[1])
+	// Set up debug logging if flag is present
+	if debugMode {
+		slog.SetDefault(
+			slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+				Level: slog.LevelDebug,
+			})),
+		)
+	}
+
+	provider := strings.ToLower(filteredArgs[1])
 	competition := entity.Competition(0)
 
-	switch strings.ToLower(args[2]) {
+	switch strings.ToLower(filteredArgs[2]) {
 	case "la_liga":
 		competition = entity.LaLiga
 	default:
@@ -36,11 +57,10 @@ func run(args []string) int {
 	}
 	defer db.Close()
 
-	slog.Info("Initializing connection to provider", "provider", strings.ToUpper(provider))
+	slog.Debug("Initializing connection to provider", "provider", strings.ToUpper(provider))
 
 	switch provider {
 	case "football_org":
-		slog.Info("Initializing Football Data API sync")
 		if err := football_org.Sync(competition); err != nil {
 			slog.Error("Failed to sync Football Data API", "error", err)
 			return 1

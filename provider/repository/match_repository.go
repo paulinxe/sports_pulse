@@ -123,8 +123,10 @@ func FindMostRecentTimestamp(competition entity.Competition, provider entity.Pro
         if err == sql.ErrNoRows {
             return nil, nil
         }
+
         return nil, fmt.Errorf("failed to find most recent timestamp: %v", err)
     }
+
     return &timestamp, nil
 }
 
