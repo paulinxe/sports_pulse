@@ -5,16 +5,17 @@ import (
 	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
-	//"math/big"
-	"os"
 	"log/slog"
+	"math/big"
+	"os"
 	"signer/db"
+	"signer/entity"
 	"signer/repository"
 
-	//"github.com/ethereum/go-ethereum/common"
-	//"github.com/ethereum/go-ethereum/common/math"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/crypto"
-	//"github.com/ethereum/go-ethereum/signer/core/apitypes"
+	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 )
 
 // ecPrivateKey represents the ASN.1 structure of an EC private key (SEC1 format)
@@ -22,7 +23,7 @@ type ecPrivateKey struct {
 	Version       int
 	PrivateKey    []byte
 	NamedCurveOID asn1.ObjectIdentifier `asn1:"optional,explicit,tag:0"`
-	PublicKey     asn1.BitString         `asn1:"optional,explicit,tag:1"`
+	PublicKey     asn1.BitString        `asn1:"optional,explicit,tag:1"`
 }
 
 func main() {
@@ -30,11 +31,17 @@ func main() {
 }
 
 func Run() int {
-	if err := db.Init(); err != nil {
-		slog.Error("Failed to initialize database", "error", err)
-		return 1
+	// Check if database is already initialized (e.g., in tests)
+	shouldClose := db.DB == nil
+	if db.DB == nil {
+		if err := db.Init(); err != nil {
+			slog.Error("Failed to initialize database", "error", err)
+			return 1
+		}
 	}
-	defer db.Close()
+	if shouldClose {
+		defer db.Close()
+	}
 
 	matches, err := repository.FindMatchesToSign()
 	if err != nil {
@@ -54,9 +61,39 @@ func Run() int {
 		return 1
 	}
 
+	chainId, err := getChainId()
+	if err != nil {
+		slog.Error("Failed to get chain ID", "error", err)
+		return 1
+	}
+
+	// Declare EIP-712 type structure
+	types := apitypes.Types{
+		"MatchResult": []apitypes.Type{
+			{Name: "matchId", Type: "uint256"},
+			{Name: "homeScore", Type: "uint8"},
+			{Name: "awayScore", Type: "uint8"},
+		},
+	}
+	domain := apitypes.TypedDataDomain{
+		Name:              "ChilizChainPulse",
+		Version:           "1",
+		ChainId:           chainId,
+		VerifyingContract: os.Getenv("ORACLE_CONTRACT_ADDRESS"),
+	}
+
 	for _, match := range matches {
-		fmt.Println(match)
-		fmt.Println(privKey)
+		signature, err := signMatch(match, types, domain, privKey)
+		if err != nil {
+			slog.Error("Failed to sign match", "error", err, "match", match)
+			continue
+		}
+
+		err = repository.StoreSignature(match, signature)
+		if err != nil {
+			slog.Error("Failed to store signature", "error", err, "match", match)
+			continue
+		}
 	}
 
 	return 0
@@ -105,79 +142,49 @@ func loadPrivateKey(keyFile string) (*ecdsa.PrivateKey, error) {
 	return privKey, nil
 }
 
-// func main() {
-// 	if err := db.Init(); err != nil {
-// 		slog.Error("Failed to initialize database", "error", err)
-// 		os.Exit(1)
-// 	}
-// 	defer db.Close()
+func getChainId() (*math.HexOrDecimal256, error) {
+	chainIdStr := os.Getenv("CHAIN_ID")
+	chainIdBig, ok := new(big.Int).SetString(chainIdStr, 10)
+	if !ok {
+		return nil, fmt.Errorf("invalid chain ID: %s", chainIdStr)
+	}
 
-// 	matches, err := repository.FindMatchesToSign()
-// 	if err != nil {
-// 		slog.Error("Failed to find matches to sign", "error", err)
-// 		os.Exit(1)
-// 	}
+	return (*math.HexOrDecimal256)(chainIdBig), nil
+}
 
-	
-// 	privKey, err := loadPrivateKey(os.Getenv("PRIVATE_KEY_FILE"))
-// 	if err != nil {
-// 		panic(err)
-// 	}
+func signMatch(match entity.Match, types apitypes.Types, domain apitypes.TypedDataDomain, privKey *ecdsa.PrivateKey) (string, error) {
+	homeScore := new(big.Int).SetUint64(uint64(match.HomeTeamScore))
+	awayScore := new(big.Int).SetUint64(uint64(match.AwayTeamScore))
 
-// 	// EIP712 domain
-// 	chainIdStr := os.Getenv("CHAIN_ID")
-// 	chainIdBig, ok := new(big.Int).SetString(chainIdStr, 10)
-// 	if !ok {
-// 		panic("invalid chain ID: " + chainIdStr)
-// 	}
-// 	chainId := (*math.HexOrDecimal256)(chainIdBig)
-// 	domain := apitypes.TypedDataDomain{
-// 		Name:              "FanTokenPulse",
-// 		Version:           "1",
-// 		ChainId:           chainId,
-// 		VerifyingContract: os.Getenv("ORACLE_CONTRACT_ADDRESS"), // Replace
-// 	}
+	message := apitypes.TypedData{
+		Types:       types,
+		PrimaryType: "MatchResult",
+		Domain:      domain,
+		Message: map[string]any{
+			"matchId":   match.CanonicalID,
+			"homeScore": homeScore,
+			"awayScore": awayScore,
+		},
+	}
 
-// 	// Declare EIP-712 type structure
-// 	types := apitypes.Types{
-// 		"MatchResult": []apitypes.Type{
-// 			{Name: "matchId", Type: "uint256"},
-// 			{Name: "homeScore", Type: "uint8"},
-// 			{Name: "awayScore", Type: "uint8"},
-// 			{Name: "timestamp", Type: "uint256"},
-// 		},
-// 	}
+	// Compute digest (EIP-712)
+	digest, err := message.HashStruct(message.PrimaryType, message.Message)
+	if err != nil {
+		return "", err
+	}
 
-// 	// The actual message to sign
-// 	message := apitypes.TypedData{
-// 		Types:       types,
-// 		PrimaryType: "MatchResult",
-// 		Domain:      domain,
-// 		Message: map[string]any{
-// 			"matchId":   big.NewInt(123456),
-// 			"homeScore": big.NewInt(3),
-// 			"awayScore": big.NewInt(1),
-// 			"timestamp": big.NewInt(1737492000),
-// 		},
-// 	}
+	domainSeparator, _ := message.HashStruct("EIP712Domain", message.Domain.Map())
+	finalHash := crypto.Keccak256Hash(
+		[]byte("\x19\x01"),
+		domainSeparator,
+		digest,
+	)
 
-// 	// Compute digest (EIP-712)
-// 	digest, err := message.HashStruct(message.PrimaryType, message.Message)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-// 	domainSeparator, _ := message.HashStruct("EIP712Domain", message.Domain.Map())
-// 	finalHash := crypto.Keccak256Hash(
-// 		[]byte("\x19\x01"),
-// 		domainSeparator,
-// 		digest,
-// 	)
+	// Sign the hash
+	signature, err := crypto.Sign(finalHash.Bytes(), privKey)
+	if err != nil {
+		return "", err
+	}
 
-// 	// Sign the hash
-// 	signature, err := crypto.Sign(finalHash.Bytes(), privKey)
-// 	if err != nil {
-// 		panic(err)
-// 	}
-
-// 	fmt.Println("Signature:", common.Bytes2Hex(signature))
-// }
+	return common.Bytes2Hex(signature), nil
+}

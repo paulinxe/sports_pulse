@@ -36,3 +36,21 @@ func FindMatchesToSign() ([]entity.Match, error) {
 
     return matches, nil
 }
+
+func StoreSignature(match entity.Match, signature string) error {
+    if db.DB == nil {
+        return fmt.Errorf("database connection not initialized")
+    }
+
+    query := `
+        UPDATE matches
+        SET signature = $1, status = $2
+        WHERE id = $3
+    `
+    _, err := db.DB.Exec(query, signature, entity.Signed, match.ID)
+    if err != nil {
+        return fmt.Errorf("failed to store signature: %v", err)
+    }
+
+    return err
+}
