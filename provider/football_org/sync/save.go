@@ -67,6 +67,11 @@ func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition ent
 		return nil, err
 	}
 
+	status := entity.Pending
+	if footballOrgMatch.Status == "FINISHED" {
+		status = entity.Finished
+	}
+
 	match := entity.NewMatch(
 		startTime,
 		entity.FootballOrg,
@@ -76,6 +81,7 @@ func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition ent
 		footballOrgMatch.Score.FullTime.Home,
 		footballOrgMatch.Score.FullTime.Away,
 		competition,
+		status,
 	)
 
 	return &match, nil

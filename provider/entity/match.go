@@ -41,15 +41,20 @@ func NewMatch(
     homeTeamScore uint,
     awayTeamScore uint,
     competition Competition,
+	status MatchStatus,
 ) Match {
     endTime := start.Add(2 * time.Hour)
+
+	if status == 0 {
+		status = Pending
+	}
 
     return Match{
         ID:              uuid.New(),
         CanonicalID:     generateMatchID(uint64(competition), uint64(homeTeamID), uint64(awayTeamID), start),
         Start:           start,
         End:             endTime,
-        Status:          Pending,
+        Status:          status,
         Provider:        provider,
         ProviderMatchID: providerMatchID,
         CompetitionID:   competition,

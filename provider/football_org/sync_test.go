@@ -149,6 +149,57 @@ func Test_we_insert_a_match_when_no_matches_exist_for_competition(t *testing.T) 
     }
 }
 
+func Test_we_insert_a_match_as_finished_when_syncing_a_finished_match(t *testing.T) {
+    testutil.InitDatabase(t)
+    defer testutil.CloseDatabase()
+
+    mockServer := testutil.CreateServer(http.StatusOK, successResponse)
+    defer mockServer.Close()
+
+	startTime, _ := time.Parse("2006-01-02 15:04:05", "2025-12-03 18:00:00")
+	match := entity.NewMatch(
+		startTime,
+		entity.FootballOrg,
+		"544214",
+		entity.Girona,
+		entity.RayoVallecano,
+		1,
+		3,
+		entity.LaLiga,
+		entity.Finished,
+	)
+	tx, _ := testutil.BeginTransaction(t)
+	repository.Save(tx, match)
+	tx.Commit()
+
+	err := Sync(entity.LaLiga)
+	if err != nil {
+		t.Errorf("Expected no error but got: %v", err)
+		return
+	}
+
+	actualMatch, err := repository.FindByCanonicalID(match.CanonicalID, entity.FootballOrg)
+	if err != nil {
+		t.Errorf("Expected no error but got: %v", err)
+		return
+	}
+	
+	if actualMatch == nil {
+		t.Errorf("Expected match to be found, but it is nil")
+		return
+	}
+
+	if actualMatch.HomeTeamScore != 1 {
+		t.Errorf("Expected match to have home team score 1, but it is %d", actualMatch.HomeTeamScore)
+	}
+
+	if actualMatch.AwayTeamScore != 3 {
+		t.Errorf("Expected match to have away team score 3, but it is %d", actualMatch.AwayTeamScore)
+	}
+
+	testutil.ExpectNumberOfRequests(t, mockServer, 1)
+}
+
 func Test_no_api_call_is_made_when_last_match_is_already_3_days_in_the_future(t *testing.T) {
     testutil.InitDatabase(t)
     defer testutil.CloseDatabase()
@@ -166,6 +217,7 @@ func Test_no_api_call_is_made_when_last_match_is_already_3_days_in_the_future(t 
         0,
         0,
         entity.LaLiga,
+		entity.Pending,
     )
 
     tx, _ := testutil.BeginTransaction(t)
@@ -217,6 +269,7 @@ func Test_we_are_able_to_process_a_match_that_is_already_in_the_database_and_is_
         1,
         2,
         entity.LaLiga,
+		entity.Pending,
     )
     tx, _ := testutil.BeginTransaction(t)
     repository.Save(tx, match)

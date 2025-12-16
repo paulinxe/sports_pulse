@@ -178,6 +178,7 @@ func createMatch(t *testing.T, startTime time.Time) entity.Match {
 		0,
 		0,
 		entity.LaLiga,
+		entity.Pending,
 	)
 	repository.Save(tx, match)
 	tx.Commit()
