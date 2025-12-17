@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"mock_api/db"
+	"mock_api/repository"
 )
 
 func main() {
@@ -73,19 +74,33 @@ func build() int {
 	}
 	defer db.Close()
 	
+	// Clear existing matches
+	if err := repository.ClearAllMatches(); err != nil {
+		slog.Error("Failed to clear matches", "error", err)
+		return 1
+	}
+	
+	// Generate schedule
 	schedule, err := GenerateSchedule()
 	if err != nil {
 		slog.Error("Failed to generate schedule", "error", err)
 		return 1
 	}
 
-	for _, match := range schedule {
-		fmt.Printf("Date: %s\n", match.Date.Format("2006-01-02"))
-		fmt.Printf("Home Team ID: %d\n", match.HomeTeamID)
-		fmt.Printf("Away Team ID: %d\n", match.AwayTeamID)
+	// Convert scheduled matches to matches with scores
+	matches := make([]repository.Match, 0, len(schedule))
+	for _, scheduled := range schedule {
+		match := CreateMatch(scheduled)
+		matches = append(matches, match)
+	}
+
+	// Insert matches into database
+	if err := repository.InsertMatchesBatch(matches); err != nil {
+		slog.Error("Failed to insert matches", "error", err)
+		return 1
 	}
 	
-	slog.Info("Schedule and matches initialized successfully")
+	slog.Info("Schedule and matches initialized successfully", "matches_count", len(matches))
 	return 0
 }
 
