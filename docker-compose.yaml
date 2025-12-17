@@ -27,6 +27,8 @@ services:
       - ./signer:/app
       # Cache Go modules (speeds up rebuilds)
       - go_modules:/go/pkg/mod
+      # Persist VS Code extensions
+      - vscode_extensions_signer:/root/.vscode-server/extensions
     environment:
       - GO_ENV=development
       - CHAIN_ID=${CHAIN_ID}
@@ -53,6 +55,8 @@ services:
       - ./provider:/app
       # Cache Go modules (speeds up rebuilds)
       - go_modules:/go/pkg/mod
+      # Persist VS Code extensions
+      - vscode_extensions_provider:/root/.vscode-server/extensions
     environment:
       - GO_ENV=development
       - FOOTBALL_ORG_API_KEY=${FOOTBALL_ORG_API_KEY}
@@ -78,6 +82,8 @@ services:
       - ./mock-api:/app
       # Cache Go modules (speeds up rebuilds)
       - go_modules:/go/pkg/mod
+      # Persist VS Code extensions
+      - vscode_extensions_mock_api:/root/.vscode-server/extensions
     environment:
       - GO_ENV=development
       - PORT=8080
@@ -97,4 +103,7 @@ services:
 
 volumes:
   go_modules:
+  vscode_extensions_signer:
+  vscode_extensions_provider:
+  vscode_extensions_mock_api:
   postgres_data:
