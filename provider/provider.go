@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log/slog"
 	"os"
 	"provider/db"
@@ -14,25 +15,29 @@ func main() {
 }
 
 func run(args []string) int {
-	// Parse arguments and check for --debug flag
-	debugMode := false
-	filteredArgs := []string{args[0]} // Keep program name
+	// First argument is the program name (used in error messages), not related to positional args
+	fs := flag.NewFlagSet("provider", flag.ContinueOnError)
+	debugMode := fs.Bool("debug", false, "Enable debug logging")
 
-	for i := 1; i < len(args); i++ {
-		if args[i] == "--debug" {
-			debugMode = true
-			continue
+	// Parse flags, which will consume --debug and similar flags
+	if err := fs.Parse(args[1:]); err != nil {
+		if err == flag.ErrHelp {
+			return 0
 		}
-		filteredArgs = append(filteredArgs, args[i])
+
+		slog.Error("Failed to parse flags", "error", err)
+		return 1
 	}
 
-	if len(filteredArgs) != 3 {
-		slog.Error("Usage: provider <provider> <competition> [--debug]")
+	positionalArgs := fs.Args()
+
+	if len(positionalArgs) != 2 && len(positionalArgs) != 3 {
+		slog.Error("Usage: <provider> <competition> [--debug]")
 		return 1
 	}
 
 	// Set up debug logging if flag is present
-	if debugMode {
+	if *debugMode {
 		slog.SetDefault(
 			slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 				Level: slog.LevelDebug,
@@ -40,14 +45,12 @@ func run(args []string) int {
 		)
 	}
 
-	provider := strings.ToLower(filteredArgs[1])
 	competition := entity.Competition(0)
-
-	switch strings.ToLower(filteredArgs[2]) {
+	switch strings.ToLower(positionalArgs[1]) {
 	case "la_liga":
 		competition = entity.LaLiga
 	default:
-		slog.Error("Unknown competition", "competition", args[2])
+		slog.Error("Unknown competition", "competition", positionalArgs[1])
 		return 1
 	}
 
@@ -57,8 +60,8 @@ func run(args []string) int {
 	}
 	defer db.Close()
 
+	provider := strings.ToLower(positionalArgs[0])
 	slog.Debug("Initializing connection to provider", "provider", strings.ToUpper(provider))
-
 	switch provider {
 	case "football_org":
 		if err := football_org.Sync(competition); err != nil {

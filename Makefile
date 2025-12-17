@@ -1,3 +1,9 @@
+run:
+	docker compose up
+
+sh-provider:
+	docker-compose exec provider sh
+
 sh-signer:
 	docker-compose exec signer sh
 
