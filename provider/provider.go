@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"log/slog"
 	"os"
 	"provider/db"
@@ -15,42 +14,23 @@ func main() {
 }
 
 func run(args []string) int {
-	// First argument is the program name (used in error messages), not related to positional args
-	fs := flag.NewFlagSet("provider", flag.ContinueOnError)
-	debugMode := fs.Bool("debug", false, "Enable debug logging")
+	slog.SetDefault(
+		slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			Level: slog.LevelDebug,
+		})),
+	)
 
-	// Parse flags, which will consume --debug and similar flags
-	if err := fs.Parse(args[1:]); err != nil {
-		if err == flag.ErrHelp {
-			return 0
-		}
-
-		slog.Error("Failed to parse flags", "error", err)
+	if len(args) != 3 {
+		slog.Error("Usage: <provider> <competition>")
 		return 1
-	}
-
-	positionalArgs := fs.Args()
-
-	if len(positionalArgs) != 2 && len(positionalArgs) != 3 {
-		slog.Error("Usage: <provider> <competition> [--debug]")
-		return 1
-	}
-
-	// Set up debug logging if flag is present
-	if *debugMode {
-		slog.SetDefault(
-			slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-				Level: slog.LevelDebug,
-			})),
-		)
 	}
 
 	competition := entity.Competition(0)
-	switch strings.ToLower(positionalArgs[1]) {
+	switch strings.ToLower(args[2]) {
 	case "la_liga":
 		competition = entity.LaLiga
 	default:
-		slog.Error("Unknown competition", "competition", positionalArgs[1])
+		slog.Error("Unknown competition", "competition", args[2])
 		return 1
 	}
 
@@ -60,7 +40,7 @@ func run(args []string) int {
 	}
 	defer db.Close()
 
-	provider := strings.ToLower(positionalArgs[0])
+	provider := strings.ToLower(args[1])
 	slog.Debug("Initializing connection to provider", "provider", strings.ToUpper(provider))
 	switch provider {
 	case "football_org":
