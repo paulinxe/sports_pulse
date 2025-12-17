@@ -50,13 +50,13 @@ func run(args []string) int {
 
 func serve() int {
 	slog.Info("Starting mock API server")
-	
+
 	if err := db.Init(); err != nil {
 		slog.Error("Failed to initialize database", "error", err)
 		return 1
 	}
 	defer db.Close()
-	
+
 	if err := Start(); err != nil {
 		slog.Error("Failed to start server", "error", err)
 		return 1
@@ -67,19 +67,19 @@ func serve() int {
 
 func build() int {
 	slog.Info("Building schedule and matches")
-	
+
 	if err := db.Init(); err != nil {
 		slog.Error("Failed to initialize database", "error", err)
 		return 1
 	}
 	defer db.Close()
-	
+
 	// Clear existing matches
 	if err := repository.ClearAllMatches(); err != nil {
 		slog.Error("Failed to clear matches", "error", err)
 		return 1
 	}
-	
+
 	// Generate schedule
 	schedule, err := GenerateSchedule()
 	if err != nil {
@@ -99,7 +99,7 @@ func build() int {
 		slog.Error("Failed to insert matches", "error", err)
 		return 1
 	}
-	
+
 	slog.Info("Schedule and matches initialized successfully", "matches_count", len(matches))
 	return 0
 }
@@ -114,4 +114,3 @@ func printUsage() {
 	fmt.Fprintf(os.Stderr, "  mock-api --serve\n")
 	fmt.Fprintf(os.Stderr, "  mock-api --build\n")
 }
-

@@ -80,7 +80,6 @@ func generateMatches(teams []uint, weekends int) []ScheduledMatch {
 	return matches
 }
 
-
 // Distributes matches weekly (weekends), with random times (16:00, 18:00, 20:00 UTC)
 func assignMatchDates(matches []ScheduledMatch, now time.Time) {
 	// Group matches by matchday (1-5)

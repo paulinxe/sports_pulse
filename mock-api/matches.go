@@ -12,16 +12,16 @@ const (
 
 func CreateMatch(scheduled ScheduledMatch) repository.Match {
 	homeScore, awayScore := generateScores()
-	
+
 	return repository.Match{
-		CompetitionID:  LaLigaCompetitionID,
-		UTCDate:        scheduled.Date.Format("2006-01-02T15:04:05Z"),
-		Status:         StatusFinished,
-		HomeTeamID:     scheduled.HomeTeamID,
-		AwayTeamID:     scheduled.AwayTeamID,
-		HomeTeamScore:  homeScore,
-		AwayTeamScore:  awayScore,
-		Matchday:       scheduled.Matchday,
+		CompetitionID: LaLigaCompetitionID,
+		UTCDate:       scheduled.Date.Format("2006-01-02T15:04:05Z"),
+		Status:        StatusFinished,
+		HomeTeamID:    scheduled.HomeTeamID,
+		AwayTeamID:    scheduled.AwayTeamID,
+		HomeTeamScore: homeScore,
+		AwayTeamScore: awayScore,
+		Matchday:      scheduled.Matchday,
 	}
 }
 
@@ -39,26 +39,26 @@ func generateScores() (homeScore, awayScore uint) {
 // 4-5: 5% (4: 3%, 5: 2%)
 func generateWeightedScore() uint {
 	r := rand.Float64()
-	
+
 	if r < 0.30 {
 		return 0
 	}
-	
+
 	if r < 0.55 {
 		return 1
 	}
-	
+
 	if r < 0.70 {
 		return 2
 	}
-	
+
 	if r < 0.95 {
 		return 3
 	}
-	
+
 	if r < 0.98 {
 		return 4
 	}
-	
+
 	return 5
 }
