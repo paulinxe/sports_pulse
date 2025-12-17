@@ -46,7 +46,7 @@ func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
 
     err := Sync(entity.LaLiga)
     if err != nil {
-        t.Errorf("Expected no error but got: %v", err)
+        t.Fatalf("Expected no error but got: %v", err)
     }
 
     outputStr := logger.String()
@@ -71,7 +71,7 @@ func Test_we_skip_the_match_if_away_team_is_not_mapped(t *testing.T) {
 
     err := Sync(entity.LaLiga)
     if err != nil {
-        t.Errorf("Expected no error but got: %v", err)
+        t.Fatalf("Expected no error but got: %v", err)
     }
 
     outputStr := logger.String()
@@ -94,7 +94,7 @@ func Test_we_insert_a_match_when_no_matches_exist_for_competition(t *testing.T) 
 
     err := Sync(entity.LaLiga)
     if err != nil {
-        t.Errorf("Expected no error but got: %v", err)
+        t.Fatalf("Expected no error but got: %v", err)
     }
 
     // When no matches exist, dateFrom should be today and dateTo should be 3 days from today
@@ -120,13 +120,11 @@ func Test_we_insert_a_match_when_no_matches_exist_for_competition(t *testing.T) 
     canonicalID := "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8"
     actualMatch, err := repository.FindByCanonicalID(canonicalID, entity.FootballOrg)
     if err != nil {
-        t.Errorf("Expected no error but got: %v", err)
-        return
+        t.Fatalf("Expected no error but got: %v", err)
     }
 
     if actualMatch == nil {
-        t.Errorf("Expected match to be found, but it is nil")
-        return
+        t.Fatalf("Expected match to be found, but it is nil")
     }
 
     expectedMatch := entity.Match{
@@ -174,19 +172,16 @@ func Test_we_insert_a_match_as_finished_when_syncing_a_finished_match(t *testing
 
 	err := Sync(entity.LaLiga)
 	if err != nil {
-		t.Errorf("Expected no error but got: %v", err)
-		return
+		t.Fatalf("Expected no error but got: %v", err)
 	}
 
 	actualMatch, err := repository.FindByCanonicalID(match.CanonicalID, entity.FootballOrg)
 	if err != nil {
-		t.Errorf("Expected no error but got: %v", err)
-		return
+		t.Fatalf("Expected no error but got: %v", err)
 	}
 	
 	if actualMatch == nil {
-		t.Errorf("Expected match to be found, but it is nil")
-		return
+		t.Fatalf("Expected match to be found, but it is nil")
 	}
 
 	if actualMatch.HomeTeamScore != 1 {
@@ -226,7 +221,7 @@ func Test_no_api_call_is_made_when_last_match_is_already_3_days_in_the_future(t 
     
     err := Sync(entity.LaLiga)
     if err != nil {
-        t.Errorf("Expected no error but got: %v", err)
+        t.Fatalf("Expected no error but got: %v", err)
     }
 
     testutil.ExpectNumberOfRequests(t, mockServer, 0)
@@ -277,17 +272,16 @@ func Test_we_are_able_to_process_a_match_that_is_already_in_the_database_and_is_
 
     err := Sync(entity.LaLiga)
     if err != nil {
-        t.Errorf("Expected no error but got: %v", err)
+        t.Fatalf("Expected no error but got: %v", err)
     }
 
 	actualMatch, err := repository.FindByCanonicalID(match.CanonicalID, entity.FootballOrg)
 	if err != nil {
-		t.Errorf("Expected no error but got: %v", err)
+		t.Fatalf("Expected no error but got: %v", err)
 	}
 
 	if actualMatch == nil {
-		t.Errorf("Expected match to be found, but it is nil")
-		return
+		t.Fatalf("Expected match to be found, but it is nil")
 	}
 	
 	if actualMatch.HomeTeamScore != 0 {

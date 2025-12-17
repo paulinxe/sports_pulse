@@ -62,18 +62,16 @@ func Test_we_dont_update_the_match_if_the_status_is_not_finished(t *testing.T) {
 
 	err := Reconcile()
 	if err != nil {
-		t.Errorf("Expected no error but got: %v", err)
+		t.Fatalf("Expected no error but got: %v", err)
 	}
 
 	actualMatch, err := repository.FindByCanonicalID(match.CanonicalID, entity.FootballOrg)
 	if err != nil {
-		t.Errorf("Expected no error but got: %v", err)
-		return
+		t.Fatalf("Expected no error but got: %v", err)
 	}
 
 	if actualMatch == nil {
-		t.Errorf("Expected match to be found, but it is nil")
-		return
+		t.Fatalf("Expected match to be found, but it is nil")
 	}
 
 	if actualMatch.Status != entity.Pending {
@@ -103,18 +101,16 @@ func Test_we_update_the_match_if_the_status_is_finished(t *testing.T) {
 
 	err := Reconcile()
 	if err != nil {
-		t.Errorf("Expected no error but got: %v", err)
+		t.Fatalf("Expected no error but got: %v", err)
 	}
 
 	actualMatch, err := repository.FindByCanonicalID(match.CanonicalID, entity.FootballOrg)
 	if err != nil {
-		t.Errorf("Expected no error but got: %v", err)
-		return
+		t.Fatalf("Expected no error but got: %v", err)
 	}
 
 	if actualMatch == nil {
-		t.Errorf("Expected match to be found, but it is nil")
-		return
+		t.Fatalf("Expected match to be found, but it is nil")
 	}
 
 	if actualMatch.Status != entity.Finished {
@@ -144,19 +140,17 @@ func Test_we_continue_when_api_call_fails_during_reconciliation(t *testing.T) {
 
 	err := Reconcile()
 	if err != nil {
-		t.Errorf("Expected no error but got: %v", err)
+		t.Fatalf("Expected no error but got: %v", err)
 	}
 
 	// Match should still be in pending status since API call failed
 	actualMatch, err := repository.FindByCanonicalID(match.CanonicalID, entity.FootballOrg)
 	if err != nil {
-		t.Errorf("Expected no error but got: %v", err)
-		return
+		t.Fatalf("Expected no error but got: %v", err)
 	}
 
 	if actualMatch == nil {
-		t.Errorf("Expected match to be found, but it is nil")
-		return
+		t.Fatalf("Expected match to be found, but it is nil")
 	}
 
 	if actualMatch.Status != entity.Pending {
