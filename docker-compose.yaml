@@ -101,9 +101,24 @@ services:
     # Override command to use air for hot reloading
     command: air
 
+  oracle:
+    build:
+      context: ./oracle
+      dockerfile: ./Dockerfile
+    volumes:
+      # Mount source code
+      - ./oracle:/app
+      # Persist VS Code extensions
+      - vscode_extensions_oracle:/root/.vscode-server/extensions
+    working_dir: /app
+    tty: true
+    stdin_open: true
+    command: tail -f /dev/null
+
 volumes:
   go_modules:
   vscode_extensions_signer:
   vscode_extensions_provider:
   vscode_extensions_mock_api:
+  vscode_extensions_oracle:
   postgres_data:
