@@ -8,11 +8,18 @@ contract CompetitionRegistry is Ownable {
     uint32 public competitionIdCounter;
     mapping(uint32 => string) public competitions;
 
-    // TODO: here we need to allow to accept a set of predefined leagues
-    constructor() Ownable(msg.sender) {}
+    event CompetitionAdded(uint32 indexed competitionId, string competitionName);
+
+    constructor(string[] memory competitionNames) Ownable(msg.sender) {
+        for (uint32 i = 0; i < competitionNames.length; i++) {
+            competitionIdCounter++;
+            competitions[competitionIdCounter] = competitionNames[i];
+        }
+    }
 
     function addCompetition(string memory competitionName) external onlyOwner {
         competitionIdCounter++;
         competitions[competitionIdCounter] = competitionName;
+        emit CompetitionAdded(competitionIdCounter, competitionName);
     }
 }

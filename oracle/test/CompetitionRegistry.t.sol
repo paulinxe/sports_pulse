@@ -9,12 +9,21 @@ contract CompetitionRegistryTest is Test {
     CompetitionRegistry public competitionRegistry;
 
     function setUp() public {
-        competitionRegistry = new CompetitionRegistry();
+        string[] memory competitionNames = new string[](1);
+        competitionNames[0] = "LaLiga";
+
+        competitionRegistry = new CompetitionRegistry(competitionNames);
+    }
+
+    function test_registry_is_initialized_with_the_correct_competitions() public view {
+        assertEq(competitionRegistry.competitions(1), "LaLiga");
     }
 
     function test_we_can_add_a_league() public {
-        competitionRegistry.addCompetition("LaLiga");
-        assertEq(competitionRegistry.competitions(1), "LaLiga");
+        vm.expectEmit(true, true, true, true);
+        emit CompetitionRegistry.CompetitionAdded(2, "PremierLeague");
+        competitionRegistry.addCompetition("PremierLeague");
+        assertEq(competitionRegistry.competitions(2), "PremierLeague");
     }
 
     function test_tx_reverts_if_not_owner() public {
