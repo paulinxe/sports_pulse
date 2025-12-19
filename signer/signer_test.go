@@ -80,13 +80,13 @@ func Test_we_sign_a_match(t *testing.T) {
 	insertSignableMatch()
 
 	exitCode := Run()
-	if exitCode != 0 {
-		t.Fatalf("Expected exit code 0, got %d", exitCode)
-	}
-
 	outputStr := logger.String()
 	if strings.Contains(outputStr, "ERROR") {
 		t.Fatalf("Expected no error message, got %s", outputStr)
+	}
+
+	if exitCode != 0 {
+		t.Fatalf("Expected exit code 0, got %d", exitCode)
 	}
 
 	matches, err := repository.FindMatchesToSign()
