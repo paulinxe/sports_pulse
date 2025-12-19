@@ -112,6 +112,11 @@ contract MatchRegistryTest is Test {
         emit MatchRegistry.MatchRegistered(bytes32(matchId), homeTeamScore, awayTeamScore);
         
         matchRegistry.submitMatch(matchId, COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, homeTeamScore, awayTeamScore, matchDate, signature);
+
+        (bytes32 storedMatchId, uint8 storedHomeTeamScore, uint8 storedAwayTeamScore) = matchRegistry.matches(bytes32(matchId));
+        assertEq(storedMatchId, bytes32(matchId));
+        assertEq(storedHomeTeamScore, homeTeamScore);
+        assertEq(storedAwayTeamScore, awayTeamScore);
     }
 
     function generateMatchId(uint32 matchDate) private pure returns (bytes memory) {

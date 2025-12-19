@@ -19,15 +19,13 @@ contract MatchRegistry is EIP712 {
 
     // The address of the verified signer who signs matches
     address public immutable authorizedSigner;
-
     // We need the address of each Registry so we can query to validate the data
     CompetitionRegistry public immutable competitionRegistry;
     TeamRegistry public immutable teamRegistry;
-
     // We don't allow scores higher than 80
     uint8 constant MAX_SCORE = 80;
-
     bytes32 public constant MATCH_RESULT_TYPEHASH = keccak256("Match(bytes32 matchId,uint8 homeScore,uint8 awayScore)");
+    mapping(bytes32 => Match) public matches;
 
     event MatchRegistered(bytes32 indexed matchId, uint8 homeTeamScore, uint8 awayTeamScore);
 
@@ -93,7 +91,8 @@ contract MatchRegistry is EIP712 {
 
         validateSignature(matchId, homeTeamScore, awayTeamScore, signature);
 
-        // TODO: store
+        matches[matchId] = Match(matchId, homeTeamScore, awayTeamScore);
+
         emit MatchRegistered(matchId, homeTeamScore, awayTeamScore);
     }
 
