@@ -24,7 +24,7 @@ contract MatchRegistryTest is Test {
         teamNames[AWAY_TEAM_ID - 1] = "Basanez";
         TeamRegistry teamRegistry = new TeamRegistry(teamNames);
 
-        address verifiedSigner = makeAddr("verified_signer");
+        address verifiedSigner = 0xfB83DeCaF41eB32B59aB37F1995a5816957FD5aF;
         matchRegistry = new MatchRegistry(verifiedSigner, competitionRegistry, teamRegistry);
     }
 
@@ -88,6 +88,30 @@ contract MatchRegistryTest is Test {
         vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignature.selector));
 
         matchRegistry.submitMatch(generateMatchId(matchDate), COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, 1, 1, matchDate, signature);
+    }
+
+    function test_submit_reverts_when_signature_format_is_valid_but_signer_is_not_allowed() public {
+        bytes memory signature = hex"cea04c025cd2c580f76d1eb92199e900ee82fe12d3a23979e25d455bfbeb275f5ca198283f8bda7f6679c2a3847d6da34c47303f2830a08d6016199b9584478e1c";
+        uint32 matchDate = 20251219;
+        uint8 homeTeamScore = 1;
+        uint8 awayTeamScore = 2;
+
+        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.InvalidSignature.selector, signature));
+
+        matchRegistry.submitMatch(generateMatchId(matchDate), COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, homeTeamScore, awayTeamScore, matchDate, signature);
+    }
+
+    function test_we_store_the_match() public {
+        bytes memory signature = hex"e5570b15390ece31976b04a6890ad59c859f1faf31dcbc8ca20fd3a039df4b38754b09996382f129970eaaa3d460f0dff9b8d4f6ae86e085478fbc8b723c50e61b";
+        uint32 matchDate = 20251219;
+        bytes memory matchId = generateMatchId(matchDate);
+        uint8 homeTeamScore = 1;
+        uint8 awayTeamScore = 2;
+
+        vm.expectEmit(true, true, true, true);
+        emit MatchRegistry.MatchRegistered(bytes32(matchId), homeTeamScore, awayTeamScore);
+        
+        matchRegistry.submitMatch(matchId, COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, homeTeamScore, awayTeamScore, matchDate, signature);
     }
 
     function generateMatchId(uint32 matchDate) private pure returns (bytes memory) {

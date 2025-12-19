@@ -29,6 +29,8 @@ contract MatchRegistry is EIP712 {
 
     bytes32 public constant MATCH_RESULT_TYPEHASH = keccak256("Match(bytes32 matchId,uint8 homeScore,uint8 awayScore)");
 
+    event MatchRegistered(bytes32 indexed matchId, uint8 homeTeamScore, uint8 awayTeamScore);
+
     error InvalidTeams(uint32 homeTeamId, uint32 awayTeamId);
     error InvalidMatchId(bytes32 matchId);
     error InvalidCompetitionId(uint32 competitionId);
@@ -90,6 +92,9 @@ contract MatchRegistry is EIP712 {
         }
 
         validateSignature(matchId, homeTeamScore, awayTeamScore, signature);
+
+        // TODO: store
+        emit MatchRegistered(matchId, homeTeamScore, awayTeamScore);
     }
 
     function validateSignature(bytes32 matchId, uint8 homeTeamScore, uint8 awayTeamScore, bytes calldata signature) private view {
@@ -103,11 +108,9 @@ contract MatchRegistry is EIP712 {
         );
 
         bytes32 digest = _hashTypedDataV4(structHash);
-        address signer = ECDSA.recover(digest, signature);
+        address signer = ECDSA.recoverCalldata(digest, signature);
 
         if (signer != authorizedSigner) {
-            // This should never happen as the recover function will revert if the signature is invalid (ECDSAInvalidSignatureLength)
-            // However, let's be safe and revert if it happens.
             revert InvalidSignature(signature);
         }
     }
