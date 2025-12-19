@@ -2,21 +2,23 @@
 pragma solidity 0.8.30;
 
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {CompetitionRegistry} from "./CompetitionRegistry.sol";
 import {TeamRegistry} from "./TeamRegistry.sol";
 
 contract MatchRegistry is EIP712 {
+    using ECDSA for bytes32;
 
+    // The match data.
+    // We don't need the competitionId, homeTeamId, and awayTeamId because we can derive them from the matchId.
     struct Match {
-        uint64 matchId;
-        uint32 homeTeamId;
-        uint32 awayTeamId;
+        bytes32 matchId;
         uint8 homeTeamScore;
         uint8 awayTeamScore;
     }
 
     // The address of the verified signer who signs matches
-    address public immutable verifiedSigner;
+    address public immutable authorizedSigner;
 
     // We need the address of each Registry so we can query to validate the data
     CompetitionRegistry public immutable competitionRegistry;
@@ -25,6 +27,8 @@ contract MatchRegistry is EIP712 {
     // We don't allow scores higher than 80
     uint8 constant MAX_SCORE = 80;
 
+    bytes32 public constant MATCH_RESULT_TYPEHASH = keccak256("Match(bytes32 matchId,uint8 homeScore,uint8 awayScore)");
+
     error InvalidTeams(uint32 homeTeamId, uint32 awayTeamId);
     error InvalidMatchId(bytes32 matchId);
     error InvalidCompetitionId(uint32 competitionId);
@@ -32,13 +36,14 @@ contract MatchRegistry is EIP712 {
     error InvalidAwayTeamId(uint32 awayTeamId);
     error InvalidMatchDate(uint32 matchDate);
     error InvalidScores(uint8 homeTeamScore, uint8 awayTeamScore);
+    error InvalidSignature(bytes signature);
 
     constructor(
-        address _verifiedSigner,
+        address _authorizedSigner,
         CompetitionRegistry _competitionRegistry,
         TeamRegistry _teamRegistry
     ) EIP712("SportsPulse", "1") {
-        verifiedSigner = _verifiedSigner;
+        authorizedSigner = _authorizedSigner;
         competitionRegistry = _competitionRegistry;
         teamRegistry = _teamRegistry;
     }
@@ -82,6 +87,28 @@ contract MatchRegistry is EIP712 {
 
         if (homeTeamScore > MAX_SCORE || awayTeamScore > MAX_SCORE) {
             revert InvalidScores(homeTeamScore, awayTeamScore);
+        }
+
+        validateSignature(matchId, homeTeamScore, awayTeamScore, signature);
+    }
+
+    function validateSignature(bytes32 matchId, uint8 homeTeamScore, uint8 awayTeamScore, bytes calldata signature) private view {
+        bytes32 structHash = keccak256(
+            abi.encode(
+                MATCH_RESULT_TYPEHASH,
+                matchId,
+                homeTeamScore,
+                awayTeamScore
+            )
+        );
+
+        bytes32 digest = _hashTypedDataV4(structHash);
+        address signer = ECDSA.recover(digest, signature);
+
+        if (signer != authorizedSigner) {
+            // This should never happen as the recover function will revert if the signature is invalid (ECDSAInvalidSignatureLength)
+            // However, let's be safe and revert if it happens.
+            revert InvalidSignature(signature);
         }
     }
 }

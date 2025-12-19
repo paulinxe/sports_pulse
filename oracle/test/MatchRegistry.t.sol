@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.30;
 
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {Test} from "forge-std/Test.sol";
 import {MatchRegistry} from "../src/MatchRegistry.sol";
 import {CompetitionRegistry} from "../src/CompetitionRegistry.sol";
@@ -78,6 +79,15 @@ contract MatchRegistryTest is Test {
         vm.expectRevert(abi.encodeWithSelector(MatchRegistry.InvalidScores.selector, homeTeamScore, awayTeamScore));
 
         matchRegistry.submitMatch(generateMatchId(matchDate), COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, homeTeamScore, awayTeamScore, matchDate, "");
+    }
+
+    function test_submit_reverts_when_signature_is_invalid() public {
+        bytes memory signature = hex"c3dc2b81e3d1f01eb29edd0684cdf9acbd0fa0486dbb11621659507d8d4e5b9c59f3ff5d9b753a776802cde1bfd5a9d041df82e93a9f7efa3880d9015c44552801";
+        uint32 matchDate = 20250101;
+
+        vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignature.selector));
+
+        matchRegistry.submitMatch(generateMatchId(matchDate), COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, 1, 1, matchDate, signature);
     }
 
     function generateMatchId(uint32 matchDate) private pure returns (bytes memory) {
