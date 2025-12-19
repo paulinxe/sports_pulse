@@ -2,6 +2,7 @@
 signer/tmp
 signer/testdata
 signer/private.key
+!signer/private_test_key.key
 provider/tmp
 provider/testdata
 .cursor

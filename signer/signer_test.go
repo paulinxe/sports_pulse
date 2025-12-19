@@ -102,14 +102,14 @@ func Test_we_sign_a_match(t *testing.T) {
 	err = db.DB.QueryRow(
 		"SELECT signature FROM matches WHERE status = $1 AND canonical_id = $2",
 		entity.Signed,
-		"0x58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8",
+		"0x2e138fd2c01ad834ec3f689753b6afb28578265662f25db5f39e110e770a5c6e",
 	).Scan(&signature)
 	if err != nil {
 		t.Fatalf("Failed to find signed match: %v", err)
 	}
 
-	if signature != "66c24c18bcd615e63d0b828fd5f0a088e06e9985a61ccc272f05eb6f377ff8444f52347cbfebecabb25e5423289f668dbc25aac4bd98f6bd3445190e9ebed39200" {
-		t.Fatalf("Expected signature to be %s, got %s", "66c24c18bcd615e63d0b828fd5f0a088e06e9985a61ccc272f05eb6f377ff8444f52347cbfebecabb25e5423289f668dbc25aac4bd98f6bd3445190e9ebed39200", signature)
+	if signature != "e5570b15390ece31976b04a6890ad59c859f1faf31dcbc8ca20fd3a039df4b38754b09996382f129970eaaa3d460f0dff9b8d4f6ae86e085478fbc8b723c50e61b" {
+		t.Fatalf("Expected signature to be %s, got %s", "e5570b15390ece31976b04a6890ad59c859f1faf31dcbc8ca20fd3a039df4b38754b09996382f129970eaaa3d460f0dff9b8d4f6ae86e085478fbc8b723c50e61b", signature)
 	}
 }
 
@@ -121,7 +121,7 @@ func insertSignableMatch() {
 			id, canonical_id, home_team_score, away_team_score, home_team_id, away_team_id, "start", "end", provider_match_id, competition_id, provider, status
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
 		uuid.New(),
-		"0x58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8",
+		"0x2e138fd2c01ad834ec3f689753b6afb28578265662f25db5f39e110e770a5c6e",
 		1,
 		2,
 		3,

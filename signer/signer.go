@@ -29,6 +29,7 @@ type ecPrivateKey struct {
 // TODO: check if we can add more error codes.
 // Check also in provider service.
 type ErrorCodes int
+
 const (
 	_ ErrorCodes = iota
 	DB_INIT_FAIL
@@ -92,9 +93,9 @@ func Run() int {
 		},
 	}
 	domain := apitypes.TypedDataDomain{
-		Name:              ORACLE_NAME,
-		Version:           ORACLE_VERSION,
-		ChainId:           chainId,
+		Name:    ORACLE_NAME,
+		Version: ORACLE_VERSION,
+		ChainId: chainId,
 		// TODO: determine where should we use or validate this as its presence does not change the signature it seems
 		VerifyingContract: os.Getenv("ORACLE_CONTRACT_ADDRESS"),
 	}
@@ -202,6 +203,14 @@ func signMatch(match entity.Match, types apitypes.Types, domain apitypes.TypedDa
 	if err != nil {
 		return "", err
 	}
+
+	// Adjust recovery ID: crypto.Sign returns 0 or 1, but Ethereum expects 27 or 28
+	// For EIP-712, we use 27 or 28 (not EIP-155 adjusted, since chainId is in domain)
+	recoveryID := signature[64]
+	if recoveryID > 1 {
+		return "", fmt.Errorf("invalid recovery ID from crypto.Sign: %d", recoveryID)
+	}
+	signature[64] = recoveryID + 27
 
 	return common.Bytes2Hex(signature), nil
 }
