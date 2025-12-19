@@ -26,17 +26,33 @@ type ecPrivateKey struct {
 	PublicKey     asn1.BitString        `asn1:"optional,explicit,tag:1"`
 }
 
+// TODO: check if we can add more error codes.
+// Check also in provider service.
+type ErrorCodes int
+const (
+	_ ErrorCodes = iota
+	DB_INIT_FAIL
+	DB_QUERY_FAIL
+	PRIVATE_KEY_LOAD_FAIL
+	CHAIN_ID_NOT_VALID
+)
+
+const ORACLE_NAME = "SportsPulse"
+const ORACLE_VERSION = "1"
+const ORACLE_STRUCT_NAME = "Match"
+
 func main() {
 	os.Exit(Run())
 }
 
 func Run() int {
 	// Check if database is already initialized (e.g., in tests)
+	// TODO: check if this is really needed
 	shouldClose := db.DB == nil
 	if db.DB == nil {
 		if err := db.Init(); err != nil {
 			slog.Error("Failed to initialize database", "error", err)
-			return 1
+			return int(DB_INIT_FAIL)
 		}
 	}
 	if shouldClose {
@@ -46,7 +62,7 @@ func Run() int {
 	matches, err := repository.FindMatchesToSign()
 	if err != nil {
 		slog.Error("Failed to find matches to sign", "error", err)
-		return 1
+		return int(DB_QUERY_FAIL)
 	}
 
 	slog.Debug(fmt.Sprintf("Found %d matches to sign", len(matches)))
@@ -58,27 +74,28 @@ func Run() int {
 	privKey, err := loadPrivateKey(os.Getenv("PRIVATE_KEY_FILE"))
 	if err != nil {
 		slog.Error("Failed to load private key", "error", err)
-		return 1
+		return int(PRIVATE_KEY_LOAD_FAIL)
 	}
 
 	chainId, err := getChainId()
 	if err != nil {
 		slog.Error("Failed to get chain ID", "error", err)
-		return 1
+		return int(CHAIN_ID_NOT_VALID)
 	}
 
 	// Declare EIP-712 type structure
 	types := apitypes.Types{
-		"MatchResult": []apitypes.Type{
-			{Name: "matchId", Type: "uint256"},
+		ORACLE_STRUCT_NAME: []apitypes.Type{
+			{Name: "matchId", Type: "bytes32"},
 			{Name: "homeScore", Type: "uint8"},
 			{Name: "awayScore", Type: "uint8"},
 		},
 	}
 	domain := apitypes.TypedDataDomain{
-		Name:              "ChilizChainPulse",
-		Version:           "1",
+		Name:              ORACLE_NAME,
+		Version:           ORACLE_VERSION,
 		ChainId:           chainId,
+		// TODO: determine where should we use or validate this as its presence does not change the signature it seems
 		VerifyingContract: os.Getenv("ORACLE_CONTRACT_ADDRESS"),
 	}
 
@@ -158,7 +175,7 @@ func signMatch(match entity.Match, types apitypes.Types, domain apitypes.TypedDa
 
 	message := apitypes.TypedData{
 		Types:       types,
-		PrimaryType: "MatchResult",
+		PrimaryType: ORACLE_STRUCT_NAME,
 		Domain:      domain,
 		Message: map[string]any{
 			"matchId":   match.CanonicalID,

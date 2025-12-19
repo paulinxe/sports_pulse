@@ -13,7 +13,13 @@ import (
 	"github.com/google/uuid"
 )
 
+func setup() {
+	os.Setenv("CHAIN_ID", "31337")
+	os.Setenv("PRIVATE_KEY_FILE", "private_test_key.key")
+}
+
 func Test_no_errors_when_nothing_to_sign(t *testing.T) {
+	setup()
 	testutil.InitDatabase(t)
 	defer testutil.CloseDatabase()
 
@@ -28,18 +34,17 @@ func Test_no_errors_when_nothing_to_sign(t *testing.T) {
 }
 
 func Test_we_log_an_error_when_private_key_is_not_found(t *testing.T) {
+	setup()
 	testutil.InitDatabase(t)
 	defer testutil.CloseDatabase()
 	logger := testutil.GetLogger()
 	insertSignableMatch()
 
-	originalPrivateKeyFile := os.Getenv("PRIVATE_KEY_FILE")
-	defer os.Setenv("PRIVATE_KEY_FILE", originalPrivateKeyFile)
 	os.Setenv("PRIVATE_KEY_FILE", "not_found.pem")
 
 	exitCode := Run()
-	if exitCode != 1 {
-		t.Fatalf("Expected exit code 1, got %d", exitCode)
+	if exitCode != int(PRIVATE_KEY_LOAD_FAIL) {
+		t.Fatalf("Expected exit code %d, got %d", int(PRIVATE_KEY_LOAD_FAIL), exitCode)
 	}
 
 	outputStr := logger.String()
@@ -49,16 +54,15 @@ func Test_we_log_an_error_when_private_key_is_not_found(t *testing.T) {
 }
 
 func Test_we_log_an_error_when_chain_id_is_not_valid(t *testing.T) {
+	setup()
 	testutil.InitDatabase(t)
 	defer testutil.CloseDatabase()
 	logger := testutil.GetLogger()
 	insertSignableMatch()
 
-	originalChainId := os.Getenv("CHAIN_ID")
-	defer os.Setenv("CHAIN_ID", originalChainId)
 	os.Setenv("CHAIN_ID", "not_valid")
 	exitCode := Run()
-	if exitCode != 1 {
+	if exitCode != int(CHAIN_ID_NOT_VALID) {
 		t.Fatalf("Expected exit code 1, got %d", exitCode)
 	}
 
@@ -69,19 +73,20 @@ func Test_we_log_an_error_when_chain_id_is_not_valid(t *testing.T) {
 }
 
 func Test_we_sign_a_match(t *testing.T) {
+	setup()
 	testutil.InitDatabase(t)
 	defer testutil.CloseDatabase()
 	logger := testutil.GetLogger()
 	insertSignableMatch()
 
-	outputStr := logger.String()
-	if strings.Contains(outputStr, "ERROR") {
-		t.Fatalf("Expected no error message, got %s", outputStr)
-	}
-
 	exitCode := Run()
 	if exitCode != 0 {
 		t.Fatalf("Expected exit code 0, got %d", exitCode)
+	}
+
+	outputStr := logger.String()
+	if strings.Contains(outputStr, "ERROR") {
+		t.Fatalf("Expected no error message, got %s", outputStr)
 	}
 
 	matches, err := repository.FindMatchesToSign()
@@ -103,8 +108,8 @@ func Test_we_sign_a_match(t *testing.T) {
 		t.Fatalf("Failed to find signed match: %v", err)
 	}
 
-	if signature != "c3dc2b81e3d1f01eb29edd0684cdf9acbd0fa0486dbb11621659507d8d4e5b9c59f3ff5d9b753a776802cde1bfd5a9d041df82e93a9f7efa3880d9015c44552801" {
-		t.Fatalf("Expected signature to be %s, got %s", "c3dc2b81e3d1f01eb29edd0684cdf9acbd0fa0486dbb11621659507d8d4e5b9c59f3ff5d9b753a776802cde1bfd5a9d041df82e93a9f7efa3880d9015c44552801", signature)
+	if signature != "66c24c18bcd615e63d0b828fd5f0a088e06e9985a61ccc272f05eb6f377ff8444f52347cbfebecabb25e5423289f668dbc25aac4bd98f6bd3445190e9ebed39200" {
+		t.Fatalf("Expected signature to be %s, got %s", "66c24c18bcd615e63d0b828fd5f0a088e06e9985a61ccc272f05eb6f377ff8444f52347cbfebecabb25e5423289f668dbc25aac4bd98f6bd3445190e9ebed39200", signature)
 	}
 }
 
