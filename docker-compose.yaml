@@ -115,6 +115,17 @@ services:
     stdin_open: true
     command: tail -f /dev/null
 
+  slither:
+    image: trailofbits/eth-security-toolbox:latest
+    volumes:
+      # Mount oracle folder to analyze contracts
+      - ./oracle:/app/oracle
+    working_dir: /app/oracle
+    # Install and use solc 0.8.30, then run slither
+    # Excludes lib/ folder (dependencies) from analysis
+    # Can be overridden: docker compose run slither sh -c "solc-select install 0.8.30 && solc-select use 0.8.30 && slither src/ --json slither-report.json"
+    command: sh -c "solc-select install 0.8.30 && solc-select use 0.8.30 && slither src --filter-paths 'lib/'"
+
 volumes:
   go_modules:
   vscode_extensions_signer:

@@ -5,4 +5,5 @@ signer/private.key
 !signer/private_test_key.key
 provider/tmp
 provider/testdata
+oracle/slither-report.json
 .cursor
