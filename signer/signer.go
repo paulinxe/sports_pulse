@@ -86,6 +86,12 @@ func Run() int {
 
 	// Declare EIP-712 type structure
 	types := apitypes.Types{
+		"EIP712Domain": []apitypes.Type{
+			{Name: "name", Type: "string"},
+			{Name: "version", Type: "string"},
+			{Name: "chainId", Type: "uint256"},
+			{Name: "verifyingContract", Type: "address"},
+		},
 		ORACLE_STRUCT_NAME: []apitypes.Type{
 			{Name: "matchId", Type: "bytes32"},
 			{Name: "homeScore", Type: "uint8"},
@@ -96,7 +102,6 @@ func Run() int {
 		Name:    ORACLE_NAME,
 		Version: ORACLE_VERSION,
 		ChainId: chainId,
-		// TODO: determine where should we use or validate this as its presence does not change the signature it seems
 		VerifyingContract: os.Getenv("ORACLE_CONTRACT_ADDRESS"),
 	}
 
@@ -118,6 +123,7 @@ func Run() int {
 }
 
 func loadPrivateKey(keyFile string) (*ecdsa.PrivateKey, error) {
+	// TODO: simplify this. maybe generating keys with go-ethereum?
 	keyBytes, err := os.ReadFile(keyFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read private key file: %v", err)
@@ -191,7 +197,13 @@ func signMatch(match entity.Match, types apitypes.Types, domain apitypes.TypedDa
 		return "", err
 	}
 
-	domainSeparator, _ := message.HashStruct("EIP712Domain", message.Domain.Map())
+	// Hash the domain separator according to EIP-712
+	domainSeparator, err := message.HashStruct("EIP712Domain", message.Domain.Map())
+	if err != nil {
+		return "", err
+	}
+
+	// Final EIP-712 hash: keccak256("\x19\x01" || domainSeparator || messageHash)
 	finalHash := crypto.Keccak256Hash(
 		[]byte("\x19\x01"),
 		domainSeparator,

@@ -16,6 +16,7 @@ import (
 func setup() {
 	os.Setenv("CHAIN_ID", "31337")
 	os.Setenv("PRIVATE_KEY_FILE", "private_test_key.key")
+	os.Setenv("ORACLE_CONTRACT_ADDRESS", "0xF62849F9A0B5Bf2913b396098F7c7019b51A820a")
 }
 
 func Test_no_errors_when_nothing_to_sign(t *testing.T) {
@@ -108,8 +109,8 @@ func Test_we_sign_a_match(t *testing.T) {
 		t.Fatalf("Failed to find signed match: %v", err)
 	}
 
-	if signature != "e5570b15390ece31976b04a6890ad59c859f1faf31dcbc8ca20fd3a039df4b38754b09996382f129970eaaa3d460f0dff9b8d4f6ae86e085478fbc8b723c50e61b" {
-		t.Fatalf("Expected signature to be %s, got %s", "e5570b15390ece31976b04a6890ad59c859f1faf31dcbc8ca20fd3a039df4b38754b09996382f129970eaaa3d460f0dff9b8d4f6ae86e085478fbc8b723c50e61b", signature)
+	if signature != "88d26e4b2967879b2a10e8b61e9c84a6b496967f252a94fd8df6600ea5e3ee26098054ad05074dfcce9e53eadf6942a316e531348d54120118b3a4f86f1ef9591b" {
+		t.Fatalf("Expected signature to be %s, got %s", "88d26e4b2967879b2a10e8b61e9c84a6b496967f252a94fd8df6600ea5e3ee26098054ad05074dfcce9e53eadf6942a316e531348d54120118b3a4f86f1ef9591b", signature)
 	}
 }
 
