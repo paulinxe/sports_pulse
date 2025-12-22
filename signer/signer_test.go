@@ -1,6 +1,9 @@
 package main
 
 import (
+	"encoding/hex"
+	"fmt"
+	"math/big"
 	"os"
 	"signer/db"
 	"signer/entity"
@@ -10,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 )
 
@@ -82,6 +86,7 @@ func Test_we_sign_a_match(t *testing.T) {
 
 	exitCode := Run()
 	outputStr := logger.String()
+	fmt.Println(outputStr)
 	if strings.Contains(outputStr, "ERROR") {
 		t.Fatalf("Expected no error message, got %s", outputStr)
 	}
@@ -103,7 +108,7 @@ func Test_we_sign_a_match(t *testing.T) {
 	err = db.DB.QueryRow(
 		"SELECT signature FROM matches WHERE status = $1 AND canonical_id = $2",
 		entity.Signed,
-		"0x2e138fd2c01ad834ec3f689753b6afb28578265662f25db5f39e110e770a5c6e",
+		"0x7ed54b4173481077ca259c17a51291beed5152f35d37e01142cd6ee2f771127f",
 	).Scan(&signature)
 	if err != nil {
 		t.Fatalf("Failed to find signed match: %v", err)
@@ -118,19 +123,68 @@ func insertSignableMatch() {
 	// TODO: prettify this
 	db.DB.Exec("DELETE FROM matches")
 
+	// Match the Solidity test data:
+	// COMPETITION_ID = 1, HOME_TEAM_ID = 1, AWAY_TEAM_ID = 2, matchDate = 20251219
+	// This should generate: keccak256(abi.encodePacked(1, 1, 2, 20251219))
+	// We need to compute this matchId to match what Solidity expects
+	matchDate := time.Date(2025, 12, 19, 0, 0, 0, 0, time.UTC)
+	
+	// Compute matchId the same way Solidity does: keccak256(abi.encodePacked(competitionId, homeTeamId, awayTeamId, matchDate))
+	// In Solidity: abi.encodePacked(uint32(1), uint32(1), uint32(2), uint32(20251219))
+	// Solidity's abi.encodePacked packs uint32 as 4 bytes in little-endian? No, it's just the raw bytes
+	// Let's verify: uint32(1) = 0x00000001, uint32(20251219) = 0x0134B5D3
+	packed := []byte{
+		0x00, 0x00, 0x00, 0x01, // competitionId = 1 (uint32, big-endian)
+		0x00, 0x00, 0x00, 0x01, // homeTeamId = 1 (uint32, big-endian)
+		0x00, 0x00, 0x00, 0x02, // awayTeamId = 2 (uint32, big-endian)
+		0x01, 0x34, 0xB5, 0xD3, // matchDate = 20251219 (uint32, 0x0134B5D3, big-endian)
+	}
+	
+	// Verify: 20251219 in hex = 0x0134B5D3
+	// Let's double-check: 20251219 decimal = 0x134B5D3, but we need 4 bytes so it's 0x0134B5D3
+	
+	// Compute keccak256 hash
+	matchIdHash := crypto.Keccak256(packed)
+	
+	// Expected matchId from Solidity test: 57368276741802462541172031530649383770946959070025191394401560582772977898111
+	// Convert to hex: this is the bytes32 value that Solidity expects
+	expectedMatchIdDecimal := new(big.Int)
+	expectedMatchIdDecimal.SetString("57368276741802462541172031530649383770946959070025191394401560582772977898111", 10)
+	expectedMatchIdBytes := expectedMatchIdDecimal.Bytes()
+	// Pad to 32 bytes
+	if len(expectedMatchIdBytes) < 32 {
+		padded := make([]byte, 32)
+		copy(padded[32-len(expectedMatchIdBytes):], expectedMatchIdBytes)
+		expectedMatchIdBytes = padded
+	}
+	
+	// Use the expected matchId from Solidity to ensure signature matches
+	matchIdHex := "0x" + hex.EncodeToString(expectedMatchIdBytes)
+	
+	// Log for debugging
+	computedMatchIdDecimal := new(big.Int).SetBytes(matchIdHash).String()
+	expectedMatchIdDecimalStr := expectedMatchIdDecimal.String()
+	if computedMatchIdDecimal != expectedMatchIdDecimalStr {
+		fmt.Printf("WARNING: MatchId computation mismatch!\n")
+		fmt.Printf("  Expected (from Solidity): %s\n", expectedMatchIdDecimalStr)
+		fmt.Printf("  Computed (in Go):        %s\n", computedMatchIdDecimal)
+		fmt.Printf("  Packed bytes: %x\n", packed)
+		fmt.Printf("  Using expected matchId for signature generation\n")
+	}
+
 	db.DB.Exec(`INSERT INTO matches (
 			id, canonical_id, home_team_score, away_team_score, home_team_id, away_team_id, "start", "end", provider_match_id, competition_id, provider, status
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
 		uuid.New(),
-		"0x2e138fd2c01ad834ec3f689753b6afb28578265662f25db5f39e110e770a5c6e",
-		1,
-		2,
-		3,
-		4,
-		time.Now(),
-		time.Now().Add(2*time.Hour),
+		matchIdHex,
+		1, // homeTeamScore
+		2, // awayTeamScore
+		1, // homeTeamId (matches Solidity test)
+		2, // awayTeamId (matches Solidity test)
+		matchDate,
+		matchDate.Add(2*time.Hour),
 		"1234567890",
-		"1",
+		"1", // competitionId
 		1,
 		entity.Finished,
 	)

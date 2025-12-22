@@ -5,6 +5,7 @@ import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {CompetitionRegistry} from "./CompetitionRegistry.sol";
 import {TeamRegistry} from "./TeamRegistry.sol";
+import {console} from "forge-std/console.sol";
 
 contract MatchRegistry is EIP712 {
     using ECDSA for bytes32;
@@ -105,10 +106,24 @@ contract MatchRegistry is EIP712 {
                 awayTeamScore
             )
         );
-
+        
+        console.log("=== Solidity EIP-712 Hash Computation ===");
+        console.log("Struct hash:", uint256(structHash));
+        console.log("MATCH_RESULT_TYPEHASH:", uint256(MATCH_RESULT_TYPEHASH));
+        console.log("MatchId:", uint256(matchId));
+        console.log("HomeScore:", homeTeamScore);
+        console.log("AwayScore:", awayTeamScore);
+        
+        bytes32 domainSeparator = _domainSeparatorV4();
+        console.log("Domain separator:", uint256(domainSeparator));
+        
         bytes32 digest = _hashTypedDataV4(structHash);
-        address signer = ECDSA.recoverCalldata(digest, signature);
+        console.log("Final digest (toTypedDataHash):", uint256(digest));
+        console.log("========================================");
 
+        address signer = ECDSA.recoverCalldata(digest, signature);
+        console.log("Recovered signer:", signer);
+        console.log("Authorized signer:", authorizedSigner);
         if (signer != authorizedSigner) {
             revert InvalidSignature(signature);
         }

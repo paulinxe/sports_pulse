@@ -6,6 +6,7 @@ import {Test} from "forge-std/Test.sol";
 import {MatchRegistry} from "../src/MatchRegistry.sol";
 import {CompetitionRegistry} from "../src/CompetitionRegistry.sol";
 import {TeamRegistry} from "../src/TeamRegistry.sol";
+import {console} from "forge-std/console.sol";
 
 contract MatchRegistryTest is Test {
     MatchRegistry public matchRegistry;
@@ -24,7 +25,7 @@ contract MatchRegistryTest is Test {
         teamNames[AWAY_TEAM_ID - 1] = "Basanez";
         TeamRegistry teamRegistry = new TeamRegistry(teamNames);
 
-        address verifiedSigner = 0xfB83DeCaF41eB32B59aB37F1995a5816957FD5aF;
+        address verifiedSigner = 0xCC0724CDc18DaE6B469b8e8B533fCd4dBE32FB46;
         matchRegistry = new MatchRegistry(verifiedSigner, competitionRegistry, teamRegistry);
     }
 
@@ -102,11 +103,28 @@ contract MatchRegistryTest is Test {
     }
 
     function test_we_store_the_match() public {
-        bytes memory signature = hex"e5570b15390ece31976b04a6890ad59c859f1faf31dcbc8ca20fd3a039df4b38754b09996382f129970eaaa3d460f0dff9b8d4f6ae86e085478fbc8b723c50e61b";
+        // IMPORTANT: The contract address must match ORACLE_CONTRACT_ADDRESS in Go tests
+        // Run this test first to get the contract address, then update Go test setup()
+        address contractAddr = address(matchRegistry);
+        (,,, uint256 chainId, address verifyingContract,,) = matchRegistry.eip712Domain();
+        console.log("=== Use this contract address in Go ORACLE_CONTRACT_ADDRESS ===");
+        console.log("Contract address:", contractAddr);
+        console.log("Verifying contract (should match):", verifyingContract);
+        console.log("Chain ID:", chainId);
+        console.log("================================================================");
+        
+        bytes memory signature = hex"4f0fa54d6dd9629d5f1d6b0f17236f4f9f009b72be6e77bdc56a4d0d891c0c076f6c36472f7b667d5f63895424a19a19bc56f264e49699c58bb07ec0868440081c";
         uint32 matchDate = 20251219;
         bytes memory matchId = generateMatchId(matchDate);
         uint8 homeTeamScore = 1;
         uint8 awayTeamScore = 2;
+        
+        // Log what we're about to verify
+        console.log("=== Test Data ===");
+        console.log("MatchId (bytes32):", uint256(bytes32(matchId)));
+        console.log("HomeScore:", homeTeamScore);
+        console.log("AwayScore:", awayTeamScore);
+        console.log("=================");
 
         vm.expectEmit(true, true, true, true);
         emit MatchRegistry.MatchRegistered(bytes32(matchId), homeTeamScore, awayTeamScore);
