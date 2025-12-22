@@ -36,6 +36,11 @@ contract TeamRegistryTest is Test {
         vm.expectRevert(abi.encodeWithSelector(TeamRegistry.TooManyTeams.selector, 201));
         new TeamRegistry(teamNames);
     }
+
+    function test_tx_reverts_if_team_name_is_empty() public {
+        vm.expectRevert(abi.encodeWithSelector(TeamRegistry.InvalidTeamName.selector));
+        teamRegistry.addTeam("");
+    }
     
     function test_we_can_add_a_team() public {
         vm.expectEmit(true, true, true, true);

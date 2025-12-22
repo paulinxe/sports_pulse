@@ -37,6 +37,11 @@ contract CompetitionRegistryTest is Test {
         new CompetitionRegistry(competitionNames);
     }
 
+    function test_tx_reverts_if_competition_name_is_empty() public {
+        vm.expectRevert(abi.encodeWithSelector(CompetitionRegistry.InvalidCompetitionName.selector));
+        competitionRegistry.addCompetition("");
+    }
+
     function test_we_can_add_a_league() public {
         vm.expectEmit(true, true, true, true);
         emit CompetitionRegistry.CompetitionAdded(2, "PremierLeague");
