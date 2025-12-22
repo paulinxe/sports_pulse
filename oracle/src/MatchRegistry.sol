@@ -25,7 +25,7 @@ contract MatchRegistry is EIP712 {
     TeamRegistry public immutable teamRegistry;
     // We don't allow scores higher than 80
     uint8 constant MAX_SCORE = 80;
-    bytes32 public constant MATCH_RESULT_TYPEHASH = keccak256("Match(bytes32 matchId,uint8 homeScore,uint8 awayScore)");
+    bytes32 public constant MATCH_TYPEHASH = keccak256("Match(bytes32 matchId,uint8 homeScore,uint8 awayScore)");
     mapping(bytes32 => Match) public matches;
 
     event MatchRegistered(bytes32 indexed matchId, uint8 homeTeamScore, uint8 awayTeamScore);
@@ -100,30 +100,16 @@ contract MatchRegistry is EIP712 {
     function validateSignature(bytes32 matchId, uint8 homeTeamScore, uint8 awayTeamScore, bytes calldata signature) private view {
         bytes32 structHash = keccak256(
             abi.encode(
-                MATCH_RESULT_TYPEHASH,
+                MATCH_TYPEHASH,
                 matchId,
                 homeTeamScore,
                 awayTeamScore
             )
         );
         
-        console.log("=== Solidity EIP-712 Hash Computation ===");
-        console.log("Struct hash:", uint256(structHash));
-        console.log("MATCH_RESULT_TYPEHASH:", uint256(MATCH_RESULT_TYPEHASH));
-        console.log("MatchId:", uint256(matchId));
-        console.log("HomeScore:", homeTeamScore);
-        console.log("AwayScore:", awayTeamScore);
-        
-        bytes32 domainSeparator = _domainSeparatorV4();
-        console.log("Domain separator:", uint256(domainSeparator));
-        
         bytes32 digest = _hashTypedDataV4(structHash);
-        console.log("Final digest (toTypedDataHash):", uint256(digest));
-        console.log("========================================");
-
         address signer = ECDSA.recoverCalldata(digest, signature);
-        console.log("Recovered signer:", signer);
-        console.log("Authorized signer:", authorizedSigner);
+
         if (signer != authorizedSigner) {
             revert InvalidSignature(signature);
         }

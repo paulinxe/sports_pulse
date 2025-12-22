@@ -103,29 +103,13 @@ contract MatchRegistryTest is Test {
     }
 
     function test_we_store_the_match() public {
-        // IMPORTANT: The contract address must match ORACLE_CONTRACT_ADDRESS in Go tests
-        // Run this test first to get the contract address, then update Go test setup()
-        address contractAddr = address(matchRegistry);
-        (,,, uint256 chainId, address verifyingContract,,) = matchRegistry.eip712Domain();
-        console.log("=== Use this contract address in Go ORACLE_CONTRACT_ADDRESS ===");
-        console.log("Contract address:", contractAddr);
-        console.log("Verifying contract (should match):", verifyingContract);
-        console.log("Chain ID:", chainId);
-        console.log("================================================================");
-        
+        // The given signature comes from the Signer go test: Test_we_sign_a_match
         bytes memory signature = hex"4f0fa54d6dd9629d5f1d6b0f17236f4f9f009b72be6e77bdc56a4d0d891c0c076f6c36472f7b667d5f63895424a19a19bc56f264e49699c58bb07ec0868440081c";
         uint32 matchDate = 20251219;
         bytes memory matchId = generateMatchId(matchDate);
         uint8 homeTeamScore = 1;
         uint8 awayTeamScore = 2;
         
-        // Log what we're about to verify
-        console.log("=== Test Data ===");
-        console.log("MatchId (bytes32):", uint256(bytes32(matchId)));
-        console.log("HomeScore:", homeTeamScore);
-        console.log("AwayScore:", awayTeamScore);
-        console.log("=================");
-
         vm.expectEmit(true, true, true, true);
         emit MatchRegistry.MatchRegistered(bytes32(matchId), homeTeamScore, awayTeamScore);
         
