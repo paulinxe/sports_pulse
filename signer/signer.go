@@ -156,17 +156,14 @@ func getChainId() (*math.HexOrDecimal256, error) {
 }
 
 func signMatch(match entity.Match, types apitypes.Types, domain apitypes.TypedDataDomain, privKey *ecdsa.PrivateKey) (string, error) {
-	homeScore := new(big.Int).SetUint64(uint64(match.HomeTeamScore))
-	awayScore := new(big.Int).SetUint64(uint64(match.AwayTeamScore))
-
 	message := apitypes.TypedData{
 		Types:       types,
 		PrimaryType: ORACLE_STRUCT_NAME,
 		Domain:      domain,
 		Message: map[string]any{
 			"matchId":   match.CanonicalID,
-			"homeScore": homeScore,
-			"awayScore": awayScore,
+			"homeScore": big.NewInt(int64(match.HomeTeamScore)),
+			"awayScore": big.NewInt(int64(match.AwayTeamScore)),
 		},
 	}
 
