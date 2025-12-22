@@ -159,25 +159,12 @@ func signMatch(match entity.Match, types apitypes.Types, domain apitypes.TypedDa
 	homeScore := new(big.Int).SetUint64(uint64(match.HomeTeamScore))
 	awayScore := new(big.Int).SetUint64(uint64(match.AwayTeamScore))
 
-	// Convert matchId from hex string to bytes32
-	// TODO: check if we need to do this conversion
-	var matchIdBytes [32]byte
-	matchIdHex := strings.TrimPrefix(match.CanonicalID, "0x")
-	matchIdBytesSlice, err := hex.DecodeString(matchIdHex)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode matchId: %w", err)
-	}
-	if len(matchIdBytesSlice) != 32 {
-		return "", fmt.Errorf("matchId must be 32 bytes, got %d", len(matchIdBytesSlice))
-	}
-	copy(matchIdBytes[:], matchIdBytesSlice)
-
 	message := apitypes.TypedData{
 		Types:       types,
 		PrimaryType: ORACLE_STRUCT_NAME,
 		Domain:      domain,
 		Message: map[string]any{
-			"matchId":   matchIdBytes, // Use bytes32 directly, not string
+			"matchId":   match.CanonicalID,
 			"homeScore": homeScore,
 			"awayScore": awayScore,
 		},
