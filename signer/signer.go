@@ -2,9 +2,7 @@ package main
 
 import (
 	"crypto/ecdsa"
-	"encoding/asn1"
 	"encoding/hex"
-	"encoding/pem"
 	"fmt"
 	"log/slog"
 	"math/big"
@@ -19,14 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 )
-
-// ecPrivateKey represents the ASN.1 structure of an EC private key (SEC1 format)
-type ecPrivateKey struct {
-	Version       int
-	PrivateKey    []byte
-	NamedCurveOID asn1.ObjectIdentifier `asn1:"optional,explicit,tag:0"`
-	PublicKey     asn1.BitString        `asn1:"optional,explicit,tag:1"`
-}
 
 // TODO: check if we can add more error codes.
 // Check also in provider service.
@@ -74,8 +64,7 @@ func Run() int {
 		return 0
 	}
 
-	privKey, err := loadPrivateKeyFromHex("0x4ba521e286bca3aa5fe1a8a8cf38017246b15fd2a4d9c79f1576ca82b9244279")
-	slog.Info("privKey", "privKey", privKey)
+	privKey, err := loadPrivateKeyFromHex(os.Getenv("SIGNER_PRIVATE_KEY"))
 	if err != nil {
 		slog.Error("Failed to load private key", "error", err)
 		return int(PRIVATE_KEY_LOAD_FAIL)
@@ -156,50 +145,6 @@ func loadPrivateKeyFromHex(hexKey string) (*ecdsa.PrivateKey, error) {
 	return privKey, nil
 }
 
-func loadPrivateKey(keyFile string) (*ecdsa.PrivateKey, error) {
-	// TODO: simplify this. maybe generating keys with go-ethereum?
-	keyBytes, err := os.ReadFile(keyFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read private key file: %v", err)
-	}
-
-	// Parse PEM format (SEC1: -----BEGIN EC PRIVATE KEY-----)
-	block, _ := pem.Decode(keyBytes)
-	if block == nil {
-		return nil, fmt.Errorf("failed to decode PEM block")
-	}
-
-	if block.Type != "EC PRIVATE KEY" {
-		return nil, fmt.Errorf("expected EC PRIVATE KEY, got %s", block.Type)
-	}
-
-	// Parse SEC1 DER-encoded structure
-	var ecPrivKey ecPrivateKey
-	_, err = asn1.Unmarshal(block.Bytes, &ecPrivKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse SEC1 structure: %v", err)
-	}
-
-	// Extract the raw private key bytes (should be 32 bytes for secp256k1)
-	privKeyBytes := ecPrivKey.PrivateKey
-	if len(privKeyBytes) != 32 {
-		return nil, fmt.Errorf("invalid private key length: expected 32 bytes, got %d", len(privKeyBytes))
-	}
-
-	// Convert to ECDSA private key using go-ethereum's crypto
-	privKey, err := crypto.ToECDSA(privKeyBytes)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create ECDSA key: %v", err)
-	}
-
-	// Verify it's a secp256k1 key (required for Ethereum)
-	if privKey.Curve != crypto.S256() {
-		return nil, fmt.Errorf("private key is not secp256k1 (required for Ethereum)")
-	}
-
-	return privKey, nil
-}
-
 func getChainId() (*math.HexOrDecimal256, error) {
 	chainIdStr := os.Getenv("CHAIN_ID")
 	chainIdBig, ok := new(big.Int).SetString(chainIdStr, 10)
@@ -215,6 +160,7 @@ func signMatch(match entity.Match, types apitypes.Types, domain apitypes.TypedDa
 	awayScore := new(big.Int).SetUint64(uint64(match.AwayTeamScore))
 
 	// Convert matchId from hex string to bytes32
+	// TODO: check if we need to do this conversion
 	var matchIdBytes [32]byte
 	matchIdHex := strings.TrimPrefix(match.CanonicalID, "0x")
 	matchIdBytesSlice, err := hex.DecodeString(matchIdHex)
@@ -237,58 +183,23 @@ func signMatch(match entity.Match, types apitypes.Types, domain apitypes.TypedDa
 		},
 	}
 
-	// Log domain information for debugging
 	domainMap := message.Domain.Map()
-	slog.Info("=== Go EIP-712 Hash Computation ===")
-	slog.Info("Domain map", "map", domainMap)
-	slog.Info("Domain verifyingContract", "addr", domain.VerifyingContract)
-	slog.Info("MatchId bytes32", "matchId", fmt.Sprintf("%x", matchIdBytes))
-	slog.Info("MatchId (decimal)", "matchId", new(big.Int).SetBytes(matchIdBytes[:]).String())
-	slog.Info("HomeScore", "score", match.HomeTeamScore)
-	slog.Info("AwayScore", "score", match.AwayTeamScore)
-	
-	// Verify the type hash string matches Solidity
-	// Solidity: keccak256("Match(bytes32 matchId,uint8 homeScore,uint8 awayScore)")
-	expectedTypeHashStr := "Match(bytes32 matchId,uint8 homeScore,uint8 awayScore)"
-	expectedTypeHash := crypto.Keccak256Hash([]byte(expectedTypeHashStr))
-	slog.Info("Expected MATCH_RESULT_TYPEHASH", "hash", fmt.Sprintf("%x", expectedTypeHash))
-	slog.Info("Expected MATCH_RESULT_TYPEHASH (decimal)", "hash", expectedTypeHash.Big().String())
 	
 	// Compute struct hash (EIP-712)
-	// This should match: keccak256(abi.encode(MATCH_RESULT_TYPEHASH, matchId, homeScore, awayScore))
 	structHash, err := message.HashStruct(message.PrimaryType, message.Message)
 	if err != nil {
 		return "", fmt.Errorf("failed to hash struct: %w", err)
 	}
-	slog.Info("Struct hash", "structHash", fmt.Sprintf("%x", structHash))
-	slog.Info("Struct hash (decimal)", "structHash", new(big.Int).SetBytes(structHash).String())
 	
 	// Compute domain separator hash
 	domainSeparator, err := message.HashStruct("EIP712Domain", domainMap)
 	if err != nil {
 		return "", fmt.Errorf("failed to hash domain: %w", err)
 	}
-	slog.Info("Domain separator", "separator", fmt.Sprintf("%x", domainSeparator))
-	slog.Info("Domain separator (decimal)", "separator", new(big.Int).SetBytes(domainSeparator).String())
 	
 	// Compute the final EIP-712 hash manually to match Solidity's MessageHashUtils.toTypedDataHash
 	// Solidity does: keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash))
-	finalHash := crypto.Keccak256Hash(
-		[]byte("\x19\x01"),
-		domainSeparator,
-		structHash,
-	)
-	slog.Info("Final hash", "hash", fmt.Sprintf("%x", finalHash))
-	slog.Info("Final hash (decimal)", "hash", finalHash.Big().String())
-	slog.Info("==================================")
-	
-	// Recover public key to verify
-	pubKey := privKey.Public()
-	pubKeyECDSA, ok := pubKey.(*ecdsa.PublicKey)
-	if ok {
-		expectedAddress := crypto.PubkeyToAddress(*pubKeyECDSA)
-		slog.Info("Expected signer address", "address", expectedAddress.Hex())
-	}
+	finalHash := crypto.Keccak256Hash([]byte("\x19\x01"), domainSeparator, structHash)
 
 	// Sign the hash
 	signature, err := crypto.Sign(finalHash.Bytes(), privKey)
