@@ -4,13 +4,13 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
-	"signer/entity"
 	"os"
+	"signer/entity"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
-	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/signer/core/apitypes"
 )
 
 const ORACLE_NAME = "SportsPulse"
@@ -19,13 +19,12 @@ const ORACLE_STRUCT_NAME = "Match"
 
 var types *apitypes.Types
 var domain *apitypes.TypedDataDomain
-var chainId *math.HexOrDecimal256
 
-func SignMatch(match entity.Match, privKey *ecdsa.PrivateKey) (string, error) {
+func SignMatch(match entity.Match, privKey *ecdsa.PrivateKey, chainId *math.HexOrDecimal256) (string, error) {
 	message := apitypes.TypedData{
 		Types:       *getTypes(),
 		PrimaryType: ORACLE_STRUCT_NAME,
-		Domain:      *getDomain(),
+		Domain:      *getDomain(chainId),
 		Message: map[string]any{
 			"matchId":   match.CanonicalID,
 			"homeScore": big.NewInt(int64(match.HomeTeamScore)),
@@ -90,7 +89,7 @@ func getTypes() *apitypes.Types {
 	return types
 }
 
-func getDomain() *apitypes.TypedDataDomain {
+func getDomain(chainId *math.HexOrDecimal256) *apitypes.TypedDataDomain {
 	if domain != nil {
 		return domain
 	}
@@ -98,24 +97,9 @@ func getDomain() *apitypes.TypedDataDomain {
 	domain = &apitypes.TypedDataDomain{
 		Name:              ORACLE_NAME,
 		Version:           ORACLE_VERSION,
-		ChainId:           getChainId(),
+		ChainId:           chainId,
 		VerifyingContract: os.Getenv("ORACLE_CONTRACT_ADDRESS"),
 	}
 
 	return domain
-}
-
-func getChainId() *math.HexOrDecimal256 {
-	if chainId != nil {
-		return chainId
-	}
-
-	chainIdStr := os.Getenv("CHAIN_ID")
-	chainIdBig, ok := new(big.Int).SetString(chainIdStr, 10)
-	if !ok {
-		panic(fmt.Errorf("Unable to parse chain ID: %s", chainIdStr))
-	}
-
-	chainId = (*math.HexOrDecimal256)(chainIdBig)
-	return chainId
 }

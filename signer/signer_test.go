@@ -64,25 +64,18 @@ func Test_we_log_an_error_when_chain_id_is_not_valid(t *testing.T) {
 	setup()
 	testutil.InitDatabase(t)
 	defer testutil.CloseDatabase()
+	logger := testutil.GetLogger()
 	insertSignableMatch()
 
 	os.Setenv("CHAIN_ID", "not_valid")
-
-	var panicValue interface{}
-	func() {
-		defer func() {
-			panicValue = recover()
-		}()
-		Run()
-	}()
-
-	if panicValue == nil {
-		t.Fatalf("Expected panic when chain ID is not valid, but no panic occurred")
+	exitCode := Run()
+	if exitCode != int(CHAIN_ID_NOT_VALID) {
+		t.Fatalf("Expected exit code %d, got %d", int(CHAIN_ID_NOT_VALID), exitCode)
 	}
 
-	panicStr := fmt.Sprintf("%v", panicValue)
-	if !strings.Contains(panicStr, "Unable to parse chain ID") {
-		t.Fatalf("Expected panic message to contain 'Unable to parse chain ID', got %s", panicStr)
+	outputStr := logger.String()
+	if !strings.Contains(outputStr, "Failed to get chain ID") {
+		t.Fatalf("Expected error message to contain 'Failed to get chain ID', got %s", outputStr)
 	}
 }
 

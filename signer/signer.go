@@ -54,8 +54,14 @@ func Run() int {
 		return int(PRIVATE_KEY_LOAD_FAIL)
 	}
 
+	chainId, err := services.LoadChainId()
+	if err != nil {
+		slog.Error("Failed to get chain ID", "error", err)
+		return int(CHAIN_ID_NOT_VALID)
+	}
+
 	for _, match := range matches {
-		signature, err := services.SignMatch(match, privKey)
+		signature, err := services.SignMatch(match, privKey, chainId)
 		if err != nil {
 			slog.Error("Failed to sign match", "error", err, "match", match)
 			continue
