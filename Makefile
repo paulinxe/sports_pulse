@@ -1,5 +1,5 @@
 run:
-	docker compose up
+	docker compose up postgres signer provider mock-api
 
 sh-provider:
 	docker compose exec provider sh
@@ -7,12 +7,11 @@ sh-provider:
 sh-signer:
 	docker compose exec signer sh
 
+sh-postgres:
+	docker compose exec postgres sh
+
 generate-private-key:
 	openssl ecparam -genkey -name secp256k1 -noout -out signer/private.key
 
-sh-postgres:
-	docker exec -it fan_token_pulse-postgres-1 /bin/sh
-
-# Slither static analysis commands
 slither:
 	docker compose run --rm slither

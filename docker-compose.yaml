@@ -6,7 +6,7 @@ services:
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=chiliz_chain_pulse
+      - POSTGRES_DB=sports_pulse
     ports:
       - "${POSTGRES_PORT}:5432"
     volumes:
@@ -38,7 +38,7 @@ services:
       - DB_PORT=5432
       - DB_USER=${POSTGRES_USER}
       - DB_PASSWORD=${POSTGRES_PASSWORD}
-      - DB_NAME=chiliz_chain_pulse
+      - DB_NAME=sports_pulse
       - DB_SSLMODE=disable
     depends_on:
       postgres:
@@ -65,7 +65,7 @@ services:
       - DB_PORT=5432
       - DB_USER=${POSTGRES_USER}
       - DB_PASSWORD=${POSTGRES_PASSWORD}
-      - DB_NAME=chiliz_chain_pulse
+      - DB_NAME=sports_pulse
       - DB_SSLMODE=disable
     depends_on:
       postgres:
@@ -91,7 +91,7 @@ services:
       - DB_PORT=5432
       - DB_USER=${POSTGRES_USER}
       - DB_PASSWORD=${POSTGRES_PASSWORD}
-      - DB_NAME=chiliz_chain_pulse
+      - DB_NAME=sports_pulse
       - DB_SSLMODE=disable
     ports:
       - "8080:8080"

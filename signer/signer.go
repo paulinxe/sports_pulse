@@ -39,15 +39,12 @@ func main() {
 }
 
 func Run() int {
-	// Check if database is already initialized (e.g., in tests)
-	// TODO: check if this is really needed
-	shouldClose := db.DB == nil
-	if db.DB == nil {
-		if err := db.Init(); err != nil {
-			slog.Error("Failed to initialize database", "error", err)
-			return int(DB_INIT_FAIL)
-		}
+	shouldClose, err := db.Init()
+	if err != nil {
+		slog.Error("Failed to initialize database", "error", err)
+		return int(DB_INIT_FAIL)
 	}
+
 	if shouldClose {
 		defer db.Close()
 	}
@@ -168,19 +165,19 @@ func signMatch(match entity.Match, types apitypes.Types, domain apitypes.TypedDa
 	}
 
 	domainMap := message.Domain.Map()
-	
+
 	// Compute struct hash (EIP-712)
 	structHash, err := message.HashStruct(message.PrimaryType, message.Message)
 	if err != nil {
 		return "", fmt.Errorf("failed to hash struct: %w", err)
 	}
-	
+
 	// Compute domain separator hash
 	domainSeparator, err := message.HashStruct("EIP712Domain", domainMap)
 	if err != nil {
 		return "", fmt.Errorf("failed to hash domain: %w", err)
 	}
-	
+
 	// Compute the final EIP-712 hash manually to match Solidity's MessageHashUtils.toTypedDataHash
 	// Solidity does: keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash))
 	finalHash := crypto.Keccak256Hash([]byte("\x19\x01"), domainSeparator, structHash)

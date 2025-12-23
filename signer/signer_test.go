@@ -33,6 +33,11 @@ func Test_no_errors_when_nothing_to_sign(t *testing.T) {
 	if len(matches) != 0 {
 		t.Fatalf("Expected 0 matches to sign, got %d", len(matches))
 	}
+
+	exitCode := Run()
+	if exitCode != 0 {
+		t.Fatalf("Expected exit code 0, got %d", exitCode)
+	}
 }
 
 func Test_we_log_an_error_when_private_key_is_not_valid(t *testing.T) {

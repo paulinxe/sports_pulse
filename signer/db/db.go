@@ -13,12 +13,17 @@ import (
 var DB *sql.DB
 
 // Init initializes the database connection pool
-func Init() error {
+func Init() (shouldClose bool, err error) {
+	if DB != nil {
+		// As the DB is already intialized, the caller should not close it.
+		return shouldClose, nil
+	}
+
     user := os.Getenv("DB_USER")
     password := os.Getenv("DB_PASSWORD")
     port := os.Getenv("DB_PORT")
     host := os.Getenv("DB_HOST")
-    dbName := "chiliz_chain_pulse"
+    dbName := "sports_pulse"
 
     // Build connection string
     connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
@@ -26,33 +31,39 @@ func Init() error {
 
     slog.Info("Connecting to PostgreSQL database", "host", host, "port", port, "dbname", dbName)
 
-    var err error
     DB, err = sql.Open("pgx", connStr)
     if err != nil {
-        return fmt.Errorf("failed to open database connection: %w", err)
+        return shouldClose, fmt.Errorf("failed to open database connection: %w", err)
     }
 
     // Configure connection pool settings
-    DB.SetMaxOpenConns(25)                  // Maximum number of open connections
-    DB.SetMaxIdleConns(5)                   // Maximum number of idle connections
-    DB.SetConnMaxLifetime(5 * time.Minute)  // Maximum connection lifetime
-    DB.SetConnMaxIdleTime(10 * time.Minute) // Maximum idle connection time
+    DB.SetMaxOpenConns(25)
+    DB.SetMaxIdleConns(5)  
+    DB.SetConnMaxLifetime(5 * time.Minute) 
+    DB.SetConnMaxIdleTime(10 * time.Minute)
 
     // Verify the connection
     if err := DB.Ping(); err != nil {
         DB.Close() // Close the failed connection
         DB = nil   // Set to nil so we know it's not usable
-        return fmt.Errorf("failed to ping database: %w", err)
+        return shouldClose, fmt.Errorf("failed to ping database: %w", err)
     }
 
     slog.Info("Successfully connected to PostgreSQL database")
-    return nil
+    shouldClose = true
+	return shouldClose, nil
 }
 
 // Close closes the database connection pool
 func Close() error {
-    if DB != nil {
-        return DB.Close()
-    }
-    return nil
+	if DB == nil {
+		return nil // DB is already closed
+	}
+
+	err := DB.Close()
+	if err == nil {
+		DB = nil
+	}
+
+	return err
 }

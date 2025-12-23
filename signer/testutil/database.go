@@ -9,7 +9,7 @@ import (
 )
 
 func InitDatabase(t *testing.T) {
-	err := db.Init()
+	_, err := db.Init()
 	if err != nil {
 		t.Fatalf("Failed to initialize database: %v", err)
 	}
