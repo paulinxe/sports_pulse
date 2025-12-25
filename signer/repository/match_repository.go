@@ -4,6 +4,7 @@ import (
     "fmt"
     "signer/db"
     "signer/entity"
+    "log/slog"
 )
 
 func FindMatchesToSign() ([]entity.Match, error) {
@@ -27,7 +28,7 @@ func FindMatchesToSign() ([]entity.Match, error) {
         var match entity.Match
         err := rows.Scan(&match.ID, &match.CanonicalID, &match.HomeTeamScore, &match.AwayTeamScore)
         if err != nil {
-            // TODO: log error
+            slog.Error("Failed to load match", "error", err)
             continue
         }
 

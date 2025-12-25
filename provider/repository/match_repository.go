@@ -163,7 +163,7 @@ func FindMatchesToReconcile(provider entity.Provider, start time.Time, end time.
         var match entity.ReconciliableMatch
         err := rows.Scan(&match.ID, &match.ProviderMatchID, &match.HomeTeamScore, &match.AwayTeamScore)
         if err != nil {
-            // TODO: log error
+            slog.Error("Failed to load match", "error", err)
             continue
         }
 

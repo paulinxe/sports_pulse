@@ -19,9 +19,7 @@ func InitDatabase(t *testing.T) {
 		t.Fatalf("Database connection is nil after initialization")
 	}
 
-	// Clean up before the test
-	// TODO: we need a better way to clean up the database.
-	_, _ = db.DB.Exec("DELETE FROM matches")
+	_, _ = db.DB.Exec("TRUNCATE TABLE matches")
 }
 
 func CloseDatabase() {

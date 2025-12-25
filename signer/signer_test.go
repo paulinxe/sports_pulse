@@ -122,9 +122,6 @@ func Test_we_sign_a_match(t *testing.T) {
 }
 
 func insertSignableMatch() {
-	// TODO: prettify this
-	db.DB.Exec("DELETE FROM matches")
-
 	// Match the Solidity test data:
 	// COMPETITION_ID = 1, HOME_TEAM_ID = 1, AWAY_TEAM_ID = 2, matchDate = 20251219
 	// This should generate: keccak256(abi.encodePacked(1, 1, 2, 20251219))
@@ -134,6 +131,8 @@ func insertSignableMatch() {
 	awayTeamScore := 2
 	homeTeamId := 1
 	awayTeamId := 2
+	competitionId := 1
+	provider := 1
 
 	db.DB.Exec(`INSERT INTO matches (
 			id, canonical_id, home_team_score, away_team_score, home_team_id, away_team_id, "start", "end", provider_match_id, competition_id, provider, status
@@ -147,8 +146,8 @@ func insertSignableMatch() {
 		matchDate,
 		matchDate.Add(2*time.Hour),
 		"1234567890",
-		"1", // competitionId
-		1,
+		competitionId,
+		provider,
 		entity.Finished,
 	)
 }

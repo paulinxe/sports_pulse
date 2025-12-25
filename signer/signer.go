@@ -9,12 +9,9 @@ import (
 	"signer/services"
 )
 
-// TODO: check if we can add more error codes.
-// Check also in provider service.
 type ErrorCodes int
-
 const (
-	_ ErrorCodes = iota
+	SUCCESS ErrorCodes = iota
 	DB_INIT_FAIL
 	DB_QUERY_FAIL
 	PRIVATE_KEY_LOAD_FAIL
@@ -45,10 +42,10 @@ func Run() int {
 	slog.Debug(fmt.Sprintf("Found %d matches to sign", len(matches)))
 
 	if len(matches) == 0 {
-		return 0
+		return int(SUCCESS)
 	}
 
-	privKey, err := services.LoadPrivateKey(os.Getenv("SIGNER_PRIVATE_KEY"))
+	privateKey, err := services.LoadPrivateKey(os.Getenv("SIGNER_PRIVATE_KEY"))
 	if err != nil {
 		slog.Error("Failed to load private key", "error", err)
 		return int(PRIVATE_KEY_LOAD_FAIL)
@@ -61,7 +58,7 @@ func Run() int {
 	}
 
 	for _, match := range matches {
-		signature, err := services.SignMatch(match, privKey, chainId)
+		signature, err := services.SignMatch(match, privateKey, chainId)
 		if err != nil {
 			slog.Error("Failed to sign match", "error", err, "match", match)
 			continue
@@ -74,5 +71,5 @@ func Run() int {
 		}
 	}
 
-	return 0
+	return int(SUCCESS)
 }
