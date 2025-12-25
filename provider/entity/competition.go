@@ -1,6 +1,6 @@
 package entity
 
-type Competition int
+type Competition uint32
 const (
     _ Competition = iota 
     LaLiga

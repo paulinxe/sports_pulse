@@ -56,7 +56,7 @@ func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
     }
 
     // We should still create the Athletic - Real Madrid match
-    if !testutil.MatchExists(t, "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8") {
+    if !testutil.MatchExists(t, "d0d6f75f29b5b1bb1fc3583476993ede1e43a5c07a57e8280159e0a93510c753") {
         t.Errorf("Athletic - Real Madrid match should exist, but it does not")
     }
 }
@@ -80,7 +80,7 @@ func Test_we_skip_the_match_if_away_team_is_not_mapped(t *testing.T) {
     }
 
     // We should still create the Athletic - Real Madrid match
-    if !testutil.MatchExists(t, "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8") {
+    if !testutil.MatchExists(t, "d0d6f75f29b5b1bb1fc3583476993ede1e43a5c07a57e8280159e0a93510c753") {
         t.Errorf("Athletic - Real Madrid match should exist, but it does not")
     }
 }
@@ -117,7 +117,7 @@ func Test_we_insert_a_match_when_no_matches_exist_for_competition(t *testing.T) 
     expectedMatchStart, _ := time.Parse("2006-01-02 15:04:05", "2025-12-03 18:00:00")
     expectedMatchEnd, _ := time.Parse("2006-01-02 15:04:05", "2025-12-03 20:00:00")
 
-    canonicalID := "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8"
+    canonicalID := "d0d6f75f29b5b1bb1fc3583476993ede1e43a5c07a57e8280159e0a93510c753"
     actualMatch, err := repository.FindByCanonicalID(canonicalID, entity.FootballOrg)
     if err != nil {
         t.Fatalf("Expected no error but got: %v", err)

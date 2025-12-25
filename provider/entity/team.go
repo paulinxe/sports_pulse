@@ -1,6 +1,6 @@
 package entity
 
-type Team int
+type Team uint32
 const (
     _ Team = iota
     Alaves

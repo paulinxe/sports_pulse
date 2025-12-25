@@ -9,6 +9,16 @@ import (
 	"strings"
 )
 
+type ErrorCodes int
+const (
+	SUCCESS ErrorCodes = iota
+	BAD_ARGUMENTS
+	UNKNOWN_PROVIDER
+	UNKNOWN_COMPETITION
+	DB_INIT_ERROR
+	PROVIDER_ERROR
+)
+
 func main() {
 	os.Exit(run(os.Args))
 }
@@ -22,7 +32,7 @@ func run(args []string) int {
 
 	if len(args) != 3 {
 		slog.Error("Usage: <provider> <competition>")
-		return 1
+		return int(BAD_ARGUMENTS)
 	}
 
 	competition := entity.Competition(0)
@@ -31,12 +41,12 @@ func run(args []string) int {
 		competition = entity.LaLiga
 	default:
 		slog.Error("Unknown competition", "competition", args[2])
-		return 1
+		return int(UNKNOWN_COMPETITION)
 	}
 
 	if err := db.Init(); err != nil {
 		slog.Error("Failed to initialize database", "error", err)
-		return 1
+		return int(DB_INIT_ERROR)
 	}
 	defer db.Close()
 
@@ -46,13 +56,13 @@ func run(args []string) int {
 	case "football_org":
 		if err := football_org.Sync(competition); err != nil {
 			slog.Error("Failed to sync Football Data API", "error", err)
-			return 1
+			return int(PROVIDER_ERROR)
 		}
 	default:
 		slog.Error("Unknown provider", "provider", provider)
-		return 1
+		return int(UNKNOWN_PROVIDER)
 	}
 
 	slog.Info("Operation completed successfully", "provider", provider)
-	return 0
+	return int(SUCCESS)
 }
