@@ -16,25 +16,26 @@ contract TeamRegistry is Ownable {
 
     constructor(string[] memory teamNames) Ownable(msg.sender) {
         revertIfTooManyTeams(teamNames.length);
-
-        for (uint32 i = 0; i < teamNames.length; i++) {
-            revertIfEmptyString(teamNames[i]);
-
-            teamIdCounter++;
-            teams[teamIdCounter] = teamNames[i];
-        }
+        add(teamNames);
     }
 
     function addTeams(string[] memory teamNames) external onlyOwner {
         revertIfTooManyTeams(teamNames.length);
+        add(teamNames);
+    }
+
+    function add(string[] memory teamNames) private {
+        uint32 counter = teamIdCounter;
 
         for (uint32 i = 0; i < teamNames.length; i++) {
             revertIfEmptyString(teamNames[i]);
 
-            teamIdCounter++;
-            teams[teamIdCounter] = teamNames[i];
-            emit TeamAdded(teamIdCounter, teamNames[i]);
+            counter++;
+            teams[counter] = teamNames[i];
+            emit TeamAdded(counter, teamNames[i]);
         }
+
+        teamIdCounter = counter;
     }
 
     function revertIfTooManyTeams(uint256 numberOfTeams) private pure {

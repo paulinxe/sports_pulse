@@ -19,12 +19,17 @@ contract CompetitionRegistry is Ownable {
             revert TooManyCompetitions(uint8(competitionNames.length));
         }
 
+        uint32 counter = competitionIdCounter;
+
         for (uint32 i = 0; i < competitionNames.length; i++) {
             revertIfEmptyString(competitionNames[i]);
-
-            competitionIdCounter++;
-            competitions[competitionIdCounter] = competitionNames[i];
+            
+            counter++;
+            competitions[counter] = competitionNames[i];
+            emit CompetitionAdded(counter, competitionNames[i]);
         }
+
+        competitionIdCounter = counter;
     }
 
     function addCompetition(string memory competitionName) external onlyOwner {
