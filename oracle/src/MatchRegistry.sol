@@ -57,7 +57,7 @@ contract MatchRegistry is EIP712 {
 
     // The matchDate must be formatted as YYYYMMDD UTC time
     function submitMatch(
-        bytes calldata _matchId,
+        bytes32 matchId,
         uint32 competitionId,
         uint32 homeTeamId,
         uint32 awayTeamId,
@@ -70,7 +70,6 @@ contract MatchRegistry is EIP712 {
             revert InvalidTeams(homeTeamId, awayTeamId);
         }
 
-        bytes32 matchId = bytes32(_matchId);
         if (keccak256(abi.encodePacked(competitionId, homeTeamId, awayTeamId, matchDate)) != matchId) {
             revert InvalidMatchId(matchId);
         }

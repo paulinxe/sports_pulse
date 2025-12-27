@@ -44,12 +44,12 @@ contract MatchRegistryTest is Test {
 
     function test_submit_reverts_when_invalid_teams() public {
         vm.expectRevert(abi.encodeWithSelector(MatchRegistry.InvalidTeams.selector, HOME_TEAM_ID, HOME_TEAM_ID));
-        matchRegistry.submitMatch(abi.encodePacked(""), COMPETITION_ID, HOME_TEAM_ID, HOME_TEAM_ID, 1, 1, 1, "");
+        matchRegistry.submitMatch(bytes32(0), COMPETITION_ID, HOME_TEAM_ID, HOME_TEAM_ID, 1, 1, 1, "");
     }
 
     function test_submit_reverts_when_invalid_match_id() public {
-        bytes memory matchId = abi.encodePacked("invalid_match_id");
-        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.InvalidMatchId.selector, bytes32(matchId)));
+        bytes32 matchId = keccak256(abi.encodePacked("invalid_match_id"));
+        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.InvalidMatchId.selector, matchId));
         matchRegistry.submitMatch(matchId, COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, 1, 1, 1, "");
     }
 
@@ -119,17 +119,17 @@ contract MatchRegistryTest is Test {
         // The given signature comes from the Signer go test: Test_we_sign_a_match
         bytes memory signature = hex"4f0fa54d6dd9629d5f1d6b0f17236f4f9f009b72be6e77bdc56a4d0d891c0c076f6c36472f7b667d5f63895424a19a19bc56f264e49699c58bb07ec0868440081c";
         uint32 matchDate = 20251219;
-        bytes memory matchId = generateMatchId(matchDate);
+        bytes32 matchId = generateMatchId(matchDate);
         uint8 homeTeamScore = 1;
         uint8 awayTeamScore = 2;
         
         vm.expectEmit(true, true, true, true);
-        emit MatchRegistry.MatchRegistered(bytes32(matchId), homeTeamScore, awayTeamScore);
+        emit MatchRegistry.MatchRegistered(matchId, homeTeamScore, awayTeamScore);
         
         matchRegistry.submitMatch(matchId, COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, homeTeamScore, awayTeamScore, matchDate, signature);
 
-        (bytes32 storedMatchId, uint8 storedHomeTeamScore, uint8 storedAwayTeamScore) = matchRegistry.matches(bytes32(matchId));
-        assertEq(storedMatchId, bytes32(matchId));
+        (bytes32 storedMatchId, uint8 storedHomeTeamScore, uint8 storedAwayTeamScore) = matchRegistry.matches(matchId);
+        assertEq(storedMatchId, matchId);
         assertEq(storedHomeTeamScore, homeTeamScore);
         assertEq(storedAwayTeamScore, awayTeamScore);
     }
@@ -138,25 +138,25 @@ contract MatchRegistryTest is Test {
         // The given signature comes from the Signer go test: Test_we_sign_a_match
         bytes memory signature = hex"4f0fa54d6dd9629d5f1d6b0f17236f4f9f009b72be6e77bdc56a4d0d891c0c076f6c36472f7b667d5f63895424a19a19bc56f264e49699c58bb07ec0868440081c";
         uint32 matchDate = 20251219;
-        bytes memory matchId = generateMatchId(matchDate);
+        bytes32 matchId = generateMatchId(matchDate);
         uint8 homeTeamScore = 1;
         uint8 awayTeamScore = 2;
         
         matchRegistry.submitMatch(matchId, COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, homeTeamScore, awayTeamScore, matchDate, signature);
 
-        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.MatchAlreadySubmitted.selector, bytes32(matchId)));
+        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.MatchAlreadySubmitted.selector, matchId));
         matchRegistry.submitMatch(matchId, COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, homeTeamScore, awayTeamScore, matchDate, signature);
     }
 
-    function generateMatchId(uint32 matchDate) private pure returns (bytes memory) {
-        return abi.encodePacked(keccak256(abi.encodePacked(COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, matchDate)));
+    function generateMatchId(uint32 matchDate) private pure returns (bytes32) {
+        return keccak256(abi.encodePacked(COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, matchDate));
     }
 
-    function generateMatchId(uint32 matchDate, uint32 competitionId) private pure returns (bytes memory) {
-        return abi.encodePacked(keccak256(abi.encodePacked(competitionId, HOME_TEAM_ID, AWAY_TEAM_ID, matchDate)));
+    function generateMatchId(uint32 matchDate, uint32 competitionId) private pure returns (bytes32) {
+        return keccak256(abi.encodePacked(competitionId, HOME_TEAM_ID, AWAY_TEAM_ID, matchDate));
     }
 
-    function generateMatchId(uint32 matchDate, uint32 homeTeamId, uint32 awayTeamId) private pure returns (bytes memory) {
-        return abi.encodePacked(keccak256(abi.encodePacked(COMPETITION_ID, homeTeamId, awayTeamId, matchDate)));
+    function generateMatchId(uint32 matchDate, uint32 homeTeamId, uint32 awayTeamId) private pure returns (bytes32) {
+        return keccak256(abi.encodePacked(COMPETITION_ID, homeTeamId, awayTeamId, matchDate));
     }
 }
