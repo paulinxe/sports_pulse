@@ -38,6 +38,7 @@ contract MatchRegistry is EIP712 {
     error InvalidMatchDate(uint32 matchDate);
     error InvalidScores(uint8 homeTeamScore, uint8 awayTeamScore);
     error InvalidSignature(bytes signature);
+    error MatchAlreadySubmitted(bytes32 matchId);
 
     constructor(
         address _authorizedSigner,
@@ -88,6 +89,10 @@ contract MatchRegistry is EIP712 {
 
         if (homeTeamScore > MAX_SCORE || awayTeamScore > MAX_SCORE) {
             revert InvalidScores(homeTeamScore, awayTeamScore);
+        }
+
+        if (matches[matchId].matchId != bytes32(0)) {
+            revert MatchAlreadySubmitted(matchId);
         }
 
         validateSignature(matchId, homeTeamScore, awayTeamScore, signature);

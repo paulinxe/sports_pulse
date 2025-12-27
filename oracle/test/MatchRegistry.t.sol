@@ -121,6 +121,20 @@ contract MatchRegistryTest is Test {
         assertEq(storedAwayTeamScore, awayTeamScore);
     }
 
+    function test_submit_reverts_when_match_already_submitted() public {
+        // The given signature comes from the Signer go test: Test_we_sign_a_match
+        bytes memory signature = hex"4f0fa54d6dd9629d5f1d6b0f17236f4f9f009b72be6e77bdc56a4d0d891c0c076f6c36472f7b667d5f63895424a19a19bc56f264e49699c58bb07ec0868440081c";
+        uint32 matchDate = 20251219;
+        bytes memory matchId = generateMatchId(matchDate);
+        uint8 homeTeamScore = 1;
+        uint8 awayTeamScore = 2;
+        
+        matchRegistry.submitMatch(matchId, COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, homeTeamScore, awayTeamScore, matchDate, signature);
+
+        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.MatchAlreadySubmitted.selector, bytes32(matchId)));
+        matchRegistry.submitMatch(matchId, COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, homeTeamScore, awayTeamScore, matchDate, signature);
+    }
+
     function generateMatchId(uint32 matchDate) private pure returns (bytes memory) {
         return abi.encodePacked(keccak256(abi.encodePacked(COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, matchDate)));
     }
