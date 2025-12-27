@@ -8,6 +8,7 @@ import (
 	"provider/football_org/api"
 	"provider/repository"
 	"time"
+	"errors"
 )
 
 func SaveMatches(footballOrgMatches []api.FootballOrgMatch, competition entity.Competition, teamMapping map[uint]entity.Team) error {
@@ -21,10 +22,6 @@ func SaveMatches(footballOrgMatches []api.FootballOrgMatch, competition entity.C
 		match, err := convertToEntityMatch(footballOrgMatch, competition, teamMapping)
 		if err != nil {
 			continue
-		}
-
-		if match == nil {
-			continue // Already logged in convertToEntityMatch
 		}
 
 		// As a match may be rescheduled, we need to delete the existing match in case it already exists.
@@ -50,7 +47,7 @@ func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition ent
 		slog.Error("Failed to map home team ID, skipping match",
 			"external_team_id", footballOrgMatch.HomeTeam.ID,
 			"match_id", footballOrgMatch.ID)
-		return nil, nil
+		return nil, errors.New("")
 	}
 
 	awayTeamID, ok := teamMapping[footballOrgMatch.AwayTeam.ID]
@@ -58,13 +55,13 @@ func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition ent
 		slog.Error("Failed to map away team ID, skipping match",
 			"external_team_id", footballOrgMatch.AwayTeam.ID,
 			"match_id", footballOrgMatch.ID)
-		return nil, nil
+		return nil, errors.New("")
 	}
 
 	startTime, err := time.Parse(time.RFC3339, footballOrgMatch.UTCDate)
 	if err != nil {
 		slog.Error("Failed to parse match date", "error", err, "match_id", footballOrgMatch.ID)
-		return nil, err
+		return nil, errors.New("")
 	}
 
 	status := entity.Pending
