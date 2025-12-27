@@ -29,6 +29,19 @@ contract MatchRegistryTest is Test {
         matchRegistry = new MatchRegistry(verifiedSigner, competitionRegistry, teamRegistry);
     }
 
+    function test_tx_reverts_when_invalid_authorized_signer() public {
+        string[] memory competitionNames = new string[](1);
+        competitionNames[0] = "League";
+        CompetitionRegistry competitionRegistry = new CompetitionRegistry(competitionNames);
+
+        string[] memory teamNames = new string[](1);
+        teamNames[0] = "Team1";
+        TeamRegistry teamRegistry = new TeamRegistry(teamNames);
+
+        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.InvalidAuthorizedSigner.selector));
+        new MatchRegistry(address(0), competitionRegistry, teamRegistry);
+    }
+
     function test_submit_reverts_when_invalid_teams() public {
         vm.expectRevert(abi.encodeWithSelector(MatchRegistry.InvalidTeams.selector, HOME_TEAM_ID, HOME_TEAM_ID));
         matchRegistry.submitMatch(abi.encodePacked(""), COMPETITION_ID, HOME_TEAM_ID, HOME_TEAM_ID, 1, 1, 1, "");

@@ -39,12 +39,17 @@ contract MatchRegistry is EIP712 {
     error InvalidScores(uint8 homeTeamScore, uint8 awayTeamScore);
     error InvalidSignature(bytes signature);
     error MatchAlreadySubmitted(bytes32 matchId);
+    error InvalidAuthorizedSigner();
 
     constructor(
         address _authorizedSigner,
         CompetitionRegistry _competitionRegistry,
         TeamRegistry _teamRegistry
     ) EIP712("SportsPulse", "1") {
+        if (_authorizedSigner == address(0)) {
+            revert InvalidAuthorizedSigner();
+        }
+
         authorizedSigner = _authorizedSigner;
         competitionRegistry = _competitionRegistry;
         teamRegistry = _teamRegistry;
