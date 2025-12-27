@@ -24,7 +24,9 @@ contract TeamRegistryTest is Test {
         address notOwner = makeAddr("not_owner");
         vm.prank(notOwner);
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, notOwner));
-        teamRegistry.addTeam("Albion");
+        string[] memory teamNames = new string[](1);
+        teamNames[0] = "Albion";
+        teamRegistry.addTeams(teamNames);
     }
 
     function test_tx_reverts_if_too_many_teams_on_creation() public {
@@ -39,13 +41,24 @@ contract TeamRegistryTest is Test {
 
     function test_tx_reverts_if_team_name_is_empty() public {
         vm.expectRevert(abi.encodeWithSelector(TeamRegistry.InvalidTeamName.selector));
-        teamRegistry.addTeam("");
+        string[] memory teamNames = new string[](1);
+        teamNames[0] = "";
+        teamRegistry.addTeams(teamNames);
     }
     
     function test_we_can_add_a_team() public {
+        string[] memory teamNames = new string[](2);
+        teamNames[0] = "Boca Juniors";
+        teamNames[1] = "River Plate";
+
         vm.expectEmit(true, true, true, true);
         emit TeamRegistry.TeamAdded(2, "Boca Juniors");
-        teamRegistry.addTeam("Boca Juniors");
+        vm.expectEmit(true, true, true, true);
+        emit TeamRegistry.TeamAdded(3, "River Plate");
+
+        teamRegistry.addTeams(teamNames);
+
         assertEq(teamRegistry.teams(2), "Boca Juniors");
+        assertEq(teamRegistry.teams(3), "River Plate");
     }
 }

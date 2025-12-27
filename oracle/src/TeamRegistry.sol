@@ -11,13 +11,11 @@ contract TeamRegistry is Ownable {
 
     event TeamAdded(uint32 indexed teamId, string teamName);
 
-    error TooManyTeams(uint8 numberOfTeams);
+    error TooManyTeams(uint256 numberOfTeams);
     error InvalidTeamName();
 
     constructor(string[] memory teamNames) Ownable(msg.sender) {
-        if (teamNames.length > MAX_TEAMS_PER_BATCH) {
-            revert TooManyTeams(uint8(teamNames.length));
-        }
+        revertIfTooManyTeams(teamNames.length);
 
         for (uint32 i = 0; i < teamNames.length; i++) {
             revertIfEmptyString(teamNames[i]);
@@ -27,13 +25,22 @@ contract TeamRegistry is Ownable {
         }
     }
 
-    function addTeam(string memory teamName) external onlyOwner {
-        revertIfEmptyString(teamName);
+    function addTeams(string[] memory teamNames) external onlyOwner {
+        revertIfTooManyTeams(teamNames.length);
 
-        // TODO: change this to allow a batch of teams to be added
-        teamIdCounter++;
-        teams[teamIdCounter] = teamName;
-        emit TeamAdded(teamIdCounter, teamName);
+        for (uint32 i = 0; i < teamNames.length; i++) {
+            revertIfEmptyString(teamNames[i]);
+
+            teamIdCounter++;
+            teams[teamIdCounter] = teamNames[i];
+            emit TeamAdded(teamIdCounter, teamNames[i]);
+        }
+    }
+
+    function revertIfTooManyTeams(uint256 numberOfTeams) private pure {
+        if (numberOfTeams > MAX_TEAMS_PER_BATCH) {
+            revert TooManyTeams(numberOfTeams);
+        }
     }
 
     function revertIfEmptyString(string memory str) private pure {
