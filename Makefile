@@ -7,6 +7,9 @@ sh-provider:
 sh-signer:
 	docker compose exec signer sh
 
+sh-relayer:
+	docker compose exec relayer sh
+
 sh-postgres:
 	docker compose exec postgres sh
 
