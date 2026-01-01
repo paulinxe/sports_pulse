@@ -148,6 +148,29 @@ contract MatchRegistryTest is Test {
         matchRegistry.submitMatch(matchId, COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, homeTeamScore, awayTeamScore, matchDate, signature);
     }
 
+    function test_we_can_rotate_the_signer() public {
+        address newSigner = makeAddr("new_signer");
+        vm.expectEmit(true, true, true, true);
+        emit MatchRegistry.SignerRotated(newSigner);
+
+        matchRegistry.rotateSigner(newSigner);
+
+        assertEq(matchRegistry.authorizedSigner(), newSigner);
+    }
+
+    function test_tx_reverts_when_rotating_to_signer_already_used() public {
+        address newSigner = makeAddr("new_signer");
+        matchRegistry.rotateSigner(newSigner);
+        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.SignerAlreadyUsed.selector, newSigner));
+
+        matchRegistry.rotateSigner(newSigner);
+    }
+
+    function test_tx_reverts_when_rotating_to_zero_address() public {
+        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.InvalidAuthorizedSigner.selector));
+        matchRegistry.rotateSigner(address(0));
+    }
+
     function generateMatchId(uint32 matchDate) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, matchDate));
     }

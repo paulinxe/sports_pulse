@@ -3,11 +3,12 @@ pragma solidity 0.8.30;
 
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {CompetitionRegistry} from "./CompetitionRegistry.sol";
 import {TeamRegistry} from "./TeamRegistry.sol";
 import {console} from "forge-std/console.sol";
 
-contract MatchRegistry is EIP712 {
+contract MatchRegistry is EIP712, Ownable {
     using ECDSA for bytes32;
 
     // The match data.
@@ -19,7 +20,7 @@ contract MatchRegistry is EIP712 {
     }
 
     // The address of the verified signer who signs matches
-    address public immutable authorizedSigner;
+    address public authorizedSigner;
     // We need the address of each Registry so we can query to validate the data
     CompetitionRegistry public immutable competitionRegistry;
     TeamRegistry public immutable teamRegistry;
@@ -27,8 +28,10 @@ contract MatchRegistry is EIP712 {
     uint8 constant MAX_SCORE = 80;
     bytes32 public constant MATCH_TYPEHASH = keccak256("Match(bytes32 matchId,uint8 homeScore,uint8 awayScore)");
     mapping(bytes32 => Match) public matches;
+    mapping(address => bool) private signersHistory;
 
     event MatchRegistered(bytes32 indexed matchId, uint8 homeTeamScore, uint8 awayTeamScore);
+    event SignerRotated(address indexed newSigner);
 
     error InvalidTeams(uint32 homeTeamId, uint32 awayTeamId);
     error InvalidMatchId(bytes32 matchId);
@@ -40,12 +43,13 @@ contract MatchRegistry is EIP712 {
     error InvalidSignature(bytes signature);
     error MatchAlreadySubmitted(bytes32 matchId);
     error InvalidAuthorizedSigner();
+    error SignerAlreadyUsed(address signer);
 
     constructor(
         address _authorizedSigner,
         CompetitionRegistry _competitionRegistry,
         TeamRegistry _teamRegistry
-    ) EIP712("SportsPulse", "1") {
+    ) EIP712("SportsPulse", "1") Ownable(msg.sender) {
         if (_authorizedSigner == address(0)) {
             revert InvalidAuthorizedSigner();
         }
@@ -53,6 +57,20 @@ contract MatchRegistry is EIP712 {
         authorizedSigner = _authorizedSigner;
         competitionRegistry = _competitionRegistry;
         teamRegistry = _teamRegistry;
+    }
+
+    function rotateSigner(address newSigner) external onlyOwner {
+        if (newSigner == address(0)) {
+            revert InvalidAuthorizedSigner();
+        }
+
+        if (signersHistory[newSigner]) {
+            revert SignerAlreadyUsed(newSigner);
+        }
+
+        signersHistory[newSigner] = true;
+        authorizedSigner = newSigner;
+        emit SignerRotated(newSigner);
     }
 
     // The matchDate must be formatted as YYYYMMDD UTC time
