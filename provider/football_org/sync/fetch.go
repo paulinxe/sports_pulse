@@ -2,6 +2,7 @@ package sync
 
 import (
 	"fmt"
+	"log/slog"
 	"net/url"
 	"provider/football_org/api"
 	"time"
@@ -17,6 +18,7 @@ func FetchAPI(competitionID uint, mostRecentTimestamp *time.Time) (api.MatchesRe
 
 	matchesResponse, err := api.GetList(apiPath)
 	if err != nil {
+		slog.Error(err.Error())
 		return api.MatchesResponse{}, err
 	}
 

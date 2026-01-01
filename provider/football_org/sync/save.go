@@ -8,19 +8,19 @@ import (
 	"provider/football_org/api"
 	"provider/repository"
 	"time"
-	"errors"
 )
 
 func SaveMatches(footballOrgMatches []api.FootballOrgMatch, competition entity.Competition, teamMapping map[uint]entity.Team) error {
 	tx, err := db.DB.Begin()
 	if err != nil {
-		return fmt.Errorf("failed to begin transaction: %v", err)
+		return fmt.Errorf("Failed to begin transaction: %v", err)
 	}
 	defer tx.Rollback()
 
 	for _, footballOrgMatch := range footballOrgMatches {
 		match, err := convertToEntityMatch(footballOrgMatch, competition, teamMapping)
 		if err != nil {
+			slog.Error(err.Error())
 			continue
 		}
 
@@ -30,12 +30,12 @@ func SaveMatches(footballOrgMatches []api.FootballOrgMatch, competition entity.C
 		}
 
 		if err := repository.Save(tx, *match); err != nil {
-			return fmt.Errorf("failed to insert match: %v", err)
+			return fmt.Errorf("Failed to insert match: %v", err)
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("failed to commit transaction: %v", err)
+		return fmt.Errorf("Failed to commit transaction: %v", err)
 	}
 
 	return nil
@@ -44,24 +44,26 @@ func SaveMatches(footballOrgMatches []api.FootballOrgMatch, competition entity.C
 func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition entity.Competition, teamMapping map[uint]entity.Team) (*entity.Match, error) {
 	homeTeamID, ok := teamMapping[footballOrgMatch.HomeTeam.ID]
 	if !ok {
-		slog.Error("Failed to map home team ID, skipping match",
-			"external_team_id", footballOrgMatch.HomeTeam.ID,
-			"match_id", footballOrgMatch.ID)
-		return nil, errors.New("")
+		return nil, fmt.Errorf("Failed to map home team ID (%d), skipping match (%d)",
+			footballOrgMatch.HomeTeam.ID,
+			footballOrgMatch.ID,
+		)
 	}
 
 	awayTeamID, ok := teamMapping[footballOrgMatch.AwayTeam.ID]
 	if !ok {
-		slog.Error("Failed to map away team ID, skipping match",
-			"external_team_id", footballOrgMatch.AwayTeam.ID,
-			"match_id", footballOrgMatch.ID)
-		return nil, errors.New("")
+		return nil, fmt.Errorf("Failed to map away team ID (%d), skipping match (%d)",
+			footballOrgMatch.AwayTeam.ID,
+			footballOrgMatch.ID,
+		)
 	}
 
 	startTime, err := time.Parse(time.RFC3339, footballOrgMatch.UTCDate)
 	if err != nil {
-		slog.Error("Failed to parse match date", "error", err, "match_id", footballOrgMatch.ID)
-		return nil, errors.New("")
+		return nil, fmt.Errorf("Failed to parse match date (%s), skipping match (%d)",
+			footballOrgMatch.UTCDate,
+			footballOrgMatch.ID,
+		)
 	}
 
 	status := entity.Pending

@@ -30,6 +30,7 @@ func Reconcile() error {
 
 		apiResponse, err := api.GetOne(fmt.Sprintf("/matches/%s", match.ProviderMatchID))
 		if err != nil {
+			slog.Error(err.Error())
 			continue
 		}
 

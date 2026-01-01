@@ -19,7 +19,6 @@ func Sync(competition entity.Competition) error {
 
 	mostRecentTimestamp, err := repository.FindMostRecentTimestamp(competition, entity.FootballOrg)
 	if err != nil {
-		slog.Error("Failed to find most recent timestamp", "error", err)
 		return fmt.Errorf("failed to find most recent timestamp: %v", err)
 	}
 

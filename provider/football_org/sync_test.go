@@ -51,8 +51,8 @@ func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
 
     outputStr := logger.String()
 
-    if !strings.Contains(outputStr, "Failed to map home team ID, skipping match") {
-        t.Errorf("Expected 'Failed to map home team ID, skipping match' in output, but got: %s", outputStr)
+    if !strings.Contains(outputStr, "Failed to map home team ID (123456), skipping match (654321)") {
+        t.Errorf("Expected 'Failed to map home team ID (123456), skipping match (654321)' in output, but got: %s", outputStr)
     }
 
     // We should still create the Athletic - Real Madrid match
@@ -75,8 +75,8 @@ func Test_we_skip_the_match_if_away_team_is_not_mapped(t *testing.T) {
     }
 
     outputStr := logger.String()
-    if !strings.Contains(outputStr, "Failed to map away team ID, skipping match") {
-        t.Errorf("Expected 'Failed to map away team ID, skipping match' in output, but got: %s", outputStr)
+    if !strings.Contains(outputStr, "Failed to map away team ID (123456), skipping match (654321)") {
+        t.Errorf("Expected 'Failed to map away team ID (123456), skipping match (654321)' in output, but got: %s", outputStr)
     }
 
     // We should still create the Athletic - Real Madrid match
