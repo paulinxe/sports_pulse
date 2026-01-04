@@ -1,7 +1,7 @@
 use tokio_postgres::NoTls;
 use std::error::Error;
 
-mod test_blk_interaction;
+mod broadcast_result;
 
 enum ErrorCodes {
     DatabaseConnectionError = 1,
@@ -76,7 +76,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         println!("id: {}", id);
     }
 
-    test_blk_interaction::test_connection().await?;
+    broadcast_result::broadcast().await?;
 
     Ok(())
 }
