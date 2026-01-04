@@ -4,4 +4,7 @@ out = "out"
 libs = ["lib"]
 solc = "0.8.30"
 
+# Allow reading files from script/data directory for deployment scripts
+fs_permissions = [{ access = "read", path = "./script/data" }]
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
