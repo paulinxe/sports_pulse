@@ -1,4 +1,7 @@
-use postgres::{Client, NoTls};
+use tokio_postgres::NoTls;
+use std::error::Error;
+
+mod test_blk_interaction;
 
 enum ErrorCodes {
     DatabaseConnectionError = 1,
@@ -8,7 +11,8 @@ enum ErrorCodes {
 
 const SIGNED_MATCH_STATUS: i32 = 4;
 
-fn main() {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
     let db_host = std::env::var("DB_HOST").unwrap_or_else(|_| {
         eprintln!("Error: DB_HOST environment variable is not set");
         std::process::exit(ErrorCodes::MissingEnvironmentVariable as i32);
@@ -38,24 +42,41 @@ fn main() {
         "postgres://{}:{}@{}:{}/{}",
         db_user, db_password, db_host, db_port, db_name
     );
-    let mut client = Client::connect(&connection_string, NoTls).unwrap_or_else(|e| {
-        eprintln!("Error connecting to database: {}", e);
-        std::process::exit(ErrorCodes::DatabaseConnectionError as i32);
+    
+    let (client, connection) = tokio_postgres::connect(&connection_string, NoTls)
+        .await
+        .map_err(|e| {
+            eprintln!("Error connecting to database: {}", e);
+            std::process::exit(ErrorCodes::DatabaseConnectionError as i32);
+        })?;
+
+    // Spawn the connection in a new task so the main thread can continue
+    // as this connection.await blocks the thread forever.
+    tokio::spawn(async move {
+        if let Err(e) = connection.await {
+            // TODO: most probably here we should panic?
+            eprintln!("Connection error: {}", e);
+        }
     });
 
     let rows = client
         .query(
-            "SELECT id FROM matches WHERE status = $1",
+            "SELECT canonical_id, home_team_id, away_team_id, home_team_score, away_team_score, signature FROM matches WHERE status = $1",
             &[&SIGNED_MATCH_STATUS],
         )
-        .unwrap_or_else(|e| {
+        .await
+        .map_err(|e| {
             eprintln!("Error executing query: {}", e);
             std::process::exit(ErrorCodes::QueryExecutionError as i32);
-        });
+        })?;
 
     println!("Results:");
     for row in rows {
         let id: String = row.get("id");
         println!("id: {}", id);
     }
+
+    test_blk_interaction::test_connection().await?;
+
+    Ok(())
 }

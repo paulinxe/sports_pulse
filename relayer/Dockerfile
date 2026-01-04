@@ -14,8 +14,8 @@ RUN rustup component add rustfmt
 # Install cargo-watch for hot reloading and build dependencies
 RUN cargo install cargo-watch
 
-# Install build tools and utilities
-RUN apk add --no-cache git gcc musl-dev make bash libstdc++ libc6-compat
+# Install build tools and utilities (including OpenSSL for postgres and alloy)
+RUN apk add --no-cache git gcc musl-dev make bash libstdc++ libc6-compat openssl-dev pkgconf
 
 WORKDIR /app
 
