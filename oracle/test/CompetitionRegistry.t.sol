@@ -30,7 +30,7 @@ contract CompetitionRegistryTest is Test {
     function test_tx_reverts_if_too_many_competitions_on_creation() public {
         string[] memory competitionNames = new string[](201);
         for (uint8 i = 0; i < 201; i++) {
-            competitionNames[i] = string(abi.encodePacked("Competition ", Strings.toString(i)));
+            competitionNames[i] = string.concat("Competition ", Strings.toString(i));
         }
 
         vm.expectRevert(abi.encodeWithSelector(CompetitionRegistry.TooManyCompetitions.selector, 201));

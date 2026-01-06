@@ -32,7 +32,7 @@ contract TeamRegistryTest is Test {
     function test_tx_reverts_if_too_many_teams_on_creation() public {
         string[] memory teamNames = new string[](201);
         for (uint8 i = 0; i < 201; i++) {
-            teamNames[i] = string(abi.encodePacked("Team ", Strings.toString(i)));
+            teamNames[i] = string.concat("Team ", Strings.toString(i));
         }
 
         vm.expectRevert(abi.encodeWithSelector(TeamRegistry.TooManyTeams.selector, 201));
