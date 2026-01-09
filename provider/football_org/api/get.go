@@ -45,7 +45,7 @@ func get(url string) ([]byte, error) {
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create request: %v", err)
+		return nil, fmt.Errorf("Failed to create request: %w", err)
 	}
 
 	req.Header.Set("X-Auth-Token", apiKey)
@@ -53,13 +53,13 @@ func get(url string) ([]byte, error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to get matches: %v", err)
+		return nil, fmt.Errorf("Failed to get matches: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read response body: %v", err)
+		return nil, fmt.Errorf("Failed to read response body: %w", err)
 	}
 
 	if resp.StatusCode >= 400 {
@@ -71,7 +71,7 @@ func get(url string) ([]byte, error) {
 
 func parseResponse(body []byte, parseTo interface{}) error {
 	if err := json.Unmarshal(body, parseTo); err != nil {
-		return fmt.Errorf("Failed to parse JSON response: %v", err)
+		return fmt.Errorf("Failed to parse JSON response: %w", err)
 	}
 
 	return nil

@@ -13,7 +13,7 @@ import (
 func SaveMatches(footballOrgMatches []api.FootballOrgMatch, competition entity.Competition, teamMapping map[uint]entity.Team) error {
 	tx, err := db.DB.Begin()
 	if err != nil {
-		return fmt.Errorf("Failed to begin transaction: %v", err)
+		return fmt.Errorf("Failed to begin transaction: %w", err)
 	}
 	defer tx.Rollback()
 
@@ -30,12 +30,12 @@ func SaveMatches(footballOrgMatches []api.FootballOrgMatch, competition entity.C
 		}
 
 		if err := repository.Save(tx, *match); err != nil {
-			return fmt.Errorf("Failed to insert match: %v", err)
+			return fmt.Errorf("Failed to insert match: %w", err)
 		}
 	}
 
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("Failed to commit transaction: %v", err)
+		return fmt.Errorf("Failed to commit transaction: %w", err)
 	}
 
 	return nil

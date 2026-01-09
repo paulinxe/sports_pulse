@@ -11,11 +11,7 @@ import (
 const DAYS_TO_FETCH = 3
 
 func FetchAPI(competitionID uint, mostRecentTimestamp *time.Time) (api.MatchesResponse, error) {
-	apiPath, err := buildAPIPath(competitionID, mostRecentTimestamp)
-	if err != nil {
-		return api.MatchesResponse{}, err
-	}
-
+	apiPath := buildAPIPath(competitionID, mostRecentTimestamp)
 	matchesResponse, err := api.GetList(apiPath)
 	if err != nil {
 		slog.Error(err.Error())
@@ -25,7 +21,7 @@ func FetchAPI(competitionID uint, mostRecentTimestamp *time.Time) (api.MatchesRe
 	return matchesResponse, nil
 }
 
-func buildAPIPath(competitionID uint, mostRecentTimestamp *time.Time) (string, error) {
+func buildAPIPath(competitionID uint, mostRecentTimestamp *time.Time) (string) {
 	path := fmt.Sprintf("/competitions/%d/matches", competitionID)
 
 	from, to := calculateDateRange(mostRecentTimestamp)
@@ -34,7 +30,7 @@ func buildAPIPath(competitionID uint, mostRecentTimestamp *time.Time) (string, e
 	params.Add("dateTo", to.Format("2006-01-02"))
 
 	queryString := params.Encode()
-	return path + "?" + queryString, nil
+	return path + "?" + queryString
 }
 
 func calculateDateRange(mostRecentTimestamp *time.Time) (time.Time, time.Time) {

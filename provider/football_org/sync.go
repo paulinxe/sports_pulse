@@ -19,7 +19,7 @@ func Sync(competition entity.Competition) error {
 
 	mostRecentTimestamp, err := repository.FindMostRecentTimestamp(competition, entity.FootballOrg)
 	if err != nil {
-		return fmt.Errorf("failed to find most recent timestamp: %v", err)
+		return fmt.Errorf("failed to find most recent timestamp: %w", err)
 	}
 
 	if shouldSkipSync(mostRecentTimestamp) {
@@ -42,7 +42,7 @@ func Sync(competition entity.Competition) error {
 
 func validateCompetition(competition entity.Competition) error {
 	if _, ok := CompetitionToFootballOrgID[competition]; !ok {
-		return fmt.Errorf("unknown competition: %v", competition)
+		return fmt.Errorf("unknown competition: %d", competition)
 	}
 
 	return nil

@@ -44,7 +44,7 @@ func Save(transaction *sql.Tx, match entity.Match) error {
             "id", match.ID,
             "provider_match_id", match.ProviderMatchID,
             "error", err)
-        return fmt.Errorf("failed to insert match %s: %v", match.ProviderMatchID, err)
+        return fmt.Errorf("failed to insert match %s: %w", match.ProviderMatchID, err)
     }
 
     slog.Debug("Inserted match",
@@ -99,7 +99,7 @@ func FindByCanonicalID(canonicalID string, provider entity.Provider) (*entity.Ma
         if err == sql.ErrNoRows {
             return nil, nil
         }
-        return nil, fmt.Errorf("failed to find match by canonical_id %s and provider %v: %v", canonicalID, provider, err)
+        return nil, fmt.Errorf("failed to find match by canonical_id %s and provider %v: %w", canonicalID, provider, err)
     }
 
     return &match, nil
@@ -124,7 +124,7 @@ func FindMostRecentTimestamp(competition entity.Competition, provider entity.Pro
             return nil, nil
         }
 
-        return nil, fmt.Errorf("failed to find most recent timestamp: %v", err)
+        return nil, fmt.Errorf("failed to find most recent timestamp: %w", err)
     }
 
     return &timestamp, nil
@@ -154,7 +154,7 @@ func FindMatchesToReconcile(provider entity.Provider, start time.Time, end time.
     `
     rows, err := db.DB.Query(query, provider, entity.Pending, start, end)
     if err != nil {
-        return nil, fmt.Errorf("failed to find matches to reconcile: %v", err)
+        return nil, fmt.Errorf("failed to find matches to reconcile: %w", err)
     }
     defer rows.Close()
 
