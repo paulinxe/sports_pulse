@@ -141,6 +141,10 @@ services:
       - ./oracle:/app
       # Persist VS Code extensions
       - vscode_extensions_oracle:/root/.vscode-server/extensions
+    environment:
+      - DEPLOYER_PRIVATE_KEY=${DEPLOYER_PRIVATE_KEY}
+      - CONTRACTS_OWNER_ADDRESS=${CONTRACTS_OWNER_ADDRESS}
+      - AUTHORIZED_SIGNER_ADDRESS=${AUTHORIZED_SIGNER_ADDRESS}
     working_dir: /app
     # Expose anvil RPC port (development only)
     ports:

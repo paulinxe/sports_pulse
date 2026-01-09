@@ -15,39 +15,52 @@ contract Deploy is Script {
     string constant COMPETITIONS_JSON = "./script/data/competitions.json";
     string constant TEAMS_JSON = "./script/data/teams.json";
 
+    // Public state variables for testing
+    CompetitionRegistry public competitionRegistry;
+    TeamRegistry public teamRegistry;
+    MatchRegistry public matchRegistry;
+
     function run() external {
-        // At the moment, using one from Anvil
-        uint256 deployerPrivateKey = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
-        
+        uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
+
         // Get authorized signer address for MatchRegistry
         // This address needs to be the public key derived from the PRIVATE_KEY env var used in the Signer service
-        address authorizedSigner = 0xCC0724CDc18DaE6B469b8e8B533fCd4dBE32FB46;
+        address authorizedSigner = vm.envAddress("AUTHORIZED_SIGNER_ADDRESS");
+
+        // Get contracts owner address
+        address contractsOwner = vm.envAddress("CONTRACTS_OWNER_ADDRESS");
 
         vm.startBroadcast(deployerPrivateKey);
 
         // Step 1: Deploy CompetitionRegistry
         console.log("Deploying CompetitionRegistry...");
         string[] memory competitionNames = loadCompetitions();
-        CompetitionRegistry competitionRegistry = new CompetitionRegistry(competitionNames);
+        competitionRegistry = new CompetitionRegistry(competitionNames);
         console.log("CompetitionRegistry deployed at:", address(competitionRegistry));
         console.log("Number of competitions:", competitionNames.length);
+        competitionRegistry.transferOwnership(contractsOwner);
+        console.log("CompetitionRegistry ownership transferred to:", contractsOwner);
 
         // Step 2: Deploy TeamRegistry
         console.log("Deploying TeamRegistry...");
         string[] memory teamNames = loadTeams();
-        TeamRegistry teamRegistry = new TeamRegistry(teamNames);
+        teamRegistry = new TeamRegistry(teamNames);
         console.log("TeamRegistry deployed at:", address(teamRegistry));
         console.log("Number of teams:", teamNames.length);
+        teamRegistry.transferOwnership(contractsOwner);
+        console.log("TeamRegistry ownership transferred to:", contractsOwner);
 
         // Step 3: Deploy MatchRegistry (depends on the above two)
         console.log("Deploying MatchRegistry...");
-        MatchRegistry matchRegistry = new MatchRegistry(
+        matchRegistry = new MatchRegistry(
             authorizedSigner,
             competitionRegistry,
             teamRegistry
         );
         console.log("MatchRegistry deployed at:", address(matchRegistry));
         console.log("Authorized signer:", authorizedSigner);
+        matchRegistry.transferOwnership(contractsOwner);
+        console.log("MatchRegistry ownership transferred to:", contractsOwner);
 
         vm.stopBroadcast();
 
@@ -57,6 +70,7 @@ contract Deploy is Script {
         console.log("TeamRegistry:", address(teamRegistry));
         console.log("MatchRegistry:", address(matchRegistry));
         console.log("Authorized Signer:", authorizedSigner);
+        console.log("Contracts Owner:", contractsOwner);
     }
 
     function loadCompetitions() internal view returns (string[] memory) {
