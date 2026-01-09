@@ -20,16 +20,51 @@ contract DeployTest is Test {
     MatchRegistry public matchRegistry;
 
     function setUp() public {
-        deployerPrivateKey = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80; // Anvil default
+        deployerPrivateKey = uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80); // Anvil default
         deployer = vm.addr(deployerPrivateKey);
         authorizedSigner = makeAddr("authorized_signer");
         contractsOwner = makeAddr("contracts_owner");
+    }
 
-        vm.setEnv("DEPLOYER_PRIVATE_KEY", vm.toString(deployerPrivateKey));
-        vm.setEnv("AUTHORIZED_SIGNER_ADDRESS", vm.toString(authorizedSigner));
-        vm.setEnv("CONTRACTS_OWNER_ADDRESS", vm.toString(contractsOwner));
+    function test_deployment_reverts_if_authorized_signer_is_zero() public {
+        Deploy _deployScript = new Deploy();
 
-        deployScript = new Deploy();
+        vm.expectRevert("AUTHORIZED_SIGNER_ADDRESS cannot be zero");
+
+        _deployScript.deploy(deployerPrivateKey, address(0), contractsOwner);
+    }
+
+    function test_deployment_reverts_if_contracts_owner_is_zero() public {
+        Deploy _deployScript = new Deploy();
+
+        vm.expectRevert("CONTRACTS_OWNER_ADDRESS cannot be zero");
+
+        _deployScript.deploy(deployerPrivateKey, authorizedSigner, address(0));
+    }
+
+    function test_deployment_reverts_if_authorized_signer_equals_contracts_owner() public {
+        address sameAddress = makeAddr("same_address");
+        Deploy _deployScript = new Deploy();
+
+        vm.expectRevert("AUTHORIZED_SIGNER_ADDRESS and CONTRACTS_OWNER_ADDRESS must be distinct");
+
+        _deployScript.deploy(deployerPrivateKey, sameAddress, sameAddress);
+    }
+
+    function test_deployment_reverts_if_deployer_equals_authorized_signer() public {
+        Deploy _deployScript = new Deploy();
+
+        vm.expectRevert("Deployer and AUTHORIZED_SIGNER_ADDRESS must be distinct");
+
+        _deployScript.deploy(deployerPrivateKey, deployer, contractsOwner);
+    }
+
+    function test_deployment_reverts_if_deployer_equals_contracts_owner() public {
+        Deploy _deployScript = new Deploy();
+
+        vm.expectRevert("Deployer and CONTRACTS_OWNER_ADDRESS must be distinct");
+
+        _deployScript.deploy(deployerPrivateKey, authorizedSigner, deployer);
     }
 
     function test_deployment_script_deploys_all_contracts() public {
@@ -116,7 +151,8 @@ contract DeployTest is Test {
     }
 
     function _deployAndVerify() private {
-        deployScript.run();
+        deployScript = new Deploy();
+        deployScript.deploy(deployerPrivateKey, authorizedSigner, contractsOwner);
         
         competitionRegistry = deployScript.competitionRegistry();
         teamRegistry = deployScript.teamRegistry();

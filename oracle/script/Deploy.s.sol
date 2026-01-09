@@ -8,6 +8,9 @@ import {CompetitionRegistry} from "../src/CompetitionRegistry.sol";
 import {TeamRegistry} from "../src/TeamRegistry.sol";
 import {MatchRegistry} from "../src/MatchRegistry.sol";
 
+// This script deploys contracts separately. This means this is NOT atomic.
+// Is not an issue in our case as we do need to transfer ownership after deployment
+// but this can wait for some blocks to be processed.
 contract Deploy is Script {
     using stdJson for string;
 
@@ -20,15 +23,20 @@ contract Deploy is Script {
     TeamRegistry public teamRegistry;
     MatchRegistry public matchRegistry;
 
-    function run() external {
-        uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
+    /// @notice Split in this way so we can test this script without environment issues
+    function deploy(
+        uint256 deployerPrivateKey,
+        address authorizedSigner,
+        address contractsOwner
+    ) public virtual {
+        // Security validations
+        require(authorizedSigner != address(0), "AUTHORIZED_SIGNER_ADDRESS cannot be zero");
+        require(contractsOwner != address(0), "CONTRACTS_OWNER_ADDRESS cannot be zero");
+        require(authorizedSigner != contractsOwner, "AUTHORIZED_SIGNER_ADDRESS and CONTRACTS_OWNER_ADDRESS must be distinct");
 
-        // Get authorized signer address for MatchRegistry
-        // This address needs to be the public key derived from the PRIVATE_KEY env var used in the Signer service
-        address authorizedSigner = vm.envAddress("AUTHORIZED_SIGNER_ADDRESS");
-
-        // Get contracts owner address
-        address contractsOwner = vm.envAddress("CONTRACTS_OWNER_ADDRESS");
+        address deployer = vm.addr(deployerPrivateKey);
+        require(deployer != authorizedSigner, "Deployer and AUTHORIZED_SIGNER_ADDRESS must be distinct");
+        require(deployer != contractsOwner, "Deployer and CONTRACTS_OWNER_ADDRESS must be distinct");
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -71,6 +79,16 @@ contract Deploy is Script {
         console.log("MatchRegistry:", address(matchRegistry));
         console.log("Authorized Signer:", authorizedSigner);
         console.log("Contracts Owner:", contractsOwner);
+    }
+
+    /// @notice Parameterless run function that reads from environment variables
+    /// @dev This is the entry point for Makefile usage
+    function run() external {
+        uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
+        address authorizedSigner = vm.envAddress("AUTHORIZED_SIGNER_ADDRESS");
+        address contractsOwner = vm.envAddress("CONTRACTS_OWNER_ADDRESS");
+
+        deploy(deployerPrivateKey, authorizedSigner, contractsOwner);
     }
 
     function loadCompetitions() internal view returns (string[] memory) {
