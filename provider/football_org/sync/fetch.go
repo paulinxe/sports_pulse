@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/url"
@@ -10,9 +11,9 @@ import (
 
 const DAYS_TO_FETCH = 3
 
-func FetchAPI(competitionID uint, mostRecentTimestamp *time.Time) (api.MatchesResponse, error) {
+func FetchAPI(ctx context.Context, competitionID uint, mostRecentTimestamp *time.Time) (api.MatchesResponse, error) {
 	apiPath := buildAPIPath(competitionID, mostRecentTimestamp)
-	matchesResponse, err := api.GetList(apiPath)
+	matchesResponse, err := api.GetList(ctx, apiPath)
 	if err != nil {
 		slog.Error(err.Error())
 		return api.MatchesResponse{}, err

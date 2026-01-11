@@ -1,16 +1,17 @@
 package api
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
-	"io"
-	"encoding/json"
 )
 
-func GetList(url string) (MatchesResponse, error) {
-	body, err := get(url)
+func GetList(ctx context.Context, url string) (MatchesResponse, error) {
+	body, err := get(ctx, url)
 	if err != nil {
 		return MatchesResponse{}, err
 	}
@@ -23,8 +24,8 @@ func GetList(url string) (MatchesResponse, error) {
 	return match, nil
 }
 
-func GetOne(url string) (FootballOrgMatch, error) {
-	body, err := get(url)
+func GetOne(ctx context.Context, url string) (FootballOrgMatch, error) {
+	body, err := get(ctx, url)
 	if err != nil {
 		return FootballOrgMatch{}, err
 	}
@@ -37,13 +38,13 @@ func GetOne(url string) (FootballOrgMatch, error) {
 	return match, nil
 }
 
-func get(url string) ([]byte, error) {
+func get(ctx context.Context, url string) ([]byte, error) {
 	url = os.Getenv("FOOTBALL_ORG_API_ENDPOINT") + url
 	apiKey := os.Getenv("FOOTBALL_ORG_API_KEY")
 
 	slog.Debug("Sending GET request", "url", url)
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create request: %w", err)
 	}
@@ -53,6 +54,14 @@ func get(url string) ([]byte, error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
+		if ctx.Err() == context.Canceled {
+			return nil, fmt.Errorf("Request canceled: %w", err)
+		}
+
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("Context timeout: %w", err)
+		}
+
 		return nil, fmt.Errorf("Failed to get matches: %w", err)
 	}
 	defer resp.Body.Close()

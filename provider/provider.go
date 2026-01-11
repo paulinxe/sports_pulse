@@ -10,6 +10,7 @@ import (
 )
 
 type ErrorCodes int
+
 const (
 	SUCCESS ErrorCodes = iota
 	BAD_ARGUMENTS

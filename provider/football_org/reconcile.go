@@ -1,6 +1,7 @@
 package football_org
 
 import (
+	"context"
 	"fmt"
 	"provider/entity"
 	"provider/repository"
@@ -10,6 +11,7 @@ import (
 )
 
 const RECONCILE_INTERVAL = -24 * time.Hour
+const RECONCILE_CONTEXT_TIMEOUT = 15 * time.Second
 
 // The purpose of this reconcile is to update the matches that are already in the database.
 // We only check matches that should have ended by now and 1 day ago and are still in Pending status.
@@ -28,7 +30,10 @@ func Reconcile() error {
 	for _, match := range matches {
 		slog.Debug("Reconciling match", "match_id", match.ProviderMatchID)
 
-		apiResponse, err := api.GetOne(fmt.Sprintf("/matches/%s", match.ProviderMatchID))
+		// Create context with 15-second timeout for each HTTP request
+		ctx, cancel := context.WithTimeout(context.Background(), RECONCILE_CONTEXT_TIMEOUT)
+		apiResponse, err := api.GetOne(ctx, fmt.Sprintf("/matches/%s", match.ProviderMatchID))
+		cancel()
 		if err != nil {
 			slog.Error(err.Error())
 			continue

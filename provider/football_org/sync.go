@@ -1,6 +1,7 @@
 package football_org
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"provider/entity"
@@ -8,6 +9,8 @@ import (
 	"provider/repository"
 	"time"
 )
+
+const SYNC_CONTEXT_TIMEOUT = 15 * time.Second
 
 // This Sync function is intended to run once a day to fetch the latest matches and insert them into the database.
 // It will skip the sync if the most recent match is already 3+ days in the future.
@@ -26,8 +29,12 @@ func Sync(competition entity.Competition) error {
 		return nil
 	}
 
+	// Create context with 15-second timeout for HTTP requests
+	ctx, cancel := context.WithTimeout(context.Background(), SYNC_CONTEXT_TIMEOUT)
+	defer cancel()
+
 	competitionID := CompetitionToFootballOrgID[competition]
-	matchesResponse, err := sync.FetchAPI(competitionID, mostRecentTimestamp)
+	matchesResponse, err := sync.FetchAPI(ctx, competitionID, mostRecentTimestamp)
 	if err != nil {
 		return err
 	}
