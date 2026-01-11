@@ -20,7 +20,10 @@ func Test_no_errors_when_nothing_to_reconcile(t *testing.T) {
 	testutil.InitDatabase(t)
 	defer testutil.CloseDatabase()
 
-	mockServer := testutil.CreateServer(http.StatusOK, "")
+	mockServer := testutil.CreateServerBuilder().
+		WithStatusCode(http.StatusOK).
+		WithResponseBody("").
+		Build()
 	defer mockServer.Close()
 
 	err := Reconcile()
@@ -35,7 +38,10 @@ func Test_we_ignore_matches_that_are_pending_for_more_than_24_hours(t *testing.T
 	testutil.InitDatabase(t)
 	defer testutil.CloseDatabase()
 
-	mockServer := testutil.CreateServer(http.StatusOK, "")
+	mockServer := testutil.CreateServerBuilder().
+		WithStatusCode(http.StatusOK).
+		WithResponseBody("").
+		Build()
 	defer mockServer.Close()
 
 	// 26 hours ago is the start so the end is 24 hours ago
@@ -54,7 +60,10 @@ func Test_we_dont_update_the_match_if_the_status_is_not_finished(t *testing.T) {
 	testutil.InitDatabase(t)
 	defer testutil.CloseDatabase()
 
-	mockServer := testutil.CreateServer(http.StatusOK, notFinishedMatchResponse)
+	mockServer := testutil.CreateServerBuilder().
+		WithStatusCode(http.StatusOK).
+		WithResponseBody(notFinishedMatchResponse).
+		Build()
 	defer mockServer.Close()
 
 	startTime, _ := time.Parse("2006-01-02 15:04:05", time.Now().Add(-22*time.Hour).Format("2006-01-02 15:04:05"))
@@ -93,7 +102,10 @@ func Test_we_update_the_match_if_the_status_is_finished(t *testing.T) {
 	testutil.InitDatabase(t)
 	defer testutil.CloseDatabase()
 
-	mockServer := testutil.CreateServer(http.StatusOK, finishedMatchResponse)
+	mockServer := testutil.CreateServerBuilder().
+		WithStatusCode(http.StatusOK).
+		WithResponseBody(finishedMatchResponse).
+		Build()
 	defer mockServer.Close()
 
 	startTime, _ := time.Parse("2006-01-02 15:04:05", time.Now().Add(-22*time.Hour).Format("2006-01-02 15:04:05"))
@@ -132,7 +144,10 @@ func Test_we_continue_when_api_call_fails_during_reconciliation(t *testing.T) {
 	testutil.InitDatabase(t)
 	defer testutil.CloseDatabase()
 
-	mockServer := testutil.CreateServer(http.StatusInternalServerError, "")
+	mockServer := testutil.CreateServerBuilder().
+		WithStatusCode(http.StatusInternalServerError).
+		WithResponseBody("").
+		Build()
 	defer mockServer.Close()
 
 	startTime, _ := time.Parse("2006-01-02 15:04:05", time.Now().Add(-22*time.Hour).Format("2006-01-02 15:04:05"))

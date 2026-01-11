@@ -10,7 +10,10 @@ import (
 )
 
 func Test_we_can_handle_unauthorized_response(t *testing.T) {
-	mockServer := testutil.CreateServer(http.StatusForbidden, "")
+	mockServer := testutil.CreateServerBuilder().
+		WithStatusCode(http.StatusForbidden).
+		WithResponseBody("").
+		Build()
 	defer mockServer.Close()
 
 	_, err := GetOne(context.Background(), "/")
@@ -25,7 +28,10 @@ func Test_we_can_handle_unauthorized_response(t *testing.T) {
 }
 
 func Test_we_can_handle_too_many_requests_response(t *testing.T) {
-	mockServer := testutil.CreateServer(http.StatusTooManyRequests, "")
+	mockServer := testutil.CreateServerBuilder().
+		WithStatusCode(http.StatusTooManyRequests).
+		WithResponseBody("").
+		Build()
 	defer mockServer.Close()
 
 	_, err := GetOne(context.Background(), "/")
@@ -40,7 +46,10 @@ func Test_we_can_handle_too_many_requests_response(t *testing.T) {
 }
 
 func Test_we_can_handle_internal_server_error_response(t *testing.T) {
-	mockServer := testutil.CreateServer(http.StatusInternalServerError, "")
+	mockServer := testutil.CreateServerBuilder().
+		WithStatusCode(http.StatusInternalServerError).
+		WithResponseBody("").
+		Build()
 	defer mockServer.Close()
 
 	_, err := GetOne(context.Background(), "/")
@@ -55,7 +64,10 @@ func Test_we_can_handle_internal_server_error_response(t *testing.T) {
 }
 
 func Test_we_can_handle_invalid_json_response(t *testing.T) {
-	mockServer := testutil.CreateServer(http.StatusOK, "invalid json")
+	mockServer := testutil.CreateServerBuilder().
+		WithStatusCode(http.StatusOK).
+		WithResponseBody("invalid json").
+		Build()
 	defer mockServer.Close()
 
 	_, err := GetOne(context.Background(), "")
@@ -99,7 +111,7 @@ func Test_GetOne_handles_context_timeout(t *testing.T) {
 	defer mockServer.Close()
 
 	// Create context with 500ms timeout - shorter than server delay
-	ctx, cancel := context.WithTimeout(context.Background(), 500 * time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 
 	_, err := GetOne(ctx, "/")

@@ -71,16 +71,6 @@ func (b *ServerBuilder) Build() *ServerWithRequestCapture {
 	return capture
 }
 
-// CreateServer creates a server with the given status code and response body
-// This is a convenience function that uses the builder pattern internally
-// TODO: remove this
-func CreateServer(statusCode int, responseBody string) *ServerWithRequestCapture {
-	return CreateServerBuilder().
-		WithStatusCode(statusCode).
-		WithResponseBody(responseBody).
-		Build()
-}
-
 // Close closes the underlying test server
 func (s *ServerWithRequestCapture) Close() {
 	s.Server.Close()
