@@ -1,6 +1,7 @@
 package football_org
 
 import (
+	"context"
 	_ "embed"
 	"net/http"
 	"provider/entity"
@@ -127,7 +128,7 @@ func Test_we_insert_a_match_when_no_matches_exist_for_competition(t *testing.T) 
 	expectedMatchEnd, _ := time.Parse("2006-01-02 15:04:05", "2025-12-03 20:00:00")
 
 	canonicalID := "d0d6f75f29b5b1bb1fc3583476993ede1e43a5c07a57e8280159e0a93510c753"
-	actualMatch, err := repository.FindByCanonicalID(canonicalID, entity.FootballOrg)
+	actualMatch, err := repository.FindByCanonicalID(context.Background(), canonicalID, entity.FootballOrg)
 	if err != nil {
 		t.Fatalf("Expected no error but got: %v", err)
 	}
@@ -179,7 +180,7 @@ func Test_we_insert_a_match_as_finished_when_syncing_a_finished_match(t *testing
 		entity.Finished,
 	)
 	tx, _ := testutil.BeginTransaction(t)
-	repository.Save(tx, match)
+	repository.Save(context.Background(), tx, match)
 	tx.Commit()
 
 	err := Sync(entity.LaLiga)
@@ -187,7 +188,7 @@ func Test_we_insert_a_match_as_finished_when_syncing_a_finished_match(t *testing
 		t.Fatalf("Expected no error but got: %v", err)
 	}
 
-	actualMatch, err := repository.FindByCanonicalID(match.CanonicalID, entity.FootballOrg)
+	actualMatch, err := repository.FindByCanonicalID(context.Background(), match.CanonicalID, entity.FootballOrg)
 	if err != nil {
 		t.Fatalf("Expected no error but got: %v", err)
 	}
@@ -231,7 +232,7 @@ func Test_no_api_call_is_made_when_last_match_is_already_3_days_in_the_future(t 
 	)
 
 	tx, _ := testutil.BeginTransaction(t)
-	repository.Save(tx, match)
+	repository.Save(context.Background(), tx, match)
 	tx.Commit()
 
 	err := Sync(entity.LaLiga)
@@ -288,7 +289,7 @@ func Test_we_are_able_to_process_a_match_that_is_already_in_the_database_and_is_
 		entity.Pending,
 	)
 	tx, _ := testutil.BeginTransaction(t)
-	repository.Save(tx, match)
+	repository.Save(context.Background(), tx, match)
 	tx.Commit()
 
 	err := Sync(entity.LaLiga)
@@ -296,7 +297,7 @@ func Test_we_are_able_to_process_a_match_that_is_already_in_the_database_and_is_
 		t.Fatalf("Expected no error but got: %v", err)
 	}
 
-	actualMatch, err := repository.FindByCanonicalID(match.CanonicalID, entity.FootballOrg)
+	actualMatch, err := repository.FindByCanonicalID(context.Background(), match.CanonicalID, entity.FootballOrg)
 	if err != nil {
 		t.Fatalf("Expected no error but got: %v", err)
 	}

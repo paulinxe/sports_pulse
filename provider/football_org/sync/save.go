@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"provider/db"
@@ -10,8 +11,8 @@ import (
 	"time"
 )
 
-func SaveMatches(footballOrgMatches []api.FootballOrgMatch, competition entity.Competition, teamMapping map[uint]entity.Team) error {
-	tx, err := db.DB.Begin()
+func SaveMatches(ctx context.Context, footballOrgMatches []api.FootballOrgMatch, competition entity.Competition, teamMapping map[uint]entity.Team) error {
+	tx, err := db.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("Failed to begin transaction: %w", err)
 	}
@@ -25,11 +26,11 @@ func SaveMatches(footballOrgMatches []api.FootballOrgMatch, competition entity.C
 		}
 
 		// As a match may be rescheduled, we need to delete the existing match in case it already exists.
-		if err := repository.DeleteByCanonicalID(match.CanonicalID, entity.FootballOrg); err != nil {
+		if err := repository.DeleteByCanonicalID(ctx, match.CanonicalID, entity.FootballOrg); err != nil {
 			slog.Error("Failed to delete match", "error", err, "match", match)
 		}
 
-		if err := repository.Save(tx, *match); err != nil {
+		if err := repository.Save(ctx, tx, *match); err != nil {
 			return fmt.Errorf("Failed to insert match: %w", err)
 		}
 	}

@@ -20,7 +20,11 @@ func Sync(competition entity.Competition) error {
 		return err
 	}
 
-	mostRecentTimestamp, err := repository.FindMostRecentTimestamp(competition, entity.FootballOrg)
+	// Create context with 15-second timeout for HTTP requests and database operations
+	ctx, cancel := context.WithTimeout(context.Background(), SYNC_CONTEXT_TIMEOUT)
+	defer cancel()
+
+	mostRecentTimestamp, err := repository.FindMostRecentTimestamp(ctx, competition, entity.FootballOrg)
 	if err != nil {
 		return fmt.Errorf("failed to find most recent timestamp: %w", err)
 	}
@@ -29,17 +33,13 @@ func Sync(competition entity.Competition) error {
 		return nil
 	}
 
-	// Create context with 15-second timeout for HTTP requests
-	ctx, cancel := context.WithTimeout(context.Background(), SYNC_CONTEXT_TIMEOUT)
-	defer cancel()
-
 	competitionID := CompetitionToFootballOrgID[competition]
 	matchesResponse, err := sync.FetchAPI(ctx, competitionID, mostRecentTimestamp)
 	if err != nil {
 		return err
 	}
 
-	if err := sync.SaveMatches(matchesResponse.Matches, competition, FootballOrgTeamMapping); err != nil {
+	if err := sync.SaveMatches(ctx, matchesResponse.Matches, competition, FootballOrgTeamMapping); err != nil {
 		return err
 	}
 

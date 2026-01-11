@@ -1,6 +1,7 @@
 package football_org
 
 import (
+	"context"
 	_ "embed"
 	"net/http"
 	"provider/entity"
@@ -74,7 +75,7 @@ func Test_we_dont_update_the_match_if_the_status_is_not_finished(t *testing.T) {
 		t.Fatalf("Expected no error but got: %v", err)
 	}
 
-	actualMatch, err := repository.FindByCanonicalID(match.CanonicalID, entity.FootballOrg)
+	actualMatch, err := repository.FindByCanonicalID(context.Background(), match.CanonicalID, entity.FootballOrg)
 	if err != nil {
 		t.Fatalf("Expected no error but got: %v", err)
 	}
@@ -116,7 +117,7 @@ func Test_we_update_the_match_if_the_status_is_finished(t *testing.T) {
 		t.Fatalf("Expected no error but got: %v", err)
 	}
 
-	actualMatch, err := repository.FindByCanonicalID(match.CanonicalID, entity.FootballOrg)
+	actualMatch, err := repository.FindByCanonicalID(context.Background(), match.CanonicalID, entity.FootballOrg)
 	if err != nil {
 		t.Fatalf("Expected no error but got: %v", err)
 	}
@@ -159,7 +160,7 @@ func Test_we_continue_when_api_call_fails_during_reconciliation(t *testing.T) {
 	}
 
 	// Match should still be in pending status since API call failed
-	actualMatch, err := repository.FindByCanonicalID(match.CanonicalID, entity.FootballOrg)
+	actualMatch, err := repository.FindByCanonicalID(context.Background(), match.CanonicalID, entity.FootballOrg)
 	if err != nil {
 		t.Fatalf("Expected no error but got: %v", err)
 	}
@@ -189,7 +190,7 @@ func createMatch(t *testing.T, startTime time.Time) entity.Match {
 		entity.LaLiga,
 		entity.Pending,
 	)
-	repository.Save(tx, match)
+	repository.Save(context.Background(), tx, match)
 	tx.Commit()
 
 	return match
