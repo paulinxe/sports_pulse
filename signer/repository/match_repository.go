@@ -19,7 +19,7 @@ func FindMatchesToSign() ([]entity.Match, error) {
     `
     rows, err := db.DB.Query(query, entity.Finished)
     if err != nil {
-        return nil, fmt.Errorf("failed to find matches to sign: %v", err)
+        return nil, fmt.Errorf("failed to find matches to sign: %w", err)
     }
     defer rows.Close()
 
@@ -50,7 +50,7 @@ func StoreSignature(match entity.Match, signature string) error {
     `
     _, err := db.DB.Exec(query, signature, entity.Signed, match.ID)
     if err != nil {
-        return fmt.Errorf("failed to store signature: %v", err)
+        return fmt.Errorf("failed to store signature: %w", err)
     }
 
     return err

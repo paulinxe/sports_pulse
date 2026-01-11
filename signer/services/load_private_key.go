@@ -17,7 +17,7 @@ func LoadPrivateKey(hexKey string) (*ecdsa.PrivateKey, error) {
 	// Decode hex string to bytes
 	privKeyBytes, err := hex.DecodeString(hexKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to decode hex private key: %v", err)
+		return nil, fmt.Errorf("failed to decode hex private key: %w", err)
 	}
 
 	// Validate length (should be 32 bytes for secp256k1)
@@ -28,7 +28,7 @@ func LoadPrivateKey(hexKey string) (*ecdsa.PrivateKey, error) {
 	// Convert to ECDSA private key using go-ethereum's crypto
 	privKey, err := crypto.ToECDSA(privKeyBytes)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create ECDSA key: %v", err)
+		return nil, fmt.Errorf("failed to create ECDSA key: %w", err)
 	}
 
 	// Verify it's a secp256k1 key (required for Ethereum)
