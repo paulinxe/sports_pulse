@@ -1,15 +1,18 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"os"
 	"signer/db"
 	"signer/repository"
 	"signer/services"
+	"time"
 )
 
 type ErrorCodes int
+
 const (
 	SUCCESS ErrorCodes = iota
 	DB_INIT_FAIL
@@ -18,11 +21,16 @@ const (
 	CHAIN_ID_NOT_VALID
 )
 
+const (
+	DB_TIMEOUT    = 30 * time.Second
+	STORE_TIMEOUT = 10 * time.Second
+)
+
 func main() {
-	os.Exit(Run())
+	os.Exit(Run(DB_TIMEOUT, STORE_TIMEOUT))
 }
 
-func Run() int {
+func Run(dbTimeout, storeTimeout time.Duration) int {
 	shouldClose, err := db.Init()
 	if err != nil {
 		slog.Error("Failed to initialize database", "error", err)
@@ -33,7 +41,10 @@ func Run() int {
 		defer db.Close()
 	}
 
-	matches, err := repository.FindMatchesToSign()
+	dbContext, cancel := context.WithTimeout(context.Background(), dbTimeout)
+	defer cancel()
+
+	matches, err := repository.FindMatchesToSign(dbContext)
 	if err != nil {
 		slog.Error("Failed to find matches to sign", "error", err)
 		return int(DB_QUERY_FAIL)
@@ -64,7 +75,11 @@ func Run() int {
 			continue
 		}
 
-		err = repository.StoreSignature(match, signature)
+		storeContext, storeCancel := context.WithTimeout(context.Background(), storeTimeout)
+		defer storeCancel()
+
+		err = repository.StoreSignature(storeContext, match, signature)
+
 		if err != nil {
 			slog.Error("Failed to store signature", "error", err, "match", match)
 			continue

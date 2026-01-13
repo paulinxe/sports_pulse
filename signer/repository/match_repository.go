@@ -1,13 +1,14 @@
 package repository
 
 import (
+    "context"
     "fmt"
     "signer/db"
     "signer/entity"
     "log/slog"
 )
 
-func FindMatchesToSign() ([]entity.Match, error) {
+func FindMatchesToSign(ctx context.Context) ([]entity.Match, error) {
     if db.DB == nil {
         return nil, fmt.Errorf("database connection not initialized")
     }
@@ -17,7 +18,7 @@ func FindMatchesToSign() ([]entity.Match, error) {
         FROM matches 
         WHERE status = $1
     `
-    rows, err := db.DB.Query(query, entity.Finished)
+    rows, err := db.DB.QueryContext(ctx, query, entity.Finished)
     if err != nil {
         return nil, fmt.Errorf("failed to find matches to sign: %w", err)
     }
@@ -38,7 +39,7 @@ func FindMatchesToSign() ([]entity.Match, error) {
     return matches, nil
 }
 
-func StoreSignature(match entity.Match, signature string) error {
+func StoreSignature(ctx context.Context, match entity.Match, signature string) error {
     if db.DB == nil {
         return fmt.Errorf("database connection not initialized")
     }
@@ -48,7 +49,7 @@ func StoreSignature(match entity.Match, signature string) error {
         SET signature = $1, status = $2
         WHERE id = $3
     `
-    _, err := db.DB.Exec(query, signature, entity.Signed, match.ID)
+    _, err := db.DB.ExecContext(ctx, query, signature, entity.Signed, match.ID)
     if err != nil {
         return fmt.Errorf("failed to store signature: %w", err)
     }
