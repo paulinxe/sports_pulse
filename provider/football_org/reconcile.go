@@ -12,7 +12,6 @@ import (
 )
 
 const RECONCILE_INTERVAL = -24 * time.Hour
-const RECONCILE_CONTEXT_TIMEOUT = 15 * time.Second
 
 // The purpose of this reconcile is to update the matches that are already in the database.
 // We only check matches that should have ended by now and 1 day ago and are still in Pending status.
@@ -22,7 +21,7 @@ func Reconcile(timeoutPerMatch time.Duration) error {
 	// TODO: do we need some mutex here? if we plan to run this function in parallel, we need to use a mutex to avoid race conditions.
 	// Or even if its single threaded, at the moment we don't have a Context Timeout for the function itself.
 	if timeoutPerMatch == 0 {
-		timeoutPerMatch = RECONCILE_CONTEXT_TIMEOUT
+		timeoutPerMatch = 15 * time.Second
 	}
 
 	now := time.Now()
