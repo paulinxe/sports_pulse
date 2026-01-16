@@ -260,7 +260,6 @@ func Test_sync_state_advances_by_1_day_when_no_matches_are_found(t *testing.T) {
 		t.Fatalf("Expected no error but got: %v", err)
 	}
 
-	// Verify API was called
 	testutil.ExpectNumberOfRequests(t, mockServer, 1)
 
 	// Verify the sync state was updated to from + 1 day
@@ -275,15 +274,109 @@ func Test_sync_state_advances_by_1_day_when_no_matches_are_found(t *testing.T) {
 		t.Fatalf("Expected sync state to be updated, but it is nil")
 	}
 
-	// Compare dates (ignore time component for simplicity, or compare with tolerance)
-	expectedDate := expectedNextSyncAt.Truncate(24 * time.Hour)
-	actualDate := actualLastSyncedDate.Truncate(24 * time.Hour)
+	// Compare dates by formatting as YYYYMMDD
+	expectedDateStr := expectedNextSyncAt.Format("20060102")
+	actualDateStr := actualLastSyncedDate.Format("20060102")
 
-	if !actualDate.Equal(expectedDate) {
-		t.Errorf("Expected sync state to be %s, but got %s", expectedDate, actualDate)
+	if actualDateStr != expectedDateStr {
+		t.Errorf("Expected sync state to be %s, but got %s", expectedDateStr, actualDateStr)
 	}
 
 	// Verify log message
+	outputStr := logger.String()
+	if !strings.Contains(outputStr, "No matches found, advancing sync date by 1 day") {
+		t.Errorf("Expected 'No matches found, advancing sync date by 1 day' in output, but got: %s", outputStr)
+	}
+}
+
+func Test_sync_state_updates_to_end_of_range_when_matches_are_found(t *testing.T) {
+	testutil.InitDatabase(t)
+	defer testutil.CloseDatabase()
+	logger := testutil.GetLogger()
+
+	mockServer := testutil.CreateServerBuilder().
+		WithStatusCode(http.StatusOK).
+		WithResponseBody(successResponse).
+		Build()
+	defer mockServer.Close()
+
+	// Set a known sync state
+	knownDate := time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
+	tx, _ := testutil.BeginTransaction(t)
+	repository.UpdateLastSyncedDate(context.Background(), tx, entity.LaLiga, entity.FootballOrg, knownDate)
+	tx.Commit()
+
+	err := Sync(entity.LaLiga)
+	if err != nil {
+		t.Fatalf("Expected no error but got: %v", err)
+	}
+
+	testutil.ExpectNumberOfRequests(t, mockServer, 1)
+
+	// Verify the sync state was updated to end of range (to = from + 3 days)
+	// from = knownDate (2025-01-15), so to should be 2025-01-18
+	expectedNextSyncAt := knownDate.Add(3 * 24 * time.Hour)
+	actualLastSyncedDate, err := repository.GetLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg)
+	if err != nil {
+		t.Fatalf("Expected no error but got: %v", err)
+	}
+
+	if actualLastSyncedDate == nil {
+		t.Fatalf("Expected sync state to be updated, but it is nil")
+	}
+
+	expectedDateStr := expectedNextSyncAt.Format("20060102")
+	actualDateStr := actualLastSyncedDate.Format("20060102")
+
+	if actualDateStr != expectedDateStr {
+		t.Errorf("Expected sync state to be %s (end of range), but got %s", expectedDateStr, actualDateStr)
+	}
+
+	outputStr := logger.String()
+	if !strings.Contains(outputStr, "Matches found, updating sync date to end of range") {
+		t.Errorf("Expected 'Matches found, updating sync date to end of range' in output, but got: %s", outputStr)
+	}
+}
+
+func Test_first_sync_with_no_matches_advances_by_1_day_from_today(t *testing.T) {
+	testutil.InitDatabase(t)
+	defer testutil.CloseDatabase()
+	logger := testutil.GetLogger()
+
+	emptyMatchesResponse := `{"matches":[]}`
+	mockServer := testutil.CreateServerBuilder().
+		WithStatusCode(http.StatusOK).
+		WithResponseBody(emptyMatchesResponse).
+		Build()
+	defer mockServer.Close()
+
+	// No sync state exists (first sync)
+	err := Sync(entity.LaLiga)
+	if err != nil {
+		t.Fatalf("Expected no error but got: %v", err)
+	}
+
+	testutil.ExpectNumberOfRequests(t, mockServer, 1)
+
+	// Verify the sync state was created and updated to today + 1 day
+	now := time.Now()
+	expectedNextSyncAt := now.Add(24 * time.Hour)
+	actualLastSyncedDate, err := repository.GetLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg)
+	if err != nil {
+		t.Fatalf("Expected no error but got: %v", err)
+	}
+
+	if actualLastSyncedDate == nil {
+		t.Fatalf("Expected sync state to be created, but it is nil")
+	}
+
+	expectedDateStr := expectedNextSyncAt.Format("20060102")
+	actualDateStr := actualLastSyncedDate.Format("20060102")
+
+	if actualDateStr != expectedDateStr {
+		t.Errorf("Expected sync state to be %s (today + 1 day), but got %s", expectedDateStr, actualDateStr)
+	}
+
 	outputStr := logger.String()
 	if !strings.Contains(outputStr, "No matches found, advancing sync date by 1 day") {
 		t.Errorf("Expected 'No matches found, advancing sync date by 1 day' in output, but got: %s", outputStr)
