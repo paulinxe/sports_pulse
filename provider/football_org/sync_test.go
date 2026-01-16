@@ -49,9 +49,7 @@ func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
 	defer mockServer.Close()
 
 	err := Sync(entity.LaLiga)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	outputStr := logger.String()
 
@@ -77,9 +75,7 @@ func Test_we_skip_the_match_if_away_team_is_not_mapped(t *testing.T) {
 	defer mockServer.Close()
 
 	err := Sync(entity.LaLiga)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	outputStr := logger.String()
 	if !strings.Contains(outputStr, "Failed to map away team ID (123456), skipping match (654321)") {
@@ -103,10 +99,7 @@ func Test_we_can_insert_a_match_when_no_matches_exist_for_competition(t *testing
 	defer mockServer.Close()
 
 	err := Sync(entity.LaLiga)
-	if err != nil {
-		// TODO: move these assertions to a generic function
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	// TODO: would be nice to use some kind of Clock so we can mock the current time to avoid flakiness
 	now := time.Now()
@@ -129,9 +122,7 @@ func Test_we_can_insert_a_match_when_no_matches_exist_for_competition(t *testing
 
 	canonicalID := "d0d6f75f29b5b1bb1fc3583476993ede1e43a5c07a57e8280159e0a93510c753"
 	actualMatch, err := repository.FindByCanonicalID(context.Background(), canonicalID, entity.FootballOrg)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	if actualMatch == nil {
 		t.Fatalf("Expected match to be found, but it is nil")
@@ -184,14 +175,10 @@ func Test_we_insert_a_match_as_finished_when_syncing_a_finished_match(t *testing
 	tx.Commit()
 
 	err := Sync(entity.LaLiga)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	actualMatch, err := repository.FindByCanonicalID(context.Background(), match.CanonicalID, entity.FootballOrg)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	if actualMatch == nil {
 		t.Fatalf("Expected match to be found, but it is nil")
@@ -225,9 +212,7 @@ func Test_no_api_call_is_made_when_last_match_is_already_3_days_in_the_future(t 
 	tx.Commit()
 
 	err := Sync(entity.LaLiga)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	testutil.ExpectNumberOfRequests(t, mockServer, 0)
 	outputStr := logger.String()
@@ -256,9 +241,7 @@ func Test_sync_state_advances_by_1_day_when_no_matches_are_found(t *testing.T) {
 	tx.Commit()
 
 	err := Sync(entity.LaLiga)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	testutil.ExpectNumberOfRequests(t, mockServer, 1)
 
@@ -266,9 +249,7 @@ func Test_sync_state_advances_by_1_day_when_no_matches_are_found(t *testing.T) {
 	// from = knownDate (2025-01-15), so nextSyncAt should be 2025-01-16
 	expectedNextSyncAt := knownDate.Add(24 * time.Hour)
 	actualLastSyncedDate, err := repository.GetLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	if actualLastSyncedDate == nil {
 		t.Fatalf("Expected sync state to be updated, but it is nil")
@@ -307,9 +288,7 @@ func Test_sync_state_updates_to_end_of_range_when_matches_are_found(t *testing.T
 	tx.Commit()
 
 	err := Sync(entity.LaLiga)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	testutil.ExpectNumberOfRequests(t, mockServer, 1)
 
@@ -317,9 +296,7 @@ func Test_sync_state_updates_to_end_of_range_when_matches_are_found(t *testing.T
 	// from = knownDate (2025-01-15), so to should be 2025-01-18
 	expectedNextSyncAt := knownDate.Add(3 * 24 * time.Hour)
 	actualLastSyncedDate, err := repository.GetLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	if actualLastSyncedDate == nil {
 		t.Fatalf("Expected sync state to be updated, but it is nil")
@@ -352,9 +329,7 @@ func Test_first_sync_with_no_matches_advances_by_1_day_from_today(t *testing.T) 
 
 	// No sync state exists (first sync)
 	err := Sync(entity.LaLiga)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	testutil.ExpectNumberOfRequests(t, mockServer, 1)
 
@@ -362,9 +337,7 @@ func Test_first_sync_with_no_matches_advances_by_1_day_from_today(t *testing.T) 
 	now := time.Now()
 	expectedNextSyncAt := now.Add(24 * time.Hour)
 	actualLastSyncedDate, err := repository.GetLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	if actualLastSyncedDate == nil {
 		t.Fatalf("Expected sync state to be created, but it is nil")
@@ -433,14 +406,10 @@ func Test_we_are_able_to_process_a_match_that_is_already_in_the_database_and_is_
 	tx.Commit()
 
 	err := Sync(entity.LaLiga)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	actualMatch, err := repository.FindByCanonicalID(context.Background(), match.CanonicalID, entity.FootballOrg)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	if actualMatch == nil {
 		t.Fatalf("Expected match to be found, but it is nil")

@@ -72,14 +72,10 @@ func Test_we_dont_update_the_match_if_the_status_is_not_finished(t *testing.T) {
 	match := createMatch(t, startTime)
 
 	err := Reconcile(0)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	actualMatch, err := repository.FindByCanonicalID(context.Background(), match.CanonicalID, entity.FootballOrg)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	if actualMatch == nil {
 		t.Fatalf("Expected match to be found, but it is nil")
@@ -114,14 +110,10 @@ func Test_we_update_the_match_if_the_status_is_finished(t *testing.T) {
 	match := createMatch(t, startTime)
 
 	err := Reconcile(0)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	actualMatch, err := repository.FindByCanonicalID(context.Background(), match.CanonicalID, entity.FootballOrg)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	if actualMatch == nil {
 		t.Fatalf("Expected match to be found, but it is nil")
@@ -156,15 +148,11 @@ func Test_we_continue_when_api_call_fails_during_reconciliation(t *testing.T) {
 	match := createMatch(t, startTime)
 
 	err := Reconcile(0)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	// Match should still be in pending status since API call failed
 	actualMatch, err := repository.FindByCanonicalID(context.Background(), match.CanonicalID, entity.FootballOrg)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	if actualMatch == nil {
 		t.Fatalf("Expected match to be found, but it is nil")
@@ -196,15 +184,11 @@ func Test_we_log_match_id_when_api_call_exceeds_context_timeout(t *testing.T) {
 	match := createMatch(t, startTime)
 
 	err := Reconcile(testTimeout)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	// Verify the match is still in pending status since the API call timed out
 	actualMatch, err := repository.FindByCanonicalID(context.Background(), match.CanonicalID, entity.FootballOrg)
-	if err != nil {
-		t.Fatalf("Expected no error but got: %v", err)
-	}
+	testutil.AssertNoError(t, err)
 
 	if actualMatch == nil {
 		t.Fatalf("Expected match to be found, but it is nil")
@@ -226,8 +210,6 @@ func Test_we_log_match_id_when_api_call_exceeds_context_timeout(t *testing.T) {
 
 	testutil.ExpectNumberOfRequests(t, mockServer, 1)
 }
-
-
 
 func createMatch(t *testing.T, startTime time.Time) entity.Match {
 	tx, _ := testutil.BeginTransaction(t)
