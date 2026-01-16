@@ -12,6 +12,7 @@ import (
 )
 
 const SYNC_CONTEXT_TIMEOUT = 15 * time.Second
+const SYNC_INTERVAL = 3 * 24 * time.Hour
 
 // This Sync function is intended to run once a day to fetch the latest matches and insert them into the database.
 // It will skip the sync if the most recent match is already 3+ days in the future.
@@ -42,7 +43,7 @@ func Sync(competition entity.Competition) error {
 		return nil
 	}
 
-	to := from.Add(3 * 24 * time.Hour)
+	to := from.Add(SYNC_INTERVAL)
 	competitionID := CompetitionToFootballOrgID[competition]
 	matchesResponse, err := sync.FetchAPI(ctx, competitionID, from, to)
 	if err != nil {

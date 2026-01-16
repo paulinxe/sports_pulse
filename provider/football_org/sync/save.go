@@ -64,7 +64,7 @@ func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition ent
 		status = entity.Finished
 	}
 
-	match := entity.NewMatch(
+	match, err := entity.NewMatch(
 		startTime,
 		entity.FootballOrg,
 		fmt.Sprintf("%d", footballOrgMatch.ID),
@@ -75,6 +75,9 @@ func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition ent
 		competition,
 		status,
 	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create match: %w", err)
+	}
 
 	return &match, nil
 }

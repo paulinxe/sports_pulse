@@ -159,7 +159,7 @@ func Test_we_insert_a_match_as_finished_when_syncing_a_finished_match(t *testing
 	defer mockServer.Close()
 
 	startTime, _ := time.Parse("2006-01-02 15:04:05", "2025-12-03 18:00:00")
-	match := entity.NewMatch(
+	match, err := entity.NewMatch(
 		startTime,
 		entity.FootballOrg,
 		"544214",
@@ -170,11 +170,14 @@ func Test_we_insert_a_match_as_finished_when_syncing_a_finished_match(t *testing
 		entity.LaLiga,
 		entity.Finished,
 	)
+	if err != nil {
+		t.Fatalf("failed to create match: %v", err)
+	}
 	tx, _ := testutil.BeginTransaction(t)
 	repository.Save(context.Background(), tx, match)
 	tx.Commit()
 
-	err := Sync(entity.LaLiga)
+	err = Sync(entity.LaLiga)
 	testutil.AssertNoError(t, err)
 
 	actualMatch, err := repository.FindByCanonicalID(context.Background(), match.CanonicalID, entity.FootballOrg)
@@ -390,7 +393,7 @@ func Test_we_are_able_to_process_a_match_that_is_already_in_the_database_and_is_
 	defer mockServer.Close()
 
 	startTime, _ := time.Parse("2006-01-02 15:04:05", "2025-12-03 18:00:00")
-	match := entity.NewMatch(
+	match, err := entity.NewMatch(
 		startTime,
 		entity.FootballOrg,
 		"544391",
@@ -401,11 +404,14 @@ func Test_we_are_able_to_process_a_match_that_is_already_in_the_database_and_is_
 		entity.LaLiga,
 		entity.Pending,
 	)
+	if err != nil {
+		t.Fatalf("failed to create match: %v", err)
+	}
 	tx, _ := testutil.BeginTransaction(t)
 	repository.Save(context.Background(), tx, match)
 	tx.Commit()
 
-	err := Sync(entity.LaLiga)
+	err = Sync(entity.LaLiga)
 	testutil.AssertNoError(t, err)
 
 	actualMatch, err := repository.FindByCanonicalID(context.Background(), match.CanonicalID, entity.FootballOrg)

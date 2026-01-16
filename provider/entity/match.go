@@ -3,6 +3,7 @@ package entity
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -44,16 +45,21 @@ func NewMatch(
 	awayTeamScore uint,
 	competition Competition,
 	status MatchStatus,
-) Match {
+) (Match, error) {
 	endTime := start.Add(2 * time.Hour)
 
 	if status == 0 {
 		status = Pending
 	}
 
+	canonicalID, err := generateMatchID(competition, homeTeamID, awayTeamID, start)
+	if err != nil {
+		return Match{}, fmt.Errorf("failed to generate match ID: %w", err)
+	}
+
 	return Match{
 		ID:              uuid.New(),
-		CanonicalID:     generateMatchID(competition, homeTeamID, awayTeamID, start),
+		CanonicalID:     canonicalID,
 		Start:           start,
 		End:             endTime,
 		Status:          status,
@@ -64,10 +70,10 @@ func NewMatch(
 		AwayTeamID:      awayTeamID,
 		HomeTeamScore:   homeTeamScore,
 		AwayTeamScore:   awayTeamScore,
-	}
+	}, nil
 }
 
-func generateMatchID(compId Competition, homeTeamId Team, awayTeamId Team, matchDay time.Time) string {
+func generateMatchID(compId Competition, homeTeamId Team, awayTeamId Team, matchDay time.Time) (string, error) {
 	// Equivalent to abi.encodePacked(uint32, uint32, uint32, uint32)
 	var packed []byte
 
@@ -79,15 +85,13 @@ func generateMatchID(compId Competition, homeTeamId Team, awayTeamId Team, match
 	dateStr := matchDay.Format("20060102")
 	dateUint64, err := strconv.ParseUint(dateStr, 10, 32)
 	if err != nil {
-		// Fallback: if parsing fails, use 0
-		// TODO: handle this error
-		dateUint64 = 0
+		return "", fmt.Errorf("failed to parse date string %s: %w", dateStr, err)
 	}
 	packed = append(packed, uint32ToBytes(uint32(dateUint64))...)
 
 	hash := crypto.Keccak256(packed)
 
-	return hex.EncodeToString(hash)
+	return hex.EncodeToString(hash), nil
 }
 
 func uint32ToBytes(v uint32) []byte {

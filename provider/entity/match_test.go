@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"provider/testutil"
 	"testing"
 	"time"
 )
@@ -18,51 +19,63 @@ import (
 // abi.encodePacked(s3, s4); // "11" + "0" = "110"  // COLLISION!
 func Test_we_dont_have_collisions_when_generating_match_id(t *testing.T) {
 	score := uint(0)
+	match1, err := NewMatch(
+		time.Now(),
+		FootballOrg,
+		"1234567890",
+		1,
+		11,
+		score,
+		score,
+		LaLiga,
+		Pending,
+	)
+	testutil.AssertNoError(t, err)
+
+	match2, err := NewMatch(
+		time.Now(),
+		FootballOrg,
+		"1234567890",
+		11,
+		1,
+		score,
+		score,
+		LaLiga,
+		Pending,
+	)
+	testutil.AssertNoError(t, err)
+
+	match3, err := NewMatch(
+		time.Now(),
+		FootballOrg,
+		"1234567890",
+		1,
+		11,
+		score,
+		score,
+		111,
+		Pending,
+	)
+	testutil.AssertNoError(t, err)
+
+	match4, err := NewMatch(
+		time.Now(),
+		FootballOrg,
+		"1234567890",
+		11,
+		1,
+		score,
+		score,
+		111,
+		Pending,
+	)
+	testutil.AssertNoError(t, err)
+
 	ids := []string{
-		NewMatch(
-			time.Now(),
-			FootballOrg,
-			"1234567890",
-			1,
-			11,
-			score,
-			score,
-			LaLiga,
-			Pending,
-		).CanonicalID,
-		NewMatch(
-			time.Now(),
-			FootballOrg,
-			"1234567890",
-			11,
-			1,
-			score,
-			score,
-			LaLiga,
-			Pending,
-		).CanonicalID,
-		NewMatch(
-			time.Now(),
-			FootballOrg,
-			"1234567890",
-			1,
-			11,
-			score,
-			score,
-			111,
-			Pending,
-		).CanonicalID,
-		NewMatch(
-			time.Now(),
-			FootballOrg,
-			"1234567890",
-			11,
-			1,
-			score,
-			score,
-			111,
-			Pending,
-		).CanonicalID,
+		match1.CanonicalID,
+		match2.CanonicalID,
+		match3.CanonicalID,
+		match4.CanonicalID,
 	}
 
 	// Remove duplicates
@@ -74,7 +87,7 @@ func Test_we_dont_have_collisions_when_generating_match_id(t *testing.T) {
 			unique = append(unique, id)
 		}
 	}
-	
+
 	if len(unique) != len(ids) {
 		t.Errorf("Expected %d unique IDs, but got %d. We have collisions", len(ids), len(unique))
 	}

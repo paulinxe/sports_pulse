@@ -214,7 +214,7 @@ func Test_we_log_match_id_when_api_call_exceeds_context_timeout(t *testing.T) {
 func createMatch(t *testing.T, startTime time.Time) entity.Match {
 	tx, _ := testutil.BeginTransaction(t)
 
-	match := entity.NewMatch(
+	match, err := entity.NewMatch(
 		startTime,
 		entity.FootballOrg,
 		"544391",
@@ -225,6 +225,8 @@ func createMatch(t *testing.T, startTime time.Time) entity.Match {
 		entity.LaLiga,
 		entity.Pending,
 	)
+
+	testutil.AssertNoError(t, err)
 	repository.Save(context.Background(), tx, match)
 	tx.Commit()
 
