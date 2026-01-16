@@ -8,6 +8,7 @@ import (
 	"provider/db"
 	"provider/entity"
 	"time"
+
 	"github.com/google/uuid"
 )
 
@@ -131,15 +132,11 @@ func FindMostRecentTimestamp(ctx context.Context, competition entity.Competition
 	return &timestamp, nil
 }
 
-func DeleteByCanonicalID(ctx context.Context, canonicalID string, provider entity.Provider) error {
-	if db.DB == nil {
-		return fmt.Errorf("database connection not initialized")
-	}
-
+func DeleteByCanonicalID(ctx context.Context, tx *sql.Tx, canonicalID string, provider entity.Provider) error {
 	query := `
         DELETE FROM matches WHERE canonical_id = $1 AND provider = $2 AND status = $3
     `
-	_, err := db.DB.ExecContext(ctx, query, canonicalID, provider, entity.Pending)
+	_, err := tx.ExecContext(ctx, query, canonicalID, provider, entity.Pending)
 	return err
 }
 

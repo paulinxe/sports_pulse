@@ -92,7 +92,7 @@ func Test_we_skip_the_match_if_away_team_is_not_mapped(t *testing.T) {
 	}
 }
 
-func Test_we_insert_a_match_when_no_matches_exist_for_competition(t *testing.T) {
+func Test_we_can_insert_a_match_when_no_matches_exist_for_competition(t *testing.T) {
 	testutil.InitDatabase(t)
 	defer testutil.CloseDatabase()
 
@@ -104,10 +104,10 @@ func Test_we_insert_a_match_when_no_matches_exist_for_competition(t *testing.T) 
 
 	err := Sync(entity.LaLiga)
 	if err != nil {
+		// TODO: move these assertions to a generic function
 		t.Fatalf("Expected no error but got: %v", err)
 	}
 
-	// When no matches exist, dateFrom should be today and dateTo should be 3 days from today
 	// TODO: would be nice to use some kind of Clock so we can mock the current time to avoid flakiness
 	now := time.Now()
 	expectedDateFrom := now.Format("2006-01-02")
@@ -211,6 +211,7 @@ func Test_we_insert_a_match_as_finished_when_syncing_a_finished_match(t *testing
 func Test_no_api_call_is_made_when_last_match_is_already_3_days_in_the_future(t *testing.T) {
 	testutil.InitDatabase(t)
 	defer testutil.CloseDatabase()
+	logger := testutil.GetLogger()
 
 	mockServer := testutil.CreateServerBuilder().
 		WithStatusCode(http.StatusOK).
@@ -219,20 +220,8 @@ func Test_no_api_call_is_made_when_last_match_is_already_3_days_in_the_future(t 
 	defer mockServer.Close()
 
 	futureDate := time.Now().Add(3 * 24 * time.Hour).Add(1 * time.Minute)
-	match := entity.NewMatch(
-		futureDate,
-		entity.FootballOrg,
-		"1",
-		entity.AthleticClub,
-		entity.RealMadrid,
-		0,
-		0,
-		entity.LaLiga,
-		entity.Pending,
-	)
-
 	tx, _ := testutil.BeginTransaction(t)
-	repository.Save(context.Background(), tx, match)
+	repository.UpdateLastSyncedDate(context.Background(), tx, entity.LaLiga, entity.FootballOrg, futureDate)
 	tx.Commit()
 
 	err := Sync(entity.LaLiga)
@@ -241,6 +230,64 @@ func Test_no_api_call_is_made_when_last_match_is_already_3_days_in_the_future(t 
 	}
 
 	testutil.ExpectNumberOfRequests(t, mockServer, 0)
+	outputStr := logger.String()
+	if !strings.Contains(outputStr, "Sync timestamp is already 3+ days in the future, skipping API call") {
+		t.Errorf("Expected 'Sync timestamp is already 3+ days in the future, skipping API call' in output, but got: %s", outputStr)
+	}
+
+}
+
+func Test_sync_state_advances_by_1_day_when_no_matches_are_found(t *testing.T) {
+	testutil.InitDatabase(t)
+	defer testutil.CloseDatabase()
+	logger := testutil.GetLogger()
+
+	emptyMatchesResponse := `{"matches":[]}`
+	mockServer := testutil.CreateServerBuilder().
+		WithStatusCode(http.StatusOK).
+		WithResponseBody(emptyMatchesResponse).
+		Build()
+	defer mockServer.Close()
+
+	// Set a known sync state
+	knownDate := time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
+	tx, _ := testutil.BeginTransaction(t)
+	repository.UpdateLastSyncedDate(context.Background(), tx, entity.LaLiga, entity.FootballOrg, knownDate)
+	tx.Commit()
+
+	err := Sync(entity.LaLiga)
+	if err != nil {
+		t.Fatalf("Expected no error but got: %v", err)
+	}
+
+	// Verify API was called
+	testutil.ExpectNumberOfRequests(t, mockServer, 1)
+
+	// Verify the sync state was updated to from + 1 day
+	// from = knownDate (2025-01-15), so nextSyncAt should be 2025-01-16
+	expectedNextSyncAt := knownDate.Add(24 * time.Hour)
+	actualLastSyncedDate, err := repository.GetLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg)
+	if err != nil {
+		t.Fatalf("Expected no error but got: %v", err)
+	}
+
+	if actualLastSyncedDate == nil {
+		t.Fatalf("Expected sync state to be updated, but it is nil")
+	}
+
+	// Compare dates (ignore time component for simplicity, or compare with tolerance)
+	expectedDate := expectedNextSyncAt.Truncate(24 * time.Hour)
+	actualDate := actualLastSyncedDate.Truncate(24 * time.Hour)
+
+	if !actualDate.Equal(expectedDate) {
+		t.Errorf("Expected sync state to be %s, but got %s", expectedDate, actualDate)
+	}
+
+	// Verify log message
+	outputStr := logger.String()
+	if !strings.Contains(outputStr, "No matches found, advancing sync date by 1 day") {
+		t.Errorf("Expected 'No matches found, advancing sync date by 1 day' in output, but got: %s", outputStr)
+	}
 }
 
 func Test_we_can_handle_invalid_match_date(t *testing.T) {

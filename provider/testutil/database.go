@@ -20,6 +20,7 @@ func InitDatabase(t *testing.T) {
 	}
 
 	_, _ = db.DB.Exec("TRUNCATE TABLE matches")
+	_, _ = db.DB.Exec("TRUNCATE TABLE sync_state")
 }
 
 func CloseDatabase() {

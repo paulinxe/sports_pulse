@@ -2,22 +2,16 @@ package sync
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
-	"provider/db"
 	"provider/entity"
 	"provider/football_org/api"
 	"provider/repository"
 	"time"
 )
 
-func SaveMatches(ctx context.Context, footballOrgMatches []api.FootballOrgMatch, competition entity.Competition, teamMapping map[uint]entity.Team) error {
-	tx, err := db.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("Failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback()
-
+func SaveMatches(ctx context.Context, tx *sql.Tx, footballOrgMatches []api.FootballOrgMatch, competition entity.Competition, teamMapping map[uint]entity.Team) error {
 	for _, footballOrgMatch := range footballOrgMatches {
 		match, err := convertToEntityMatch(footballOrgMatch, competition, teamMapping)
 		if err != nil {
@@ -26,17 +20,15 @@ func SaveMatches(ctx context.Context, footballOrgMatches []api.FootballOrgMatch,
 		}
 
 		// As a match may be rescheduled, we need to delete the existing match in case it already exists.
-		if err := repository.DeleteByCanonicalID(ctx, match.CanonicalID, entity.FootballOrg); err != nil {
+		if err := repository.DeleteByCanonicalID(ctx, tx, match.CanonicalID, entity.FootballOrg); err != nil {
 			slog.Error("Failed to delete match", "error", err, "match", match)
 		}
 
 		if err := repository.Save(ctx, tx, *match); err != nil {
+			// TODO: a single match fail should not fail the entire sync.
+			// We should have a "dead-letter" queue for failed matches so we reconcile each of them individually later.
 			return fmt.Errorf("Failed to insert match: %w", err)
 		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("Failed to commit transaction: %w", err)
 	}
 
 	return nil

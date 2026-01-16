@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"provider/db"
 	"provider/entity"
 	"provider/football_org/sync"
 	"provider/repository"
@@ -24,26 +25,62 @@ func Sync(competition entity.Competition) error {
 	ctx, cancel := context.WithTimeout(context.Background(), SYNC_CONTEXT_TIMEOUT)
 	defer cancel()
 
-	mostRecentTimestamp, err := repository.FindMostRecentTimestamp(ctx, competition, entity.FootballOrg)
+	lastSyncedDate, err := repository.GetLastSyncedDate(ctx, competition, entity.FootballOrg)
 	if err != nil {
-		return fmt.Errorf("failed to find most recent timestamp: %w", err)
+		return fmt.Errorf("Failed to get last synced date: %w", err)
 	}
 
-	if shouldSkipSync(mostRecentTimestamp) {
+	var from time.Time
+	if lastSyncedDate == nil {
+		// Use today as default if no sync state exists (first sync)
+		from = time.Now()
+	} else {
+		from = *lastSyncedDate
+	}
+
+	if shouldSkipSync(from) {
 		return nil
 	}
 
+	to := from.Add(3 * 24 * time.Hour)
 	competitionID := CompetitionToFootballOrgID[competition]
-	matchesResponse, err := sync.FetchAPI(ctx, competitionID, mostRecentTimestamp)
+	matchesResponse, err := sync.FetchAPI(ctx, competitionID, from, to)
 	if err != nil {
 		return err
 	}
 
-	if err := sync.SaveMatches(ctx, matchesResponse.Matches, competition, FootballOrgTeamMapping); err != nil {
+	// Open transaction for both saving matches and updating sync state
+	tx, err := db.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("Failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	if err := sync.SaveMatches(ctx, tx, matchesResponse.Matches, competition, FootballOrgTeamMapping); err != nil {
 		return err
 	}
 
-	slog.Debug(fmt.Sprintf("Successfully inserted %d matches into database", len(matchesResponse.Matches)))
+	var nextSyncAt time.Time
+	if len(matchesResponse.Matches) == 0 {
+		// No matches found: advance by 1 day from the start of the checked range
+		nextSyncAt = from.Add(24 * time.Hour)
+		slog.Debug("No matches found, advancing sync date by 1 day", "new_sync_date", nextSyncAt)
+	} else {
+		slog.Debug(fmt.Sprintf("Successfully inserted %d matches into database", len(matchesResponse.Matches)))
+
+		// Matches found: update to end of checked range to avoid re-checking
+		nextSyncAt = to
+		slog.Debug("Matches found, updating sync date to end of range", "new_sync_date", nextSyncAt)
+	}
+
+	if err := repository.UpdateLastSyncedDate(ctx, tx, competition, entity.FootballOrg, nextSyncAt); err != nil {
+		return fmt.Errorf("Failed to update last synced date: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("Failed to commit transaction: %w", err)
+	}
+
 	return nil
 }
 
@@ -55,15 +92,11 @@ func validateCompetition(competition entity.Competition) error {
 	return nil
 }
 
-func shouldSkipSync(mostRecentTimestamp *time.Time) bool {
-	if mostRecentTimestamp == nil {
-		return false
-	}
-
+func shouldSkipSync(syncTimestamp time.Time) bool {
 	now := time.Now()
-	if mostRecentTimestamp.After(now.Add(3 * 24 * time.Hour)) {
-		slog.Debug("Most recent match is already 3+ days in the future, skipping API call",
-			"most_recent_date", mostRecentTimestamp)
+	if syncTimestamp.After(now.Add(3 * 24 * time.Hour)) {
+		slog.Debug("Sync timestamp is already 3+ days in the future, skipping API call",
+			"sync_timestamp", syncTimestamp)
 
 		return true
 	}

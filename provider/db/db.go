@@ -18,7 +18,7 @@ func Init() error {
     password := os.Getenv("DB_PASSWORD")
     port := os.Getenv("DB_PORT")
     host := os.Getenv("DB_HOST")
-    dbName := "chiliz_chain_pulse"
+    dbName := "sports_pulse"
 
     // Build connection string
     connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
