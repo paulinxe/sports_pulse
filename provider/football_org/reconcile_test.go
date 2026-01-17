@@ -18,6 +18,9 @@ var notFinishedMatchResponse string
 //go:embed test_data_provider/matches/finished_match.json
 var finishedMatchResponse string
 
+//go:embed test_data_provider/matches/awarded_match.json
+var awardedMatchResponse string
+
 func Test_no_errors_when_nothing_to_reconcile(t *testing.T) {
 	testutil.InitDatabase(t)
 	defer testutil.CloseDatabase()
@@ -96,42 +99,69 @@ func Test_we_dont_update_the_match_if_the_status_is_not_finished(t *testing.T) {
 	testutil.ExpectNumberOfRequests(t, mockServer, 1)
 }
 
-func Test_we_update_the_match_if_the_status_is_finished(t *testing.T) {
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
-
-	mockServer := testutil.CreateServerBuilder().
-		WithStatusCode(http.StatusOK).
-		WithResponseBody(finishedMatchResponse).
-		Build()
-	defer mockServer.Close()
-
-	startTime, _ := time.Parse("2006-01-02 15:04:05", time.Now().Add(-22*time.Hour).Format("2006-01-02 15:04:05"))
-	match := createMatch(t, startTime)
-
-	err := Reconcile(0)
-	testutil.AssertNoError(t, err)
-
-	actualMatch, err := repository.FindByCanonicalID(context.Background(), match.CanonicalID, entity.FootballOrg)
-	testutil.AssertNoError(t, err)
-
-	if actualMatch == nil {
-		t.Fatalf("Expected match to be found, but it is nil")
+func Test_we_update_the_match_if_the_status_is_in_final_status(t *testing.T) {
+	tests := []struct {
+		name              string
+		responseBody      string
+		expectedHomeScore uint
+		expectedAwayScore uint
+		apiStatus         string
+	}{
+		{
+			name:              "FINISHED status maps to Finished",
+			responseBody:      finishedMatchResponse,
+			expectedHomeScore: 0,
+			expectedAwayScore: 3,
+			apiStatus:         "FINISHED",
+		},
+		{
+			name:              "AWARDED status maps to Finished",
+			responseBody:      awardedMatchResponse,
+			expectedHomeScore: 0,
+			expectedAwayScore: 3,
+			apiStatus:         "AWARDED",
+		},
 	}
 
-	if actualMatch.Status != entity.Finished {
-		t.Errorf("Expected match to be in finished status, but it is %d", actualMatch.Status)
-	}
+	for _, scenario := range tests {
+		t.Run(scenario.name, func(t *testing.T) {
+			testutil.InitDatabase(t)
+			defer testutil.CloseDatabase()
 
-	if actualMatch.HomeTeamScore != 0 {
-		t.Errorf("Expected match to have home team score 0, but it is %d", actualMatch.HomeTeamScore)
-	}
+			mockServer := testutil.CreateServerBuilder().
+				WithStatusCode(http.StatusOK).
+				WithResponseBody(scenario.responseBody).
+				Build()
+			defer mockServer.Close()
 
-	if actualMatch.AwayTeamScore != 3 {
-		t.Errorf("Expected match to have away team score 3, but it is %d", actualMatch.AwayTeamScore)
-	}
+			startTime, _ := time.Parse("2006-01-02 15:04:05", time.Now().Add(-22*time.Hour).Format("2006-01-02 15:04:05"))
+			match := createMatch(t, startTime)
 
-	testutil.ExpectNumberOfRequests(t, mockServer, 1)
+			err := Reconcile(0)
+			testutil.AssertNoError(t, err)
+
+			actualMatch, err := repository.FindByCanonicalID(context.Background(), match.CanonicalID, entity.FootballOrg)
+			testutil.AssertNoError(t, err)
+
+			if actualMatch == nil {
+				t.Fatalf("Expected match to be found, but it is nil")
+			}
+
+			if actualMatch.Status != entity.Finished {
+				t.Errorf("Expected match to be in finished status, but it is %d", actualMatch.Status)
+			}
+
+			if actualMatch.HomeTeamScore != scenario.expectedHomeScore {
+				t.Errorf("Expected match to have home team score %d, but it is %d", scenario.expectedHomeScore, actualMatch.HomeTeamScore)
+			}
+
+			if actualMatch.AwayTeamScore != scenario.expectedAwayScore {
+				t.Errorf("Expected match to have away team score %d, but it is %d", scenario.expectedAwayScore, actualMatch.AwayTeamScore)
+			}
+
+			testutil.ExpectNumberOfRequests(t, mockServer, 1)
+		})
+	}
 }
 
 func Test_we_continue_when_api_call_fails_during_reconciliation(t *testing.T) {

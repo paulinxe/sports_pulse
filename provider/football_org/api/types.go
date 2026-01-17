@@ -26,3 +26,8 @@ type ScoreTime struct {
 	Away uint `json:"away"`
 }
 
+// The happy path is to have a match in status FINISHED.
+// If a match gets cancelled and never gets played, it will be in status AWARDED.
+func (match *FootballOrgMatch) IsInFinalStatus() bool {
+	return match.Status == "FINISHED" || match.Status == "AWARDED"
+}

@@ -24,6 +24,10 @@ func SaveMatches(ctx context.Context, tx *sql.Tx, footballOrgMatches []api.Footb
 			slog.Error("Failed to delete match", "error", err, "match", match)
 		}
 
+		// TODO: it should not be the case but if the Match is in status SCHEDULED, this means we don't the exact date of the match.
+		// At some point it will transition to TIMED and we will have the date.
+		// We should handle this case somehow.
+
 		if err := repository.Save(ctx, tx, *match); err != nil {
 			// TODO: a single match fail should not fail the entire sync.
 			// We should have a "dead-letter" queue for failed matches so we reconcile each of them individually later.
@@ -60,7 +64,7 @@ func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition ent
 	}
 
 	status := entity.Pending
-	if footballOrgMatch.Status == "FINISHED" {
+	if footballOrgMatch.IsInFinalStatus() {
 		status = entity.Finished
 	}
 

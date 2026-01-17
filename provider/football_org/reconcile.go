@@ -51,7 +51,7 @@ func Reconcile(timeoutPerMatch time.Duration) error {
 		}
 
 		// We know for sure we will get 1 match only as the endpoint responds with a JSON object or 400 when the match is not found
-		if apiResponse.Status != "FINISHED" {
+		if !apiResponse.IsInFinalStatus() {
 			slog.Debug("Match is not finished, skipping reconciliation", "match_id", match.ID)
 			// TODO: depending on the status, we may need to add a delay to the next reconciliation
 			continue
