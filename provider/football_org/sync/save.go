@@ -13,6 +13,11 @@ import (
 
 func SaveMatches(ctx context.Context, tx *sql.Tx, footballOrgMatches []api.FootballOrgMatch, competition entity.Competition, teamMapping map[uint]entity.Team) error {
 	for _, footballOrgMatch := range footballOrgMatches {
+		if !footballOrgMatch.IsInFinalStatus() {
+			slog.Debug("Skipping match that is not in final status", "match_id", footballOrgMatch.ID, "status", footballOrgMatch.Status)
+			continue
+		}
+
 		match, err := convertToEntityMatch(footballOrgMatch, competition, teamMapping)
 		if err != nil {
 			slog.Error(err.Error())
@@ -20,13 +25,11 @@ func SaveMatches(ctx context.Context, tx *sql.Tx, footballOrgMatches []api.Footb
 		}
 
 		// As a match may be rescheduled, we need to delete the existing match in case it already exists.
+		// TODO: we should not delete matches that are already signed.
+		// This could happen if we reprocess old dates or if we already stored a match during the day.
 		if err := repository.DeleteByCanonicalID(ctx, tx, match.CanonicalID, entity.FootballOrg); err != nil {
 			slog.Error("Failed to delete match", "error", err, "match", match)
 		}
-
-		// TODO: it should not be the case but if the Match is in status SCHEDULED, this means we don't the exact date of the match.
-		// At some point it will transition to TIMED and we will have the date.
-		// We should handle this case somehow.
 
 		if err := repository.Save(ctx, tx, *match); err != nil {
 			// TODO: a single match fail should not fail the entire sync.

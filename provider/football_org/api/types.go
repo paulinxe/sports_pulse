@@ -5,7 +5,7 @@ type MatchesResponse struct {
 }
 
 type FootballOrgMatch struct {
-	ID       uint    `json:"id"`
+	ID       uint   `json:"id"`
 	UTCDate  string `json:"utcDate"`
 	Status   string `json:"status"`
 	HomeTeam Team   `json:"homeTeam"`
@@ -30,4 +30,15 @@ type ScoreTime struct {
 // If a match gets cancelled and never gets played, it will be in status AWARDED.
 func (match *FootballOrgMatch) IsInFinalStatus() bool {
 	return match.Status == "FINISHED" || match.Status == "AWARDED"
+}
+
+// Statuses: IN_PLAY, PAUSED, SUSPENDED indicate matches that are actively in progress.
+// Note: TIMED, SCHEDULED are not in-progress (match hasn't started yet).
+func (match *FootballOrgMatch) IsInProgress() bool {
+	inProgressStatuses := map[string]bool{
+		"IN_PLAY":   true,
+		"PAUSED":    true,
+		"SUSPENDED": true,
+	}
+	return inProgressStatuses[match.Status]
 }

@@ -12,9 +12,6 @@ type ErrorCodes int
 const (
 	SUCCESS ErrorCodes = iota
 	BAD_ARGUMENTS
-	UNKNOWN_OPERATION
-	UNKNOWN_PROVIDER
-	UNKNOWN_COMPETITION
 	DB_INIT_ERROR
 	PROVIDER_ERROR
 )
@@ -30,11 +27,9 @@ func run(args []string) int {
 		})),
 	)
 
-	if len(args) < 3 {
-		slog.Error("Usage: <operation> <provider> [competition]")
-		slog.Error("Operations: sync, reconcile")
-		slog.Error("For sync: sync <provider> <competition>")
-		slog.Error("For reconcile: reconcile <provider>")
+	if len(args) != 3 {
+		slog.Error("Usage: <provider> <competition>")
+		slog.Error("Example: football_org la_liga")
 		return int(BAD_ARGUMENTS)
 	}
 
@@ -44,39 +39,15 @@ func run(args []string) int {
 	}
 	defer db.Close()
 
-	operation := strings.ToLower(args[1])
-	provider := args[2]
-	slog.Debug("Initializing operation", "operation", strings.ToUpper(operation), "provider", strings.ToUpper(provider))
+	provider := args[1]
+	competition := args[2]
+	slog.Debug("Starting sync", "provider", strings.ToUpper(provider), "competition", strings.ToUpper(competition))
 
-	var err error
-	switch operation {
-	case "sync":
-		if len(args) != 4 {
-			slog.Error("Usage for sync: sync <provider> <competition>")
-			return int(BAD_ARGUMENTS)
-		}
-
-		err = Sync(provider, args[3])
-
-	case "reconcile":
-		if len(args) != 3 {
-			slog.Error("Usage for reconcile: reconcile <provider>")
-			return int(BAD_ARGUMENTS)
-		}
-
-		err = Reconcile(provider)
-
-	default:
-		slog.Error("Unknown operation", "operation", operation)
-		slog.Error("Valid operations: sync, reconcile")
-		return int(UNKNOWN_OPERATION)
-	}
-
-	if err != nil {
-		slog.Error("Failed to complete operation", "operation", operation, "provider", provider, "error", err)
+	if err := Sync(provider, competition); err != nil {
+		slog.Error("Failed to sync", "provider", provider, "competition", competition, "error", err)
 		return int(PROVIDER_ERROR)
 	}
 
-	slog.Info("Operation completed successfully", "operation", operation, "provider", provider)
+	slog.Info("Sync completed successfully", "provider", provider, "competition", competition)
 	return int(SUCCESS)
 }

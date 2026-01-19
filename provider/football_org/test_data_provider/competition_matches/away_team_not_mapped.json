@@ -19,7 +19,7 @@
         {
             "id":654321,
             "utcDate":"2025-12-03T18:00:00Z",
-            "status":"TIMED",
+            "status":"FINISHED",
             "matchday":19,
             "stage":"REGULAR_SEASON",
             "group":null,
@@ -39,15 +39,15 @@
                 "crest":"https://crests.football-data.org/86.png"
             },
             "score":{
-                "winner":null,
+                "winner":"HOME_TEAM",
                 "duration":"REGULAR",
                 "fullTime":{
-                    "home":null,
-                    "away":null
+                    "home":2,
+                    "away":0
                 },
                 "halfTime":{
-                    "home":null,
-                    "away":null
+                    "home":1,
+                    "away":0
                 }
             },
             "odds":{
@@ -85,7 +85,7 @@
             },
             "id":544391,
             "utcDate":"2025-12-03T18:00:00Z",
-            "status":"TIMED",
+            "status":"FINISHED",
             "matchday":19,
             "stage":"REGULAR_SEASON",
             "group":null,
@@ -105,15 +105,15 @@
                 "crest":"https://crests.football-data.org/86.png"
             },
             "score":{
-                "winner":null,
+                "winner":"AWAY_TEAM",
                 "duration":"REGULAR",
                 "fullTime":{
-                    "home":null,
-                    "away":null
+                    "home":0,
+                    "away":3
                 },
                 "halfTime":{
-                    "home":null,
-                    "away":null
+                    "home":0,
+                    "away":2
                 }
             },
             "odds":{
