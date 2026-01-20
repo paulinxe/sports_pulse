@@ -8,9 +8,12 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"net/url"
+	"time"
 )
 
-func GetList(ctx context.Context, url string) (MatchesResponse, error) {
+func GetList(ctx context.Context, competitionID uint, from time.Time, to time.Time) (MatchesResponse, error) {
+	url := buildAPIPath(competitionID, from, to)
 	body, err := get(ctx, url)
 	if err != nil {
 		return MatchesResponse{}, err
@@ -24,18 +27,15 @@ func GetList(ctx context.Context, url string) (MatchesResponse, error) {
 	return match, nil
 }
 
-func GetOne(ctx context.Context, url string) (FootballOrgMatch, error) {
-	body, err := get(ctx, url)
-	if err != nil {
-		return FootballOrgMatch{}, err
-	}
+func buildAPIPath(competitionID uint, from time.Time, to time.Time) string {
+	path := fmt.Sprintf("/competitions/%d/matches", competitionID)
 
-	var match FootballOrgMatch
-	if err := parseResponse(body, &match); err != nil {
-		return FootballOrgMatch{}, err
-	}
+	params := url.Values{}
+	params.Add("dateFrom", from.Format("2006-01-02"))
+	params.Add("dateTo", to.Format("2006-01-02"))
 
-	return match, nil
+	queryString := params.Encode()
+	return path + "?" + queryString
 }
 
 func get(ctx context.Context, url string) ([]byte, error) {

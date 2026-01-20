@@ -19,7 +19,7 @@ const SYNC_CONTEXT_TIMEOUT = 15 * time.Second
 type SyncProvider interface {
 	ValidateCompetition(competition entity.Competition) error
 	FetchMatches(ctx context.Context, competition entity.Competition, from, to time.Time) ([]entity.Match, error)
-	SaveMatches(ctx context.Context, tx *sql.Tx, matches []entity.Match, competition entity.Competition) error
+	SaveMatches(ctx context.Context, tx *sql.Tx, matches []entity.Match) error
 	HasInProgressMatches(matches []entity.Match) bool
 	GetProviderEntity() entity.Provider
 }
@@ -85,7 +85,7 @@ func Sync(provider string, competition string) error {
 	}
 	defer tx.Rollback()
 
-	if err := syncProvider.SaveMatches(ctx, tx, matchesResponse, competitionEntity); err != nil {
+	if err := syncProvider.SaveMatches(ctx, tx, matchesResponse); err != nil {
 		return err
 	}
 
