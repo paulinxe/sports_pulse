@@ -11,7 +11,35 @@ import (
 	"time"
 )
 
-func SaveMatches(ctx context.Context, tx *sql.Tx, footballOrgMatches []api.FootballOrgMatch, competition entity.Competition, teamMapping map[uint]entity.Team) error {
+// SaveMatches saves entity.Match objects to the database, filtering to only save finished matches.
+func SaveMatches(ctx context.Context, tx *sql.Tx, matches []entity.Match, provider entity.Provider) error {
+	for _, match := range matches {
+		// Only save matches that are in finished status
+		if match.Status != entity.Finished {
+			slog.Debug("Skipping match that is not in final status", "match_id", match.ProviderMatchID, "status", match.Status)
+			continue
+		}
+
+		// As a match may be rescheduled, we need to delete the existing match in case it already exists.
+		// TODO: we should not delete matches that are already signed.
+		// This could happen if we reprocess old dates or if we already stored a match during the day.
+		if err := repository.DeleteByCanonicalID(ctx, tx, match.CanonicalID, provider); err != nil {
+			slog.Error("Failed to delete match", "error", err, "match", match)
+		}
+
+		if err := repository.Save(ctx, tx, match); err != nil {
+			// TODO: a single match fail should not fail the entire sync.
+			// We should have a "dead-letter" queue for failed matches so we reconcile each of them individually later.
+			return fmt.Errorf("Failed to insert match: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// SaveMatchesLegacy is the old function signature kept for backward compatibility during migration.
+// It converts FootballOrgMatch to entity.Match and saves them.
+func SaveMatchesLegacy(ctx context.Context, tx *sql.Tx, footballOrgMatches []api.FootballOrgMatch, competition entity.Competition, teamMapping map[uint]entity.Team) error {
 	for _, footballOrgMatch := range footballOrgMatches {
 		if !footballOrgMatch.IsInFinalStatus() {
 			slog.Debug("Skipping match that is not in final status", "match_id", footballOrgMatch.ID, "status", footballOrgMatch.Status)
@@ -41,7 +69,9 @@ func SaveMatches(ctx context.Context, tx *sql.Tx, footballOrgMatches []api.Footb
 	return nil
 }
 
-func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition entity.Competition, teamMapping map[uint]entity.Team) (*entity.Match, error) {
+// ConvertToEntityMatch converts a FootballOrgMatch to entity.Match, handling all statuses.
+// This function is exported so it can be used by the provider's FetchMatches.
+func ConvertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition entity.Competition, teamMapping map[uint]entity.Team) (*entity.Match, error) {
 	homeTeamID, ok := teamMapping[footballOrgMatch.HomeTeam.ID]
 	if !ok {
 		return nil, fmt.Errorf("Failed to map home team ID (%d), skipping match (%d)",
@@ -66,9 +96,14 @@ func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition ent
 		)
 	}
 
-	status := entity.Pending
+	// Map API status to entity status
+	var status entity.MatchStatus
 	if footballOrgMatch.IsInFinalStatus() {
 		status = entity.Finished
+	} else if footballOrgMatch.IsInProgress() {
+		status = entity.InProgress
+	} else {
+		status = entity.Pending
 	}
 
 	match, err := entity.NewMatch(
@@ -87,4 +122,8 @@ func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition ent
 	}
 
 	return &match, nil
+}
+
+func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition entity.Competition, teamMapping map[uint]entity.Team) (*entity.Match, error) {
+	return ConvertToEntityMatch(footballOrgMatch, competition, teamMapping)
 }
