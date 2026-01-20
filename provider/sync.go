@@ -28,7 +28,6 @@ type SyncProvider interface {
 // matches with FINISHED or AWARDED status. It implements catch-up logic to advance day-by-day
 // until reaching today, and checks for in-progress matches to avoid advancing too early.
 func Sync(provider string, competition string) error {
-	// TODO: add a test in sync_test.go
 	competitionEntity := entity.Competition(0)
 	switch strings.ToLower(competition) {
 	case "la_liga":
@@ -40,7 +39,6 @@ func Sync(provider string, competition string) error {
 	}
 
 	// Get the provider implementation
-	// TODO: add a test in sync_test.go
 	var syncProvider SyncProvider
 	switch strings.ToLower(provider) {
 	case "football_org":
