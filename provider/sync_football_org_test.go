@@ -4,6 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"net/http"
+	"provider/db"
 	"provider/entity"
 	"provider/repository"
 	"provider/testutil"
@@ -30,6 +31,9 @@ var finishedMatchCompetitionResponse string
 
 //go:embed football_org/test_data_provider/competition_matches/awarded_match.json
 var awardedMatchCompetitionResponse string
+
+//go:embed football_org/test_data_provider/competition_matches/stale_and_finished_matches.json
+var staleAndFinishedMatchesResponse string
 
 func Test_we_can_handle_unknown_competition(t *testing.T) {
 	err := Sync("football_org", "premier_league")
@@ -426,5 +430,72 @@ func Test_we_can_handle_invalid_match_date(t *testing.T) {
 
 	if testutil.MatchExists(t, "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8") {
 		t.Errorf("Athletic - Real Madrid match should not exist, but it does")
+	}
+}
+
+func Test_stale_match_moved_to_reconciliation_queue_and_sync_advances(t *testing.T) {
+	testutil.InitDatabase(t)
+	defer testutil.CloseDatabase()
+	logger := testutil.GetLogger()
+
+	mockServer := testutil.CreateServerBuilder().
+		WithStatusCode(http.StatusOK).
+		WithResponseBody(staleAndFinishedMatchesResponse).
+		Build()
+	defer mockServer.Close()
+
+	// The test data has matches on 2025-12-03, so sync will query for that day
+	lastSyncedDate := time.Date(2025, 12, 3, 0, 0, 0, 0, time.UTC)
+	tx, _ := testutil.BeginTransaction(t)
+	repository.UpdateLastSyncedDate(context.Background(), tx, entity.LaLiga, entity.FootballOrg, lastSyncedDate)
+	tx.Commit()
+
+	err := Sync("football_org", "la_liga")
+	testutil.AssertNoError(t, err)
+
+	testutil.ExpectNumberOfRequests(t, mockServer, 1)
+
+	// Verify stale match (ID: 999999, status: IN_PLAY, started at 10:00:00Z) is in reconciliation queue
+	// This match started more than 6 hours ago
+	// TODO: we need to mock the time so we can test this scenario (Clock)
+	if !testutil.ReconciliationEntryExists(t, "999999", int(entity.FootballOrg)) {
+		t.Errorf("Expected stale match (provider_match_id: 999999) to be in reconciliation queue, but it is not")
+	}
+
+	// Verify finished match (ID: 544391) is saved in matches table
+	// This match should have canonical_id based on: LaLiga, AthleticClub, RealMadrid, 2025-12-03
+	var matchCount int
+	err = db.DB.QueryRow("SELECT COUNT(*) FROM matches WHERE provider_match_id = $1 AND provider = $2", "544391", entity.FootballOrg).Scan(&matchCount)
+	testutil.AssertNoError(t, err)
+	if matchCount == 0 {
+		t.Errorf("Expected finished match (provider_match_id: 544391) to be in matches table, but it is not")
+	}
+
+	// Verify sync date advanced to next day
+	nextDay := time.Date(2025, 12, 4, 0, 0, 0, 0, time.UTC)
+	actualLastSyncedDate, err := repository.GetLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg)
+	testutil.AssertNoError(t, err)
+
+	if actualLastSyncedDate == nil {
+		t.Fatalf("Expected sync state to be updated, but it is nil")
+	}
+
+	// Compare dates by formatting as YYYYMMDD
+	expectedDateStr := nextDay.Format("20060102")
+	actualDateStr := actualLastSyncedDate.Format("20060102")
+
+	if actualDateStr != expectedDateStr {
+		t.Errorf("Expected sync state to be %s, but got %s", expectedDateStr, actualDateStr)
+	}
+
+	// Verify log message about stale match
+	outputStr := logger.String()
+	if !strings.Contains(outputStr, "Moved stale match to reconciliation queue") {
+		t.Errorf("Expected 'Moved stale match to reconciliation queue' in output, but got: %s", outputStr)
+	}
+
+	// Verify log message about advancing sync date
+	if !strings.Contains(outputStr, "All matches finished, advancing sync date by 1 day") {
+		t.Errorf("Expected 'All matches finished, advancing sync date by 1 day' in output, but got: %s", outputStr)
 	}
 }

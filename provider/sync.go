@@ -14,6 +14,7 @@ import (
 )
 
 const SYNC_CONTEXT_TIMEOUT = 15 * time.Second
+const STALE_MATCH_THRESHOLD = 6 * time.Hour
 
 // SyncProvider defines the interface for provider-specific sync operations
 type SyncProvider interface {
@@ -87,14 +88,20 @@ func Sync(provider string, competition string) error {
 		return err
 	}
 
-	// Check if any matches are still in progress
-	hasInProgress := syncProvider.HasInProgressMatches(matchesResponse)
+	// Filter stale in-progress matches and move them to reconciliation queue
+	// Get fresh now value for accurate stale match detection
+	currentTime := time.Now().UTC()
+	filteredMatches, err := filterStaleMatches(ctx, tx, matchesResponse, syncProvider.GetProviderEntity(), currentTime)
+	if err != nil {
+		return fmt.Errorf("Failed to filter stale matches: %w", err)
+	}
+
+	// Check if any matches are still in progress (after filtering stale ones)
+	hasInProgress := syncProvider.HasInProgressMatches(filteredMatches)
 
 	var nextSyncDate time.Time
 	if hasInProgress {
 		// Matches still in progress: stay on current day, will retry in 30 min
-		// TODO: we should have a way to detect we are waiting too much time for a match to finish.
-		// Then we would need to add this match to a "dead-letter" queue for reconciliation and advance one day.
 		nextSyncDate = queryDate
 		slog.Debug("Matches still in progress, staying on current day", "date", queryDate)
 	} else if queryDate.Before(today) {
@@ -142,4 +149,33 @@ func getQueryDate(ctx *context.Context, competition entity.Competition, today *t
 	}
 
 	return lastSyncedDay, nil
+}
+
+// filterStaleMatches identifies matches that started 6+ hours ago and are still in-progress,
+// moves them to the reconciliation queue, and returns a filtered list without stale matches.
+func filterStaleMatches(
+	ctx context.Context,
+	tx *sql.Tx,
+	matches []entity.Match,
+	provider entity.Provider,
+	now time.Time,
+) ([]entity.Match, error) {
+	var filteredMatches []entity.Match
+	staleThreshold := now.Add(-STALE_MATCH_THRESHOLD)
+
+	for _, match := range matches {
+		// Check if match is in-progress and started more than 6 hours ago
+		if match.Status == entity.InProgress && match.Start.Before(staleThreshold) {
+			if err := repository.SaveToReconciliationQueue(ctx, tx, match.ProviderMatchID, provider); err != nil {
+				return nil, fmt.Errorf("failed to add match to reconciliation queue: %w", err)
+			}
+
+			slog.Info("Moved stale match to reconciliation queue", "provider_match_id", match.ProviderMatchID)
+			continue
+		}
+
+		filteredMatches = append(filteredMatches, match)
+	}
+
+	return filteredMatches, nil
 }
