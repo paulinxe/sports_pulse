@@ -11,6 +11,7 @@ import (
 	"provider/testutil"
 )
 
+// This test is not part of sync_football_org_test.go because for this specific scenario, its easier to "unit" test it here.
 func Test_SaveMatches_continues_when_save_fails_but_reconciliation_succeeds(t *testing.T) {
 	testutil.InitDatabase(t)
 	defer testutil.CloseDatabase()

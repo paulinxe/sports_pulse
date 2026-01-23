@@ -489,3 +489,85 @@ func Test_stale_match_moved_to_reconciliation_queue_and_sync_advances(t *testing
 		t.Errorf("Expected 'All matches finished, advancing sync date by 1 day' in output, but got: %s", outputStr)
 	}
 }
+
+func Test_finished_match_is_not_deleted_when_syncing_same_match(t *testing.T) {
+	testutil.InitDatabase(t)
+	defer testutil.CloseDatabase()
+
+	// Set sync date to match the test data date
+	lastSyncedDate := time.Date(2025, 12, 3, 0, 0, 0, 0, time.UTC)
+	repository.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, lastSyncedDate)
+
+	// Create and insert a Finished match with specific scores
+	startTime, _ := time.Parse("2006-01-02 15:04:05", "2025-12-03 18:00:00")
+	existingMatch, err := entity.NewMatch(
+		startTime,
+		entity.FootballOrg,
+		"544391", // Same provider_match_id as in valid_response.json
+		entity.AthleticClub,
+		entity.RealMadrid,
+		1, // Original home score
+		2, // Original away score
+		entity.LaLiga,
+		entity.Finished,
+	)
+	testutil.AssertNoError(t, err)
+
+	// Insert the Finished match directly into the database
+	_, err = db.DB.Exec(`
+		INSERT INTO matches (
+			id, canonical_id, home_team_id, away_team_id, start, "end", status,
+			home_team_score, away_team_score, provider_match_id, competition_id, provider
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+	`,
+		existingMatch.ID,
+		existingMatch.CanonicalID,
+		existingMatch.HomeTeamID,
+		existingMatch.AwayTeamID,
+		existingMatch.Start,
+		existingMatch.End,
+		existingMatch.Status,
+		existingMatch.HomeTeamScore,
+		existingMatch.AwayTeamScore,
+		existingMatch.ProviderMatchID,
+		existingMatch.CompetitionID,
+		existingMatch.Provider,
+	)
+	testutil.AssertNoError(t, err)
+
+	// Set up mock server to return a match with the same canonical_id but different scores
+	// valid_response.json has Athletic vs Real Madrid on 2025-12-03 with scores 0-3
+	mockServer := testutil.CreateServerBuilder().
+		WithStatusCode(http.StatusOK).
+		WithResponseBody(successResponse).
+		Build()
+	defer mockServer.Close()
+
+	// Sync should try to save the match from the API (scores 0-3)
+	// but DeleteByCanonicalID should NOT delete the existing Finished match
+	err = Sync("football_org", "la_liga")
+	testutil.AssertNoError(t, err)
+
+	testutil.ExpectNumberOfRequests(t, mockServer, 1)
+
+	// Verify the original Finished match still exists with original scores
+	actualMatch, err := repository.FindByCanonicalID(context.Background(), existingMatch.CanonicalID, entity.FootballOrg)
+	testutil.AssertNoError(t, err)
+	if actualMatch == nil {
+		t.Fatalf("Expected Finished match to still exist, but it was deleted")
+	}
+
+	// Verify it's still the original match (same ID and original scores)
+	if actualMatch.ID != existingMatch.ID {
+		t.Errorf("Expected match ID %s, but got %s", existingMatch.ID, actualMatch.ID)
+	}
+	if actualMatch.HomeTeamScore != existingMatch.HomeTeamScore {
+		t.Errorf("Expected home team score %d (original), but got %d", existingMatch.HomeTeamScore, actualMatch.HomeTeamScore)
+	}
+	if actualMatch.AwayTeamScore != existingMatch.AwayTeamScore {
+		t.Errorf("Expected away team score %d (original), but got %d", existingMatch.AwayTeamScore, actualMatch.AwayTeamScore)
+	}
+	if actualMatch.Status != entity.Finished {
+		t.Errorf("Expected status Finished, but got %v", actualMatch.Status)
+	}
+}

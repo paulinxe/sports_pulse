@@ -18,12 +18,15 @@ func Save(ctx context.Context, match entity.Match) error {
 		return nil
 	}
 
+	// At the moment, if we have a conflict (same match provided by different providers), we skip the insert.
+	// On future versions we would need some kind of consensus mechanism to handle this.
 	query := `
         INSERT INTO matches (
             id, canonical_id, home_team_id, away_team_id, start, "end", status,
             home_team_score, away_team_score, provider_match_id, competition_id,
             provider
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ON CONFLICT (canonical_id, competition_id) DO NOTHING
     `
 
 	_, err := db.DB.ExecContext(ctx, query,
@@ -49,7 +52,7 @@ func Save(ctx context.Context, match entity.Match) error {
 		return fmt.Errorf("failed to insert match %s: %w", match.ProviderMatchID, err)
 	}
 
-	slog.Debug("Inserted match",
+	slog.Debug("Inserted match (or skipped due to conflict)",
 		"id", match.ID,
 		"canonical_id", match.CanonicalID)
 
@@ -132,15 +135,19 @@ func FindMostRecentTimestamp(ctx context.Context, competition entity.Competition
 	return &timestamp, nil
 }
 
+// We only delete matches that are in Pending or InProgress status to avoid deleting matches
+// that are already signed or that have been broadcast to the blockchain.
 func DeleteByCanonicalID(ctx context.Context, canonicalID string, provider entity.Provider) error {
 	if db.DB == nil {
 		return fmt.Errorf("database connection not initialized")
 	}
 
 	query := `
-        DELETE FROM matches WHERE canonical_id = $1 AND provider = $2
+        DELETE FROM matches
+        WHERE canonical_id = $1 AND provider = $2
+        AND status IN ($3, $4)
     `
-	_, err := db.DB.ExecContext(ctx, query, canonicalID, provider)
+	_, err := db.DB.ExecContext(ctx, query, canonicalID, provider, entity.Pending, entity.InProgress)
 	return err
 }
 
