@@ -136,8 +136,10 @@ func getQueryDate(ctx *context.Context, competition entity.Competition, today *t
 	return lastSyncedDay, nil
 }
 
-// filterStaleMatches identifies matches that started 6+ hours ago and are still in-progress,
+// filterStaleMatches identifies matches that started 6+ hours ago and are not finished,
 // moves them to the reconciliation queue, and returns a filtered list without stale matches.
+// This catches both in-progress matches that have been running too long, and matches that
+// should have started but haven't reached a finished state (e.g., still Pending).
 func filterStaleMatches(
 	ctx context.Context,
 	matches []entity.Match,
@@ -148,8 +150,8 @@ func filterStaleMatches(
 	staleThreshold := now.Add(-STALE_MATCH_THRESHOLD)
 
 	for _, match := range matches {
-		// Check if match is in-progress and started more than 6 hours ago
-		if match.Status == entity.InProgress && match.Start.Before(staleThreshold) {
+		// Check if match is not finished and started more than 6 hours ago
+		if match.Status != entity.Finished && match.Start.Before(staleThreshold) {
 			if err := repository.SaveToReconciliationQueue(ctx, match.ProviderMatchID, provider); err != nil {
 				// Log error but continue - don't fail the entire sync
 				slog.Error("Failed to add stale match to reconciliation queue",

@@ -135,22 +135,6 @@ func FindMostRecentTimestamp(ctx context.Context, competition entity.Competition
 	return &timestamp, nil
 }
 
-// We only delete matches that are in Pending or InProgress status to avoid deleting matches
-// that are already signed or that have been broadcast to the blockchain.
-func DeleteByCanonicalID(ctx context.Context, canonicalID string, provider entity.Provider) error {
-	if db.DB == nil {
-		return fmt.Errorf("database connection not initialized")
-	}
-
-	query := `
-        DELETE FROM matches
-        WHERE canonical_id = $1 AND provider = $2
-        AND status IN ($3, $4)
-    `
-	_, err := db.DB.ExecContext(ctx, query, canonicalID, provider, entity.Pending, entity.InProgress)
-	return err
-}
-
 func FinishMatch(ctx context.Context, matchID uuid.UUID, homeTeamScore uint, awayTeamScore uint) error {
 	if db.DB == nil {
 		return fmt.Errorf("database connection not initialized")

@@ -36,7 +36,7 @@ func Test_SaveMatches_continues_when_save_fails_but_reconciliation_succeeds(t *t
 	testutil.AssertNoError(t, err)
 
 	// Insert the match directly into the database with SQL to bypass normal flow
-	// Use a different canonical_id so DeleteByCanonicalID won't find it
+	// Use a different canonical_id so the conflict won't be on canonical_id+competition_id
 	// This ensures the match exists with this ID, causing a primary key violation
 	_, err = db.DB.Exec(`
 		INSERT INTO matches (
@@ -45,7 +45,7 @@ func Test_SaveMatches_continues_when_save_fails_but_reconciliation_succeeds(t *t
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 	`,
 		match.ID,
-		"different_canonical_id_to_avoid_delete", // Different canonical_id so DeleteByCanonicalID won't find it
+		"different_canonical_id_to_avoid_conflict", // Different canonical_id so conflict won't be handled by ON CONFLICT
 		match.HomeTeamID,
 		match.AwayTeamID,
 		match.Start,
@@ -60,7 +60,7 @@ func Test_SaveMatches_continues_when_save_fails_but_reconciliation_succeeds(t *t
 	testutil.AssertNoError(t, err)
 
 	// Now try to save a match with the same ID but different canonical_id
-	// DeleteByCanonicalID won't find it (different canonical_id), but Save will fail due to primary key violation
+	// The conflict won't be on canonical_id+competition_id, so Save will fail due to primary key violation
 	match2, err := entity.NewMatch(
 		startTime,
 		entity.FootballOrg,

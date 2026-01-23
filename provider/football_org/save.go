@@ -17,12 +17,6 @@ func (p *Provider) SaveMatches(ctx context.Context, matches []entity.Match) {
 			continue
 		}
 
-		// As a match may be rescheduled, we need to delete the existing match in case it already exists.
-		// This could happen if we reprocess old dates or if we already stored a match during the day
-		if err := repository.DeleteByCanonicalID(ctx, match.CanonicalID, p.GetProviderEntity()); err != nil {
-			slog.Error("Failed to delete match", "error", err, "match", match)
-		}
-
 		if err := repository.Save(ctx, match); err != nil {
 			// A single match failure should not fail the entire sync.
 			// Add to reconciliation queue for later reconciliation.
