@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func Save(ctx context.Context, transaction *sql.Tx, match entity.Match) error {
+func Save(ctx context.Context, match entity.Match) error {
 	if db.DB == nil {
 		slog.Warn("Database connection not initialized, skipping insert")
 		return nil
@@ -26,7 +26,7 @@ func Save(ctx context.Context, transaction *sql.Tx, match entity.Match) error {
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
     `
 
-	_, err := transaction.ExecContext(ctx, query,
+	_, err := db.DB.ExecContext(ctx, query,
 		match.ID,
 		match.CanonicalID,
 		match.HomeTeamID,
@@ -132,11 +132,15 @@ func FindMostRecentTimestamp(ctx context.Context, competition entity.Competition
 	return &timestamp, nil
 }
 
-func DeleteByCanonicalID(ctx context.Context, tx *sql.Tx, canonicalID string, provider entity.Provider) error {
+func DeleteByCanonicalID(ctx context.Context, canonicalID string, provider entity.Provider) error {
+	if db.DB == nil {
+		return fmt.Errorf("database connection not initialized")
+	}
+
 	query := `
         DELETE FROM matches WHERE canonical_id = $1 AND provider = $2
     `
-	_, err := tx.ExecContext(ctx, query, canonicalID, provider)
+	_, err := db.DB.ExecContext(ctx, query, canonicalID, provider)
 	return err
 }
 

@@ -35,18 +35,21 @@ func GetLastSyncedDate(ctx context.Context, competition entity.Competition, prov
 
 func UpdateLastSyncedDate(
 	ctx context.Context,
-	tx *sql.Tx,
 	competition entity.Competition,
 	provider entity.Provider,
 	date time.Time,
 ) error {
+	if db.DB == nil {
+		return fmt.Errorf("database connection not initialized")
+	}
+
 	query := `
 		INSERT INTO sync_state (id, competition_id, provider, last_synced_date, updated_at)
 		VALUES ($1, $2, $3, $4, NOW())
 		ON CONFLICT (competition_id, provider)
 		DO UPDATE SET last_synced_date = $4, updated_at = NOW()
 	`
-	_, err := tx.ExecContext(ctx, query, uuid.New().String(), competition, provider, date)
+	_, err := db.DB.ExecContext(ctx, query, uuid.New().String(), competition, provider, date)
 	if err != nil {
 		return fmt.Errorf("failed to update last synced date: %w", err)
 	}

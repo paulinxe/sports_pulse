@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"log/slog"
-	"provider/db"
 	"provider/entity"
 	"provider/football_org"
 	"provider/repository"
@@ -20,7 +18,7 @@ const STALE_MATCH_THRESHOLD = 6 * time.Hour
 type SyncProvider interface {
 	ValidateCompetition(competition entity.Competition) error
 	FetchMatches(ctx context.Context, competition entity.Competition, from, to time.Time) ([]entity.Match, error)
-	SaveMatches(ctx context.Context, tx *sql.Tx, matches []entity.Match) error
+	SaveMatches(ctx context.Context, matches []entity.Match)
 	HasInProgressMatches(matches []entity.Match) bool
 	GetProviderEntity() entity.Provider
 }
@@ -77,21 +75,12 @@ func Sync(provider string, competition string) error {
 		return fmt.Errorf("Failed to fetch matches: %w", err)
 	}
 
-	// Open transaction for both saving matches and updating sync state
-	tx, err := db.DB.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("Failed to begin transaction: %w", err)
-	}
-	defer tx.Rollback()
-
-	if err := syncProvider.SaveMatches(ctx, tx, matchesResponse); err != nil {
-		return err
-	}
+	syncProvider.SaveMatches(ctx, matchesResponse)
 
 	// Filter stale in-progress matches and move them to reconciliation queue
 	// Get fresh now value for accurate stale match detection
 	currentTime := time.Now().UTC()
-	filteredMatches, err := filterStaleMatches(ctx, tx, matchesResponse, syncProvider.GetProviderEntity(), currentTime)
+	filteredMatches, err := filterStaleMatches(ctx, matchesResponse, syncProvider.GetProviderEntity(), currentTime)
 	if err != nil {
 		return fmt.Errorf("Failed to filter stale matches: %w", err)
 	}
@@ -118,12 +107,8 @@ func Sync(provider string, competition string) error {
 		slog.Debug("Staying on today", "date", today)
 	}
 
-	if err := repository.UpdateLastSyncedDate(ctx, tx, competitionEntity, syncProvider.GetProviderEntity(), nextSyncDate); err != nil {
+	if err := repository.UpdateLastSyncedDate(ctx, competitionEntity, syncProvider.GetProviderEntity(), nextSyncDate); err != nil {
 		return fmt.Errorf("Failed to update last synced date: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("Failed to commit transaction: %w", err)
 	}
 
 	return nil
@@ -155,7 +140,6 @@ func getQueryDate(ctx *context.Context, competition entity.Competition, today *t
 // moves them to the reconciliation queue, and returns a filtered list without stale matches.
 func filterStaleMatches(
 	ctx context.Context,
-	tx *sql.Tx,
 	matches []entity.Match,
 	provider entity.Provider,
 	now time.Time,
@@ -166,11 +150,21 @@ func filterStaleMatches(
 	for _, match := range matches {
 		// Check if match is in-progress and started more than 6 hours ago
 		if match.Status == entity.InProgress && match.Start.Before(staleThreshold) {
-			if err := repository.SaveToReconciliationQueue(ctx, tx, match.ProviderMatchID, provider); err != nil {
-				return nil, fmt.Errorf("failed to add match to reconciliation queue: %w", err)
+			if err := repository.SaveToReconciliationQueue(ctx, match.ProviderMatchID, provider); err != nil {
+				// Log error but continue - don't fail the entire sync
+				slog.Error("Failed to add stale match to reconciliation queue",
+					"provider_match_id", match.ProviderMatchID,
+					"provider", provider,
+					"error", err)
+
+				continue
 			}
 
-			slog.Info("Moved stale match to reconciliation queue", "provider_match_id", match.ProviderMatchID)
+			slog.Info("Moved stale match to reconciliation queue",
+				"provider_match_id", match.ProviderMatchID,
+				"provider", provider,
+			)
+
 			continue
 		}
 

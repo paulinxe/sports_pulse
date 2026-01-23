@@ -19,13 +19,17 @@ type ReconciliationEntry struct {
 	Tries           int
 }
 
-func SaveToReconciliationQueue(ctx context.Context, tx *sql.Tx, providerMatchID string, provider entity.Provider) error {
+func SaveToReconciliationQueue(ctx context.Context, providerMatchID string, provider entity.Provider) error {
+	if db.DB == nil {
+		return fmt.Errorf("database connection not initialized")
+	}
+
 	query := `
 		INSERT INTO match_reconciliation (id, provider_match_id, provider, reconciled_at, tries)
 		VALUES ($1, $2, $3, NULL, 0)
 		ON CONFLICT (provider_match_id, provider) DO NOTHING
 	`
-	_, err := tx.ExecContext(ctx, query, uuid.New().String(), providerMatchID, provider)
+	_, err := db.DB.ExecContext(ctx, query, uuid.New().String(), providerMatchID, provider)
 	if err != nil {
 		return fmt.Errorf("failed to insert into reconciliation queue: %w", err)
 	}

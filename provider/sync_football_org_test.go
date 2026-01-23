@@ -218,9 +218,7 @@ func Test_we_insert_a_match_as_finished_when_syncing_a_match_in_final_status(t *
 			)
 			testutil.AssertNoError(t, err)
 
-			tx, _ := testutil.BeginTransaction(t)
-			repository.Save(context.Background(), tx, expectedMatch)
-			tx.Commit()
+			repository.Save(context.Background(), expectedMatch)
 
 			err = Sync("football_org", "la_liga")
 			testutil.AssertNoError(t, err)
@@ -260,9 +258,7 @@ func Test_no_api_call_is_made_when_last_synced_date_is_in_the_future(t *testing.
 	defer mockServer.Close()
 
 	futureDate := time.Now().UTC().Add(1 * 24 * time.Hour).Add(1 * time.Minute)
-	tx, _ := testutil.BeginTransaction(t)
-	repository.UpdateLastSyncedDate(context.Background(), tx, entity.LaLiga, entity.FootballOrg, futureDate)
-	tx.Commit()
+	repository.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, futureDate)
 
 	err := Sync("football_org", "la_liga")
 	if err == nil {
@@ -290,9 +286,7 @@ func Test_sync_state_advances_by_1_day_when_no_matches_are_found(t *testing.T) {
 
 	// Set a known sync state
 	knownDate := time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
-	tx, _ := testutil.BeginTransaction(t)
-	repository.UpdateLastSyncedDate(context.Background(), tx, entity.LaLiga, entity.FootballOrg, knownDate)
-	tx.Commit()
+	repository.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, knownDate)
 
 	err := Sync("football_org", "la_liga")
 	testutil.AssertNoError(t, err)
@@ -337,9 +331,7 @@ func Test_sync_state_advances_when_matches_are_found_but_not_in_progress(t *test
 
 	// Set a known sync state in the past
 	knownDate := time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
-	tx, _ := testutil.BeginTransaction(t)
-	repository.UpdateLastSyncedDate(context.Background(), tx, entity.LaLiga, entity.FootballOrg, knownDate)
-	tx.Commit()
+	repository.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, knownDate)
 
 	err := Sync("football_org", "la_liga")
 	testutil.AssertNoError(t, err)
@@ -446,9 +438,7 @@ func Test_stale_match_moved_to_reconciliation_queue_and_sync_advances(t *testing
 
 	// The test data has matches on 2025-12-03, so sync will query for that day
 	lastSyncedDate := time.Date(2025, 12, 3, 0, 0, 0, 0, time.UTC)
-	tx, _ := testutil.BeginTransaction(t)
-	repository.UpdateLastSyncedDate(context.Background(), tx, entity.LaLiga, entity.FootballOrg, lastSyncedDate)
-	tx.Commit()
+	repository.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, lastSyncedDate)
 
 	err := Sync("football_org", "la_liga")
 	testutil.AssertNoError(t, err)
