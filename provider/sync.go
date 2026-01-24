@@ -14,6 +14,17 @@ import (
 const SYNC_CONTEXT_TIMEOUT = 15 * time.Second
 const STALE_MATCH_THRESHOLD = 6 * time.Hour
 
+// Clock provides an interface for getting the current time, allowing for time mocking in tests
+type Clock interface {
+	Now() time.Time
+}
+
+type systemClock struct{}
+
+func (s systemClock) Now() time.Time {
+	return time.Now().UTC()
+}
+
 // SyncProvider defines the interface for provider-specific sync operations
 type SyncProvider interface {
 	ValidateCompetition(competition entity.Competition) error
@@ -25,7 +36,7 @@ type SyncProvider interface {
 // Sync queries matches for a natural day period (00:00:00 to 23:59:59 UTC) and only inserts
 // matches with FINISHED or AWARDED status. It implements catch-up logic to advance day-by-day
 // until reaching today, and checks for in-progress matches to avoid advancing too early.
-func Sync(provider string, competition string) error {
+func Sync(provider string, competition string, clock Clock) error {
 	competitionEntity := entity.Competition(0)
 	switch strings.ToLower(competition) {
 	case "la_liga":
@@ -53,8 +64,7 @@ func Sync(provider string, competition string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), SYNC_CONTEXT_TIMEOUT)
 	defer cancel()
 
-	// Always work in UTC
-	now := time.Now().UTC()
+	now := clock.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 
 	// Determine which day to query
@@ -74,15 +84,12 @@ func Sync(provider string, competition string) error {
 		return fmt.Errorf("Failed to fetch matches: %w", err)
 	}
 
-	syncProvider.SaveMatches(ctx, matchesResponse)
-
-	// Filter stale in-progress matches and move them to reconciliation queue
-	// Get fresh now value for accurate stale match detection
-	currentTime := time.Now().UTC()
-	filteredMatches, err := filterStaleMatches(ctx, matchesResponse, syncProvider.GetProviderEntity(), currentTime)
+	filteredMatches, err := filterStaleMatches(ctx, matchesResponse, syncProvider.GetProviderEntity(), clock.Now())
 	if err != nil {
 		return fmt.Errorf("Failed to filter stale matches: %w", err)
 	}
+
+	syncProvider.SaveMatches(ctx, filteredMatches)
 
 	var nextSyncDate time.Time
 	if hasInProgressMatches(filteredMatches) {

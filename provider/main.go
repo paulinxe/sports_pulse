@@ -43,7 +43,7 @@ func run(args []string) int {
 	competition := args[2]
 	slog.Debug("Starting sync", "provider", strings.ToUpper(provider), "competition", strings.ToUpper(competition))
 
-	if err := Sync(provider, competition); err != nil {
+	if err := Sync(provider, competition, systemClock{}); err != nil {
 		slog.Error("Failed to sync", "provider", provider, "competition", competition, "error", err)
 		return int(PROVIDER_ERROR)
 	}

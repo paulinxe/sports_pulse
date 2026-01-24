@@ -5,7 +5,7 @@ import (
 )
 
 func Test_Sync_returns_error_for_unknown_competition(t *testing.T) {
-	err := Sync("football_org", "invalid_competition")
+	err := Sync("football_org", "invalid_competition", systemClock{})
 	if err == nil {
 		t.Error("Expected error for unknown competition, but got nil")
 	}
@@ -17,7 +17,7 @@ func Test_Sync_returns_error_for_unknown_competition(t *testing.T) {
 }
 
 func Test_Sync_returns_error_for_unknown_provider(t *testing.T) {
-	err := Sync("invalid_provider", "la_liga")
+	err := Sync("invalid_provider", "la_liga", systemClock{})
 	if err == nil {
 		t.Error("Expected error for unknown provider, but got nil")
 	}
