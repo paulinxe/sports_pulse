@@ -14,16 +14,6 @@ func (p *Provider) ValidateCompetition(competition entity.Competition) error {
 	return nil
 }
 
-func (p *Provider) HasInProgressMatches(matches []entity.Match) bool {
-	for _, match := range matches {
-		if match.Status == entity.InProgress {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (p *Provider) GetProviderEntity() entity.Provider {
 	return entity.FootballOrg
 }

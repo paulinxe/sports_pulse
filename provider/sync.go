@@ -19,7 +19,6 @@ type SyncProvider interface {
 	ValidateCompetition(competition entity.Competition) error
 	FetchMatches(ctx context.Context, competition entity.Competition, from, to time.Time) ([]entity.Match, error)
 	SaveMatches(ctx context.Context, matches []entity.Match)
-	HasInProgressMatches(matches []entity.Match) bool
 	GetProviderEntity() entity.Provider
 }
 
@@ -85,20 +84,13 @@ func Sync(provider string, competition string) error {
 		return fmt.Errorf("Failed to filter stale matches: %w", err)
 	}
 
-	// Check if any matches are still in progress (after filtering stale ones)
-	hasInProgress := syncProvider.HasInProgressMatches(filteredMatches)
-
 	var nextSyncDate time.Time
-	if hasInProgress {
+	if hasInProgressMatches(filteredMatches) {
 		// Matches still in progress: stay on current day, will retry in 30 min
 		nextSyncDate = queryDate
 		slog.Debug("Matches still in progress, staying on current day", "date", queryDate)
 	} else if queryDate.Before(today) {
 		// All matches finished and we're catching up: advance by 1 day
-		// TODO: if are close to 00:00 (next day), we should check if we have matches that didn't start yet.
-		// If this is the case, in order to not lose that match, we should not advance the sync date and query again in 30 min.
-		// This could happen if there is a delay in the API response.
-		// Another option could be to move that match to a "dead-letter" queue for reconciliation and advance one day.
 		nextSyncDate = queryDate.Add(24 * time.Hour)
 		slog.Debug("All matches finished, advancing sync date by 1 day", "from", queryDate, "to", nextSyncDate)
 	} else {
@@ -174,4 +166,15 @@ func filterStaleMatches(
 	}
 
 	return filteredMatches, nil
+}
+
+// hasInProgressMatches checks if there is at least one match with Status != Finished
+func hasInProgressMatches(matches []entity.Match) bool {
+	for _, match := range matches {
+		if match.Status != entity.Finished {
+			return true
+		}
+	}
+
+	return false
 }
