@@ -46,7 +46,7 @@ func get(ctx context.Context, url string) ([]byte, error) {
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to create request: %w", err)
+		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("X-Auth-Token", apiKey)
@@ -55,20 +55,20 @@ func get(ctx context.Context, url string) ([]byte, error) {
 	resp, err := client.Do(req)
 	if err != nil {
 		if ctx.Err() == context.Canceled {
-			return nil, fmt.Errorf("Request canceled: %w", err)
+			return nil, fmt.Errorf("request canceled: %w", err)
 		}
 
 		if ctx.Err() == context.DeadlineExceeded {
-			return nil, fmt.Errorf("Context timeout: %w", err)
+			return nil, fmt.Errorf("context timeout: %w", err)
 		}
 
-		return nil, fmt.Errorf("Failed to get matches: %w", err)
+		return nil, fmt.Errorf("failed to get matches: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read response body: %w", err)
+		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	if resp.StatusCode >= 400 {
@@ -80,7 +80,7 @@ func get(ctx context.Context, url string) ([]byte, error) {
 
 func parseResponse(body []byte, parseTo interface{}) error {
 	if err := json.Unmarshal(body, parseTo); err != nil {
-		return fmt.Errorf("Failed to parse JSON response: %w", err)
+		return fmt.Errorf("failed to parse JSON response: %w", err)
 	}
 
 	return nil

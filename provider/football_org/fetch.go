@@ -35,7 +35,7 @@ func (p *Provider) FetchMatches(ctx context.Context, competition entity.Competit
 func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition entity.Competition, teamMapping map[uint]entity.Team) (*entity.Match, error) {
 	homeTeamID, ok := teamMapping[footballOrgMatch.HomeTeam.ID]
 	if !ok {
-		return nil, fmt.Errorf("Failed to map home team ID (%d), skipping match (%d)",
+		return nil, fmt.Errorf("failed to map home team ID (%d), skipping match (%d)",
 			footballOrgMatch.HomeTeam.ID,
 			footballOrgMatch.ID,
 		)
@@ -43,7 +43,7 @@ func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition ent
 
 	awayTeamID, ok := teamMapping[footballOrgMatch.AwayTeam.ID]
 	if !ok {
-		return nil, fmt.Errorf("Failed to map away team ID (%d), skipping match (%d)",
+		return nil, fmt.Errorf("failed to map away team ID (%d), skipping match (%d)",
 			footballOrgMatch.AwayTeam.ID,
 			footballOrgMatch.ID,
 		)
@@ -51,7 +51,7 @@ func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition ent
 
 	startTime, err := time.Parse(time.RFC3339, footballOrgMatch.UTCDate)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to parse match date (%s), skipping match (%d)",
+		return nil, fmt.Errorf("failed to parse match date (%s), skipping match (%d)",
 			footballOrgMatch.UTCDate,
 			footballOrgMatch.ID,
 		)

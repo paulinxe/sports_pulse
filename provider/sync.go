@@ -44,7 +44,7 @@ func Sync(provider string, competition string, clock Clock) error {
 	case "premier_league":
 		competitionEntity = entity.PremierLeague
 	default:
-		return fmt.Errorf("Unknown competition: %s", competition)
+		return fmt.Errorf("unknown competition: %s", competition)
 	}
 
 	// Get the provider implementation
@@ -53,7 +53,7 @@ func Sync(provider string, competition string, clock Clock) error {
 	case "football_org":
 		syncProvider = &football_org.Provider{}
 	default:
-		return fmt.Errorf("Unknown provider: %s", provider)
+		return fmt.Errorf("unknown provider: %s", provider)
 	}
 
 	if err := syncProvider.ValidateCompetition(competitionEntity); err != nil {
@@ -70,7 +70,7 @@ func Sync(provider string, competition string, clock Clock) error {
 	// Determine which day to query
 	queryDate, err := getQueryDate(&ctx, competitionEntity, &today, syncProvider.GetProviderEntity())
 	if err != nil {
-		return fmt.Errorf("Failed to get query date: %w", err)
+		return fmt.Errorf("failed to get query date: %w", err)
 	}
 
 	// Query for the natural day (00:00:00 to 23:59:59 UTC)
@@ -80,13 +80,12 @@ func Sync(provider string, competition string, clock Clock) error {
 	matchesResponse, err := syncProvider.FetchMatches(ctx, competitionEntity, from, to)
 	if err != nil {
 		// On error, log and retry the same day next time (don't advance)
-		slog.Error("Failed to fetch matches from API", "error", err, "date", queryDate)
-		return fmt.Errorf("Failed to fetch matches: %w", err)
+		return fmt.Errorf("failed to fetch matches: %w", err)
 	}
 
 	filteredMatches, err := filterStaleMatches(ctx, matchesResponse, syncProvider.GetProviderEntity(), clock.Now())
 	if err != nil {
-		return fmt.Errorf("Failed to filter stale matches: %w", err)
+		return fmt.Errorf("failed to filter stale matches: %w", err)
 	}
 
 	syncProvider.SaveMatches(ctx, filteredMatches)
@@ -107,7 +106,7 @@ func Sync(provider string, competition string, clock Clock) error {
 	}
 
 	if err := repository.UpdateLastSyncedDate(ctx, competitionEntity, syncProvider.GetProviderEntity(), nextSyncDate); err != nil {
-		return fmt.Errorf("Failed to update last synced date: %w", err)
+		return fmt.Errorf("failed to update last synced date: %w", err)
 	}
 
 	return nil
@@ -116,7 +115,7 @@ func Sync(provider string, competition string, clock Clock) error {
 func getQueryDate(ctx *context.Context, competition entity.Competition, today *time.Time, provider entity.Provider) (time.Time, error) {
 	lastSyncedDate, err := repository.GetLastSyncedDate(*ctx, competition, provider)
 	if err != nil {
-		return time.Time{}, fmt.Errorf("Failed to get last synced date: %w", err)
+		return time.Time{}, fmt.Errorf("failed to get last synced date: %w", err)
 	}
 
 	if lastSyncedDate == nil {

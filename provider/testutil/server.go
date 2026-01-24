@@ -62,11 +62,11 @@ func (b *ServerBuilder) Build() *ServerWithRequestCapture {
 		}
 
 		w.WriteHeader(b.statusCode)
-		w.Write([]byte(b.responseBody))
+		_, _ = w.Write([]byte(b.responseBody))
 	}))
 
 	// Set up environment variable to point to mock server
-	os.Setenv("FOOTBALL_ORG_API_ENDPOINT", capture.Server.URL)
+	_ = os.Setenv("FOOTBALL_ORG_API_ENDPOINT", capture.Server.URL)
 
 	return capture
 }

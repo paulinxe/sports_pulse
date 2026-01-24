@@ -3,3 +3,6 @@ test:
 
 run:
 	go run . football_org la_liga
+
+check:
+	golangci-lint run
