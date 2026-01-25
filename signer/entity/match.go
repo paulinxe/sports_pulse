@@ -8,7 +8,7 @@ type MatchStatus int
 const (
     _ MatchStatus = iota
     Pending
-	Processing
+	InProgress
 	Finished
 	Signed
 )
