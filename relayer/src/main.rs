@@ -1,32 +1,40 @@
 use std::error::Error;
+use log::error;
+
+mod logger;
 
 use relayer::{run, db, config};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    logger::init().map_err(|e| {
+        eprintln!("Failed to initialize logger: {:?}", e);
+        std::io::Error::new(std::io::ErrorKind::Other, format!("Logger init error: {:?}", e))
+    })?;
+
     let db = db::init().await.map_err(|e| {
-        eprintln!("[ERROR] Failed to initialize database connection:");
-        eprintln!("  Error: {}", e);
+        error!("Failed to initialize database connection:");
+        error!("  Error: {}", e);
         if let Some(source) = e.source() {
-            eprintln!("  Source: {}", source);
+            error!("  Source: {}", source);
         }
         e
     })?;
     
     let contract_config = config::init().map_err(|e| {
-        eprintln!("[ERROR] Failed to initialize contract config:");
-        eprintln!("  Error: {}", e);
+        error!("Failed to initialize contract config:");
+        error!("  Error: {}", e);
         if let Some(source) = e.source() {
-            eprintln!("  Source: {}", source);
+            error!("  Source: {}", source);
         }
         e
     })?;
 
     run(&db, &contract_config).await.map_err(|e| {
-        eprintln!("[ERROR] Application execution failed:");
-        eprintln!("  Error: {}", e);
+        error!("Application execution failed:");
+        error!("  Error: {}", e);
         if let Some(source) = e.source() {
-            eprintln!("  Source: {}", source);
+            error!("  Source: {}", source);
         }
         e
     })?;

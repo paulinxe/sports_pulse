@@ -2951,6 +2951,7 @@ name = "relayer"
 version = "1.0.0"
 dependencies = [
  "alloy",
+ "log",
  "tokio",
  "tokio-postgres",
 ]

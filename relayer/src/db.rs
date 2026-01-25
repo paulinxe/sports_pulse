@@ -1,5 +1,6 @@
 use tokio_postgres::NoTls;
 use std::error::Error;
+use log::{info, error};
 
 pub async fn init() -> Result<tokio_postgres::Client, Box<dyn Error>> {
     let db_host = std::env::var("DB_HOST").unwrap_or_else(|_| {
@@ -32,34 +33,34 @@ pub async fn init() -> Result<tokio_postgres::Client, Box<dyn Error>> {
         db_user, db_password, db_host, db_port, db_name
     );
     
-    println!("[INFO] Connecting to PostgreSQL database:");
+    info!("Connecting to PostgreSQL database:");
     
     let (client, connection) = tokio_postgres::connect(&connection_string, NoTls)
         .await
         .map_err(|e| {
-            eprintln!("[ERROR] Failed to connect to PostgreSQL database:");
-            eprintln!("  Host: {}", db_host);
-            eprintln!("  Port: {}", db_port);
-            eprintln!("  User: {}", db_user);
-            eprintln!("  Database: {}", db_name);
-            eprintln!("  Connection string (without password): postgres://{}:***@{}:{}/{}", db_user, db_host, db_port, db_name);
-            eprintln!("  Error type: {:?}", e);
-            eprintln!("  Error message: {}", e);
-            eprintln!("  Error source: {:?}", e.source());
+            error!("Failed to connect to PostgreSQL database:");
+            error!("  Host: {}", db_host);
+            error!("  Port: {}", db_port);
+            error!("  User: {}", db_user);
+            error!("  Database: {}", db_name);
+            error!("  Connection string (without password): postgres://{}:***@{}:{}/{}", db_user, db_host, db_port, db_name);
+            error!("  Error type: {:?}", e);
+            error!("  Error message: {}", e);
+            error!("  Error source: {:?}", e.source());
             std::process::exit(crate::ErrorCodes::DatabaseConnectionError as i32);
         })?;
     
-    println!("[INFO] Database connection established successfully");
+    info!("Database connection established successfully");
 
     // Spawn the connection in a new task so the main thread can continue
     // as this connection.await blocks the thread forever.
     tokio::spawn(async move {
         if let Err(e) = connection.await {
-            eprintln!("[ERROR] Database connection error occurred:");
-            eprintln!("  Error type: {:?}", e);
-            eprintln!("  Error message: {}", e);
-            eprintln!("  Error source: {:?}", e.source());
-            eprintln!("  Note: The connection task has terminated. The application may not be able to execute queries.");
+            error!("Database connection error occurred:");
+            error!("  Error type: {:?}", e);
+            error!("  Error message: {}", e);
+            error!("  Error source: {:?}", e.source());
+            error!("  Note: The connection task has terminated. The application may not be able to execute queries.");
             // TODO: most probably here we should panic?
         }
     });
