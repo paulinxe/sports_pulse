@@ -11,7 +11,7 @@ import (
 func InitDatabase(t *testing.T) {
 	_, err := db.Init()
 	if err != nil {
-		t.Fatalf("Failed to initialize database: %v", err)
+		t.Fatalf("failed to initialize database: %v", err)
 	}
 
 	// Verify database connection is ready
@@ -24,7 +24,7 @@ func InitDatabase(t *testing.T) {
 
 func CloseDatabase() {
 	if err := db.Close(); err != nil {
-		slog.Error("Failed to close database", "error", err)
+		slog.Error("failed to close database", "error", err)
 		os.Exit(1)
 	}
 }
@@ -32,7 +32,7 @@ func CloseDatabase() {
 func BeginTransaction(t *testing.T) (*sql.Tx, error) {
 	tx, err := db.DB.Begin()
 	if err != nil {
-		t.Fatalf("Failed to begin transaction: %v", err)
+		t.Fatalf("failed to begin transaction: %v", err)
 	}
 	return tx, nil
 }
@@ -40,7 +40,7 @@ func BeginTransaction(t *testing.T) (*sql.Tx, error) {
 func RollbackTransaction(t *testing.T, transaction *sql.Tx) {
 	err := transaction.Rollback()
 	if err != nil {
-		t.Fatalf("Failed to rollback transaction: %v", err)
+		t.Fatalf("failed to rollback transaction: %v", err)
 	}
 }
 
@@ -48,7 +48,7 @@ func MatchExists(t *testing.T, canonicalID string) bool {
 	var count int
 	err := db.DB.QueryRow("SELECT COUNT(*) FROM matches WHERE canonical_id = $1", canonicalID).Scan(&count)
 	if err != nil {
-		t.Fatalf("Failed to query database: %v", err)
+		t.Fatalf("failed to query database: %v", err)
 	}
 	return count > 0
 }

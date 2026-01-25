@@ -15,6 +15,9 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 RUN echo 'export PATH="/usr/local/go/bin:$PATH"' > /etc/profile.d/go.sh && \
     chmod +x /etc/profile.d/go.sh
 
+# Install golangci-lint
+RUN wget -O- -nv https://golangci-lint.run/install.sh | sh -s -- -b /usr/local/bin v2.8.0
+
 WORKDIR /app
 
 # Copy go mod files first (for caching)

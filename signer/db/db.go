@@ -44,7 +44,7 @@ func Init() (shouldClose bool, err error) {
 
     // Verify the connection
     if err := DB.Ping(); err != nil {
-        DB.Close() // Close the failed connection
+        _ = DB.Close()
         DB = nil   // Set to nil so we know it's not usable
         return shouldClose, fmt.Errorf("failed to ping database: %w", err)
     }

@@ -1,11 +1,11 @@
 package repository
 
 import (
-    "context"
-    "fmt"
-    "signer/db"
-    "signer/entity"
-    "log/slog"
+	"context"
+	"fmt"
+	"log/slog"
+	"signer/db"
+	"signer/entity"
 )
 
 func FindMatchesToSign(ctx context.Context) ([]entity.Match, error) {
@@ -22,14 +22,14 @@ func FindMatchesToSign(ctx context.Context) ([]entity.Match, error) {
     if err != nil {
         return nil, fmt.Errorf("failed to find matches to sign: %w", err)
     }
-    defer rows.Close()
+    defer func() { _ = rows.Close() }()
 
     var matches []entity.Match
     for rows.Next() {
         var match entity.Match
         err := rows.Scan(&match.ID, &match.CanonicalID, &match.HomeTeamScore, &match.AwayTeamScore)
         if err != nil {
-            slog.Error("Failed to load match", "error", err)
+            slog.Error("failed to load match", "error", err)
             continue
         }
 

@@ -20,7 +20,7 @@ const ORACLE_STRUCT_NAME = "Match"
 var types *apitypes.Types
 var domain *apitypes.TypedDataDomain
 
-func SignMatch(match entity.Match, privKey *ecdsa.PrivateKey, chainId *math.HexOrDecimal256) (string, error) {
+func SignMatch(match entity.Match, privKey *ecdsa.PrivateKey, chainId uint) (string, error) {
 	message := apitypes.TypedData{
 		Types:       *getTypes(),
 		PrimaryType: ORACLE_STRUCT_NAME,
@@ -32,8 +32,6 @@ func SignMatch(match entity.Match, privKey *ecdsa.PrivateKey, chainId *math.HexO
 		},
 	}
 
-	domainMap := message.Domain.Map()
-
 	// Compute struct hash (EIP-712)
 	structHash, err := message.HashStruct(message.PrimaryType, message.Message)
 	if err != nil {
@@ -41,7 +39,7 @@ func SignMatch(match entity.Match, privKey *ecdsa.PrivateKey, chainId *math.HexO
 	}
 
 	// Compute domain separator hash
-	domainSeparator, err := message.HashStruct("EIP712Domain", domainMap)
+	domainSeparator, err := message.HashStruct("EIP712Domain", message.Domain.Map())
 	if err != nil {
 		return "", fmt.Errorf("failed to hash domain: %w", err)
 	}
@@ -89,15 +87,16 @@ func getTypes() *apitypes.Types {
 	return types
 }
 
-func getDomain(chainId *math.HexOrDecimal256) *apitypes.TypedDataDomain {
+func getDomain(chainId uint) *apitypes.TypedDataDomain {
 	if domain != nil {
 		return domain
 	}
 
+	chainIdHexOrDecimal := math.NewHexOrDecimal256(int64(chainId))
 	domain = &apitypes.TypedDataDomain{
 		Name:              ORACLE_NAME,
 		Version:           ORACLE_VERSION,
-		ChainId:           chainId,
+		ChainId:           chainIdHexOrDecimal,
 		VerifyingContract: os.Getenv("ORACLE_CONTRACT_ADDRESS"),
 	}
 

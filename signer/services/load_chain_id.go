@@ -2,22 +2,20 @@ package services
 
 import (
 	"fmt"
-	"math/big"
 	"os"
-
-	"github.com/ethereum/go-ethereum/common/math"
+	"strconv"
 )
 
-func LoadChainId() (*math.HexOrDecimal256, error) {
+func LoadChainId() (uint, error) {
 	chainIdStr := os.Getenv("CHAIN_ID")
 	if chainIdStr == "" {
-		return nil, fmt.Errorf("CHAIN_ID environment variable is not set")
+		return 0, fmt.Errorf("CHAIN_ID environment variable is not set")
 	}
 
-	chainIdBig, ok := new(big.Int).SetString(chainIdStr, 10)
-	if !ok {
-		return nil, fmt.Errorf("unable to parse chain ID: %s", chainIdStr)
+	chainId, err := strconv.ParseUint(chainIdStr, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("unable to parse chain ID: %s: %w", chainIdStr, err)
 	}
 
-	return (*math.HexOrDecimal256)(chainIdBig), nil
+	return uint(chainId), nil
 }

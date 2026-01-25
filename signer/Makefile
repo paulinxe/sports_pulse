@@ -3,3 +3,6 @@ test:
 
 generate-private-key:
 	openssl ecparam -genkey -name secp256k1 -out private.key
+
+check:
+	golangci-lint run

@@ -33,12 +33,12 @@ func main() {
 func Run(dbTimeout, storeTimeout time.Duration) int {
 	shouldClose, err := db.Init()
 	if err != nil {
-		slog.Error("Failed to initialize database", "error", err)
+		slog.Error("failed to initialize database", "error", err)
 		return int(DB_INIT_FAIL)
 	}
 
 	if shouldClose {
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 	}
 
 	dbContext, cancel := context.WithTimeout(context.Background(), dbTimeout)
@@ -46,7 +46,7 @@ func Run(dbTimeout, storeTimeout time.Duration) int {
 
 	matches, err := repository.FindMatchesToSign(dbContext)
 	if err != nil {
-		slog.Error("Failed to find matches to sign", "error", err)
+		slog.Error("failed to find matches to sign", "error", err)
 		return int(DB_QUERY_FAIL)
 	}
 
@@ -58,20 +58,20 @@ func Run(dbTimeout, storeTimeout time.Duration) int {
 
 	privateKey, err := services.LoadPrivateKey(os.Getenv("SIGNER_PRIVATE_KEY"))
 	if err != nil {
-		slog.Error("Failed to load private key", "error", err)
+		slog.Error("failed to load private key", "error", err)
 		return int(PRIVATE_KEY_LOAD_FAIL)
 	}
 
 	chainId, err := services.LoadChainId()
 	if err != nil {
-		slog.Error("Failed to get chain ID", "error", err)
+		slog.Error("failed to get chain ID", "error", err)
 		return int(CHAIN_ID_NOT_VALID)
 	}
 
 	for _, match := range matches {
 		signature, err := services.SignMatch(match, privateKey, chainId)
 		if err != nil {
-			slog.Error("Failed to sign match", "error", err, "match", match)
+			slog.Error("failed to sign match", "error", err, "match", match)
 			continue
 		}
 
@@ -81,7 +81,7 @@ func Run(dbTimeout, storeTimeout time.Duration) int {
 		err = repository.StoreSignature(storeContext, match, signature)
 
 		if err != nil {
-			slog.Error("Failed to store signature", "error", err, "match", match)
+			slog.Error("failed to store signature", "error", err, "match", match)
 			continue
 		}
 	}
