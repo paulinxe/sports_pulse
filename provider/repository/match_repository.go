@@ -20,6 +20,7 @@ func Save(ctx context.Context, match entity.Match) error {
 
 	// At the moment, if we have a conflict (same match provided by different providers), we skip the insert.
 	// On future versions we would need some kind of consensus mechanism to handle this.
+	// TODO: canonical_id should be unique across all competitions. we don't need to add the competition_id to the unique index.
 	query := `
         INSERT INTO matches (
             id, canonical_id, home_team_id, away_team_id, start, "end", status,
