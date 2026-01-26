@@ -1,6 +1,6 @@
 // Integration tests - these test the full application flow
 
-use relayer::{run, config::db, Broadcaster};
+use relayer::{run, config::db, traits::broadcaster::Broadcaster};
 use log::Level;
 use mockall::predicate::*;
 use mockall::mock;

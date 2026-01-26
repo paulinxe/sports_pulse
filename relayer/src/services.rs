@@ -1,1 +1,1 @@
-pub mod broadcast_result;
+pub mod blockchain_broadcaster;

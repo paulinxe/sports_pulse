@@ -2,8 +2,9 @@
 pub mod config;
 pub mod entity;
 pub mod services;
-pub use services::broadcast_result::{Broadcaster};
+pub mod traits;
 
+use traits::broadcaster::Broadcaster;
 use std::error::Error;
 use log::{info, error, debug};
 use crate::entity::match_entity::Match;

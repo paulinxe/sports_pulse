@@ -4,7 +4,7 @@ use std::io::ErrorKind as IOErrorKind;
 use log::error;
 
 use relayer::{run, config::db, config::contract, config::logger};
-use relayer::services::broadcast_result::BlockchainBroadcaster;
+use relayer::services::blockchain_broadcaster::BlockchainBroadcaster;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {

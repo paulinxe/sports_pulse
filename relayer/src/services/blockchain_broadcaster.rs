@@ -1,12 +1,12 @@
+use crate::config::contract::ContractConfig;
+use crate::traits::broadcaster::Broadcaster;
+use crate::entity::match_entity::Match;
 use alloy::{
     providers::ProviderBuilder,
     signers::local::PrivateKeySigner,
     sol,
 };
 use std::error::Error;
-use crate::entity::match_entity::Match;
-use crate::config::contract::ContractConfig;
-
 sol! { 
     #[sol(rpc)] 
     contract MatchRegistry { 
@@ -21,12 +21,6 @@ sol! {
             bytes calldata signature
         ) external;
     }
-}
-
-/// Trait for broadcasting match results
-#[async_trait::async_trait]
-pub trait Broadcaster: Send + Sync {
-    async fn broadcast(&self, m: &Match) -> Result<(), Box<dyn Error>>;
 }
 
 /// Production implementation that broadcasts to the blockchain
@@ -78,4 +72,3 @@ impl Broadcaster for BlockchainBroadcaster {
         Ok(())
     }
 }
-
