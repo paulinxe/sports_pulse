@@ -1,16 +1,11 @@
 use alloy::{
-    primitives::Bytes,
     providers::ProviderBuilder,
     signers::local::PrivateKeySigner,
     sol,
 };
 use std::error::Error;
-
-pub struct ContractConfig {
-    pub private_key: String,
-    pub rpc: String,
-    pub contract_address: alloy::primitives::Address,
-}
+use crate::entity::match_entity::Match;
+use crate::config::ContractConfig;
 
 sol! { 
     #[sol(rpc)] 
@@ -27,16 +22,9 @@ sol! {
         ) external;
     }
 }
-pub async fn broadcast(
+pub async fn broadcast( 
     config: &ContractConfig,
-    match_id: alloy::primitives::B256,
-    competition_id: u32,
-    home_team_id: u32,
-    away_team_id: u32,
-    home_team_score: u8,
-    away_team_score: u8,
-    match_date: u32,
-    signature: Bytes,
+    m: &Match,
 ) -> Result<(), Box<dyn Error>> {
     // https://alloy.rs/introduction/getting-started
 
@@ -57,14 +45,14 @@ pub async fn broadcast(
  
     // Submit match result to the blockchain
     let tx = match_registry.submitMatch(
-        match_id,
-        competition_id,
-        home_team_id,
-        away_team_id,
-        home_team_score,
-        away_team_score,
-        match_date,
-        signature
+        m.canonical_id,
+        m.competition_id as u32,
+        m.home_team_id as u32,
+        m.away_team_id as u32,
+        m.home_team_score as u8,
+        m.away_team_score as u8,
+        m.start as u32,
+        m.signature.clone() // TODO: try to find a better way
     ).send().await?;
 
     let receipt = tx.get_receipt().await?;
