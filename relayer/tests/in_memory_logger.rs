@@ -10,6 +10,7 @@ static TRACES: Mutex<Vec<String>> = Mutex::new(Vec::new());
 static LOGGER: InMemoryLogger = InMemoryLogger;
 
 /// Tests should run sequentially (--test-threads=1) to safely use clear()
+/// We can get rid of mutexes if we create an interface that is received by lib::run()
 pub struct InMemoryLogger;
 
 impl Log for InMemoryLogger {

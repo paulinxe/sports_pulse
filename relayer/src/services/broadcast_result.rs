@@ -22,42 +22,60 @@ sol! {
         ) external;
     }
 }
-pub async fn broadcast( 
-    config: &ContractConfig,
-    m: &Match,
-) -> Result<(), Box<dyn Error>> {
-    // https://alloy.rs/introduction/getting-started
 
-    // This private key is NOT related with the Signer private key.
-    let signer: PrivateKeySigner = config.private_key.parse()?;
- 
-    // Instantiate a provider with the signer
-    let provider = ProviderBuilder::new() 
-        .wallet(signer) 
-        .connect(&config.rpc) 
-        .await?;
+/// Trait for broadcasting match results
+#[async_trait::async_trait]
+pub trait Broadcaster: Send + Sync {
+    async fn broadcast(&self, m: &Match) -> Result<(), Box<dyn Error>>;
+}
 
-    // Setup MatchRegistry contract instance
-    let match_registry = MatchRegistry::new(
-        config.contract_address,
-        provider.clone()
-    );
- 
-    // Submit match result to the blockchain
-    let tx = match_registry.submitMatch(
-        m.canonical_id,
-        m.competition_id as u32,
-        m.home_team_id as u32,
-        m.away_team_id as u32,
-        m.home_team_score as u8,
-        m.away_team_score as u8,
-        m.start as u32,
-        m.signature.clone() // TODO: try to find a better way
-    ).send().await?;
+/// Production implementation that broadcasts to the blockchain
+pub struct BlockchainBroadcaster {
+    config: ContractConfig,
+}
 
-    let receipt = tx.get_receipt().await?;
-    println!("Transaction receipt: {:?}", receipt);
+impl BlockchainBroadcaster {
+    pub fn new(config: ContractConfig) -> Self {
+        Self { config }
+    }
+}
 
-    Ok(())
+#[async_trait::async_trait]
+impl Broadcaster for BlockchainBroadcaster {
+    async fn broadcast(&self, m: &Match) -> Result<(), Box<dyn Error>> {
+        // https://alloy.rs/introduction/getting-started
+
+        // This private key is NOT related with the Signer private key.
+        let signer: PrivateKeySigner = self.config.private_key.parse()?;
+     
+        // Instantiate a provider with the signer
+        let provider = ProviderBuilder::new() 
+            .wallet(signer) 
+            .connect(&self.config.rpc) 
+            .await?;
+
+        // Setup MatchRegistry contract instance
+        let match_registry = MatchRegistry::new(
+            self.config.contract_address,
+            provider.clone()
+        );
+     
+        // Submit match result to the blockchain
+        let tx = match_registry.submitMatch(
+            m.canonical_id,
+            m.competition_id as u32,
+            m.home_team_id as u32,
+            m.away_team_id as u32,
+            m.home_team_score as u8,
+            m.away_team_score as u8,
+            m.start,
+            m.signature.clone() // TODO: try to find a better way
+        ).send().await?;
+
+        let receipt = tx.get_receipt().await?;
+        println!("Transaction receipt: {:?}", receipt);
+
+        Ok(())
+    }
 }
 

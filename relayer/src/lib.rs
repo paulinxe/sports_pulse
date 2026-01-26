@@ -2,12 +2,11 @@
 pub mod config;
 pub mod entity;
 pub mod services;
-pub use services::broadcast_result::broadcast;
+pub use services::broadcast_result::{Broadcaster};
 
 use std::error::Error;
 use log::{info, error, debug};
 use crate::entity::match_entity::Match;
-use crate::config::contract::ContractConfig;
 
 pub enum ErrorCodes {
     DatabaseConnectionError = 1,
@@ -20,7 +19,7 @@ const SIGNED_MATCH_STATUS: i32 = 4;
 /// Core application logic - processes signed matches and broadcasts them
 pub async fn run(
     db: &tokio_postgres::Client,
-    contract_config: &ContractConfig,
+    broadcaster: &dyn Broadcaster,
 ) -> Result<(), Box<dyn Error>> {
     debug!("Fetching signed matches from database");
 
@@ -44,7 +43,7 @@ pub async fn run(
         let m = Match::from_db(&row)?;
         debug!("Processing match: db_id={}, canonical_id='{}'", m.id, m.canonical_id);
 
-        broadcast(contract_config, &m).await?;
+        broadcaster.broadcast(&m).await?;
         info!("Broadcasted match: canonical_id='{}'", m.canonical_id);
     }
 

@@ -1,16 +1,18 @@
 use std::error::Error;
 use alloy::primitives::Bytes;
 use log::error;
+use uuid::Uuid;
+use chrono::{NaiveDateTime, Datelike};
 
 pub struct Match {
-    pub id: i32,
+    pub id: Uuid,
     pub canonical_id: alloy::primitives::B256,
     pub home_team_id: i32,
     pub away_team_id: i32,
-    pub home_team_score: i16,
-    pub away_team_score: i16,
+    pub home_team_score: i32,
+    pub away_team_score: i32,
     pub competition_id: i32,
-    pub start: i64,
+    pub start: u32, // YMD format: YYYYMMDD (e.g., 20250126 for 2025-01-26)
     pub signature: Bytes,
 }
 
@@ -18,6 +20,11 @@ impl Match {
     pub fn from_db(row: &tokio_postgres::Row) -> Result<Self, Box<dyn Error>> {
         let canonical_id_str: String = row.get("canonical_id");
         let signature_str: String = row.get("signature");
+        let start_timestamp: NaiveDateTime = row.get("start");
+        // Convert timestamp to YMD format: YYYYMMDD (e.g., 20250126 for 2025-01-26)
+        let start_ymd = (start_timestamp.year() as u32 * 10000)
+            + (start_timestamp.month() * 100)
+            + (start_timestamp.day() as u32);
 
         Ok(Self {
             id: row.get("id"),
@@ -27,7 +34,7 @@ impl Match {
             home_team_score: row.get("home_team_score"),
             away_team_score: row.get("away_team_score"),
             competition_id: row.get("competition_id"),
-            start: row.get("start"),
+            start: start_ymd,
             signature: signature_str
             .parse()
             .map_err(|e| {

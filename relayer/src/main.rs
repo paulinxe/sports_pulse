@@ -4,6 +4,7 @@ use std::io::ErrorKind as IOErrorKind;
 use log::error;
 
 use relayer::{run, config::db, config::contract, config::logger};
+use relayer::services::broadcast_result::BlockchainBroadcaster;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -31,7 +32,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         e
     })?;
 
-    run(&db, &contract_config).await.map_err(|e| {
+    let broadcaster = BlockchainBroadcaster::new(contract_config);
+    run(&db, &broadcaster).await.map_err(|e| {
         error!("Application execution failed:");
         error!("  Error: {}", e);
         if let Some(source) = e.source() {
