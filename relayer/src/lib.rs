@@ -1,5 +1,4 @@
 // Library crate - exposes the core functionality for testing
-pub mod db;
 pub mod config;
 pub mod entity;
 pub mod services;
@@ -8,7 +7,7 @@ pub use services::broadcast_result::broadcast;
 use std::error::Error;
 use log::{info, error, debug};
 use crate::entity::match_entity::Match;
-use crate::config::ContractConfig;
+use crate::config::contract::ContractConfig;
 
 pub enum ErrorCodes {
     DatabaseConnectionError = 1,

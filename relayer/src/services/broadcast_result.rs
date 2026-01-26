@@ -5,7 +5,7 @@ use alloy::{
 };
 use std::error::Error;
 use crate::entity::match_entity::Match;
-use crate::config::ContractConfig;
+use crate::config::contract::ContractConfig;
 
 sol! { 
     #[sol(rpc)] 

@@ -1,6 +1,6 @@
 // Integration tests - these test the full application flow
 
-use relayer::{run, db::init, ContractConfig};
+use relayer::{run, config::db, config::contract::ContractConfig};
 use log::Level;
 mod in_memory_logger;
 use in_memory_logger::InMemoryLogger;
@@ -20,7 +20,7 @@ async fn test_run_successfully_ends_when_no_matches_are_found() {
     let logger = InMemoryLogger::init(Level::Info).unwrap();
     InMemoryLogger::clear();
 
-    let db = init().await.unwrap();
+    let db = db::init().await.unwrap();
     db.execute("TRUNCATE TABLE matches", &[]).await.unwrap();
     let config = create_test_config();
 

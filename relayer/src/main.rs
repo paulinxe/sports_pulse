@@ -3,9 +3,7 @@ use std::io::Error as IOError;
 use std::io::ErrorKind as IOErrorKind;
 use log::error;
 
-mod logger;
-
-use relayer::{run, db, config};
+use relayer::{run, config::db, config::contract, config::logger};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -24,7 +22,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         e
     })?;
     
-    let contract_config = config::init().map_err(|e| {
+    let contract_config = contract::init().map_err(|e| {
         error!("Failed to initialize contract config:");
         error!("  Error: {}", e);
         if let Some(source) = e.source() {
