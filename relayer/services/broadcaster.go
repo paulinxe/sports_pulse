@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"relayer/entity"
+	"relayer/config"
 )
 
 // MatchRegistry submitMatch ABI (bytes32,uint32,uint32,uint32,uint8,uint8,uint32,bytes)
@@ -29,20 +30,9 @@ type BroadcasterConfig struct {
 	ContractABI     abi.ABI
 }
 
-func BuildBroadcasterConfig(
-	ctx context.Context,
-	rpcURL string,
-	chainID string,
-	contractAddr common.Address,
-	relayerKeyHex string,
-) (BroadcasterConfig, error) {
-	privKey, err := LoadPrivateKey(relayerKeyHex)
-	if err != nil {
-		return BroadcasterConfig{}, fmt.Errorf("load relayer key: %w", err)
-	}
-
+func BuildBroadcasterConfig(envVars config.EnvVars) (BroadcasterConfig, error) {
 	// TODO: see if we can simplify this conversion.
-	chainIDInt, err := strconv.ParseInt(chainID, 10, 64)
+	chainIDInt, err := strconv.ParseInt(envVars.ChainID, 10, 64)
 	if err != nil {
 		return BroadcasterConfig{}, fmt.Errorf("parse chain id: %w", err)
 	}
@@ -55,9 +45,9 @@ func BuildBroadcasterConfig(
 
 	// TODO: should we return BroadcasterConfig or &BroadcasterConfig?
 	return BroadcasterConfig{
-		RPCURL:          rpcURL,
-		ContractAddress: contractAddr,
-		PrivateKey:      privKey,
+		RPCURL:          envVars.RPCURL,
+		ContractAddress: envVars.ContractAddress,
+		PrivateKey:      envVars.PrivateKey,
 		ChainID:         chainIDBigInt,
 		ContractABI:     contractABI,
 	}, nil
