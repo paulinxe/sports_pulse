@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"relayer/config"
-	"relayer/db"
 	"relayer/entity"
 	"relayer/repository"
 	"relayer/services"
@@ -34,14 +33,14 @@ func main() {
 }
 
 func Run() int {
-	shouldClose, err := db.Init()
+	shouldClose, err := config.InitDB()
 	if err != nil {
 		slog.Error("failed to initialize database", "error", err)
 		return int(DB_INIT_ERROR)
 	}
 
 	if shouldClose {
-		defer func() { _ = db.Close() }()
+		defer func() { _ = config.Close() }()
 	}
 
 	envVars, err := config.LoadEnvVars()

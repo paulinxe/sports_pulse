@@ -1,4 +1,4 @@
-package db
+package config
 
 import (
     "database/sql"
@@ -13,7 +13,7 @@ import (
 var DB *sql.DB
 
 // Init initializes the database connection pool
-func Init() (shouldClose bool, err error) {
+func InitDB() (shouldClose bool, err error) {
 	if DB != nil {
 		// As the DB is already intialized, the caller should not close it.
 		return shouldClose, nil

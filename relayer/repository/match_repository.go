@@ -7,14 +7,14 @@ import (
 	"strings"
 	"time"
 
-	"relayer/db"
+	"relayer/config"
 	"relayer/entity"
 )
 
 const signedStatus = 4
 
 func FindSignedMatches(ctx context.Context) ([]entity.Match, error) {
-	if db.DB == nil {
+	if config.DB == nil {
 		return nil, fmt.Errorf("database not initialized")
 	}
 
@@ -24,7 +24,7 @@ func FindSignedMatches(ctx context.Context) ([]entity.Match, error) {
 		FROM matches
 		WHERE status = $1
 	`
-	rows, err := db.DB.QueryContext(ctx, query, signedStatus)
+	rows, err := config.DB.QueryContext(ctx, query, signedStatus)
 	if err != nil {
 		return nil, fmt.Errorf("query signed matches: %w", err)
 	}
