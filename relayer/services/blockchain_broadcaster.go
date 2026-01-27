@@ -54,18 +54,24 @@ func (broadcaster *BlockchainBroadcaster) Broadcast(ctx context.Context, match e
 		return fmt.Errorf("nonce: %w", err)
 	}
 
-	gasPrice, err := client.SuggestGasPrice(ctx)
+	tipCap, err := client.SuggestGasTipCap(ctx)
+	if err != nil {
+		return fmt.Errorf("suggest gas tip: %w", err)
+	}
+	feeCap, err := client.SuggestGasPrice(ctx)
 	if err != nil {
 		return fmt.Errorf("suggest gas price: %w", err)
 	}
 
-	tx := types.NewTx(&types.LegacyTx{
-		Nonce:    nonce,
-		To:       &broadcaster.config.ContractAddress,
-		Value:    big.NewInt(0),
-		Gas:      300_000,
-		GasPrice: gasPrice,
-		Data:     calldata,
+	tx := types.NewTx(&types.DynamicFeeTx{
+		ChainID:   broadcaster.config.ChainID,
+		Nonce:     nonce,
+		GasTipCap: tipCap,
+		GasFeeCap: feeCap,
+		Gas:       300_000, // TODO: we need to estimate the gas cost of the transaction.
+		To:        &broadcaster.config.ContractAddress,
+		Value:     big.NewInt(0),
+		Data:      calldata,
 	})
 
 	signed, err := types.SignTx(tx, types.LatestSignerForChainID(broadcaster.config.ChainID), broadcaster.config.PrivateKey)
