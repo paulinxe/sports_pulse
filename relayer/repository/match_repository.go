@@ -28,7 +28,7 @@ func FindSignedMatches(ctx context.Context) ([]entity.Match, error) {
 	if err != nil {
 		return nil, fmt.Errorf("query signed matches: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var matches []entity.Match
 	for rows.Next() {

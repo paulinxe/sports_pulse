@@ -29,10 +29,24 @@ const (
 )
 
 func main() {
-	os.Exit(Run())
+	envVars, err := config.LoadEnvVars()
+	if err != nil {
+		slog.Error("failed to load environment variables", "error", err)
+		os.Exit(int(MISSING_ENV))
+	}
+
+	cfg, err := services.BuildBroadcasterConfig(envVars)
+	if err != nil {
+		slog.Error("failed to build broadcast config", "error", err)
+		os.Exit(int(BUILD_CONFIG_ERROR))
+	}
+
+	broadcaster := services.NewBlockchainBroadcaster(cfg)
+
+	os.Exit(Run(broadcaster))
 }
 
-func Run() int {
+func Run(broadcaster services.Broadcaster) int {
 	shouldClose, err := config.InitDB()
 	if err != nil {
 		slog.Error("failed to initialize database", "error", err)
@@ -42,20 +56,6 @@ func Run() int {
 	if shouldClose {
 		defer func() { _ = config.Close() }()
 	}
-
-	envVars, err := config.LoadEnvVars()
-	if err != nil {
-		slog.Error("failed to load environment variables", "error", err)
-		return int(MISSING_ENV)
-	}
-
-	cfg, err := services.BuildBroadcasterConfig(envVars)
-	if err != nil {
-		slog.Error("failed to build broadcast config", "error", err)
-		return int(BUILD_CONFIG_ERROR)
-	}
-
-	broadcaster := services.NewBlockchainBroadcaster(cfg)
 
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	matches, err := repository.FindSignedMatches(ctx)
