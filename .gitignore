@@ -6,4 +6,6 @@ signer/private.key
 provider/tmp
 provider/testdata
 oracle/slither-report.json
+relayer/tmp
+relayer/testdata
 .cursor

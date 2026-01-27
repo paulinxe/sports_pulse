@@ -1,28 +1,33 @@
-FROM rust:1-alpine
+FROM golang:1.25-alpine
 
-# Ensure cargo is in PATH (must be set early)
-ENV PATH="/usr/local/cargo/bin:${PATH}"
+# Install air for hot reloading and other dev tools
+RUN go install github.com/air-verse/air@latest
 
-# Add cargo to PATH in profile.d for all shells (Alpine Linux standard)
-# For development purposes
-RUN echo 'export PATH="/usr/local/cargo/bin:$PATH"' > /etc/profile.d/cargo.sh && \
-    chmod +x /etc/profile.d/cargo.sh
+# Install build tools
+RUN apk add --no-cache git gcc musl-dev
 
-# Install rustfmt for code formatting
-RUN rustup component add rustfmt
+RUN apk add --no-cache git gcc musl-dev make bash libstdc++ libc6-compat
 
-# Install cargo-watch for hot reloading and build dependencies
-RUN cargo install cargo-watch
+# Ensure Go is in PATH (must be set early)
+ENV PATH="/usr/local/go/bin:${PATH}"
 
-# Install build tools and utilities (including OpenSSL for postgres and alloy)
-RUN apk add --no-cache git gcc musl-dev make bash libstdc++ libc6-compat openssl-dev pkgconf
+# Add Go to PATH in profile.d for all shells (Alpine Linux standard)
+RUN echo 'export PATH="/usr/local/go/bin:$PATH"' > /etc/profile.d/go.sh && \
+    chmod +x /etc/profile.d/go.sh
+
+# Install golangci-lint
+RUN wget -O- -nv https://golangci-lint.run/install.sh | sh -s -- -b /usr/local/bin v2.8.0
 
 WORKDIR /app
 
-# Copy source code (will be overridden by volume mount in development)
-# Note: Cargo.toml should exist for the build to work properly
+# Copy go mod files first (for caching); tidy creates go.sum if missing
+COPY go.mod ./
+RUN go mod tidy && go mod download
+
+# Copy the rest of the code (will be overridden by volume mount)
 COPY . .
 
-# Default command (can be overridden in docker-compose)
-CMD ["cargo", "watch", "-x", "run"]
+EXPOSE 8080
 
+# Air will watch for changes and rebuild
+CMD ["air", "-c", ".air.toml"]

@@ -106,14 +106,12 @@ services:
     volumes:
       # Mount source code for live reloading
       - ./relayer:/app
-      # Cache Rust dependencies (speeds up rebuilds)
-      - cargo_registry:/usr/local/cargo/registry
-      - cargo_git:/usr/local/cargo/git
-      - cargo_target:/app/target
+      # Cache Go modules (speeds up rebuilds)
+      - go_modules:/go/pkg/mod
       # Persist VS Code extensions
       - vscode_extensions_relayer:/root/.vscode-server/extensions
     environment:
-      - RUST_ENV=development
+      - GO_ENV=development
       - CHAIN_ID=${CHAIN_ID}
       - ORACLE_CONTRACT_ADDRESS=${ORACLE_CONTRACT_ADDRESS}
       - RPC_URL=${RPC_URL}
@@ -128,7 +126,7 @@ services:
       postgres:
         condition: service_healthy
     # Override command for development (can use cargo watch for hot reloading)
-    command: cargo watch -x run
+    command: air
 
   oracle:
     build:
