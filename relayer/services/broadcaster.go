@@ -15,7 +15,7 @@ import (
 )
 
 // MatchRegistry submitMatch ABI (bytes32,uint32,uint32,uint32,uint8,uint8,uint32,bytes)
-const matchRegistrySubmitMatchABI = `[{"inputs":[{"internalType":"bytes32","name":"matchId","type":"bytes32"},{"internalType":"uint32","name":"competitionId","type":"uint32"},{"internalType":"uint32","name":"homeTeamId","type":"uint32"},{"internalType":"uint32","name":"awayTeamId","type":"uint32"},{"internalType":"uint8","name":"homeTeamScore","type":"uint8"},{"internalType":"uint8","name":"awayTeamScore","type":"uint8"},{"internalType":"uint32","name":"matchDate","type":"uint32"},{"internalType":"bytes","name":"signature","type":"bytes"}],"name":"submitMatch","outputs":[],"stateMutability":"nonpayable","type":"function"}]`
+const matchRegistrySubmitMatchABI = `[{"type":"function","name":"submitMatch","inputs":[{"name":"matchId","type":"bytes32","internalType":"bytes32"},{"name":"competitionId","type":"uint32","internalType":"uint32"},{"name":"homeTeamId","type":"uint32","internalType":"uint32"},{"name":"awayTeamId","type":"uint32","internalType":"uint32"},{"name":"homeTeamScore","type":"uint8","internalType":"uint8"},{"name":"awayTeamScore","type":"uint8","internalType":"uint8"},{"name":"matchDate","type":"uint32","internalType":"uint32"},{"name":"signature","type":"bytes","internalType":"bytes"}],"outputs":[],"stateMutability":"nonpayable"}]`
 
 type Broadcaster interface {
 	Broadcast(ctx context.Context, match entity.Match) error
@@ -43,7 +43,6 @@ func BuildBroadcasterConfig(envVars config.EnvVars) (BroadcasterConfig, error) {
 		return BroadcasterConfig{}, fmt.Errorf("parse abi: %w", err)
 	}
 
-	// TODO: should we return BroadcasterConfig or &BroadcasterConfig?
 	return BroadcasterConfig{
 		RPCURL:          envVars.RPCURL,
 		ContractAddress: envVars.ContractAddress,
