@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"relayer/config"
-	"relayer/entity"
 	"relayer/repository"
 	"relayer/services"
 )
@@ -67,31 +66,10 @@ func Run(broadcaster services.Broadcaster) int {
 
 	slog.Info("found signed matches to broadcast", "count", len(matches))
 
-	failed := broadcastMatches(broadcaster, matches)
+	failed := services.BroadcastMatches(broadcaster, matches, broadcastCtx)
 	if failed > 0 {
 		return int(BROADCAST_FAILURE)
 	}
 
 	return int(SUCCESS)
-}
-
-// broadcastMatches runs Broadcast for each match in order (sequential for nonce safety).
-// It returns the number of failed broadcasts.
-func broadcastMatches(broadcaster services.Broadcaster, matches []entity.Match) (failedCount int) {
-	for _, m := range matches {
-		bctx, cancel := context.WithTimeout(context.Background(), broadcastCtx)
-		err := broadcaster.Broadcast(bctx, m)
-		cancel()
-
-		if err != nil {
-			// TODO: we need a new status for failed broadcasts so we can reconcile this later.
-			slog.Error("broadcast failed", "match_id", m.ID, "canonical_id", m.CanonicalID, "error", err)
-			failedCount++
-			continue
-		}
-
-		slog.Info("broadcasted match", "canonical_id", m.CanonicalID)
-	}
-
-	return failedCount
 }

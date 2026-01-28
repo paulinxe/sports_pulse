@@ -4,14 +4,16 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"fmt"
+	"log/slog"
 	"math/big"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"relayer/entity"
 	"relayer/config"
+	"relayer/entity"
 )
 
 // MatchRegistry submitMatch ABI (bytes32,uint32,uint32,uint32,uint8,uint8,uint32,bytes)
@@ -50,4 +52,25 @@ func BuildBroadcasterConfig(envVars config.EnvVars) (BroadcasterConfig, error) {
 		ChainID:         chainIDBigInt,
 		ContractABI:     contractABI,
 	}, nil
+}
+
+// BroadcastMatches runs Broadcast for each match in order (sequential for nonce safety).
+// It returns the number of failed broadcasts.
+func BroadcastMatches(broadcaster Broadcaster, matches []entity.Match, timeout time.Duration) (failedCount int) {
+	for _, m := range matches {
+		bctx, cancel := context.WithTimeout(context.Background(), timeout)
+		err := broadcaster.Broadcast(bctx, m)
+		cancel()
+
+		if err != nil {
+			// TODO: we need a new status for failed broadcasts so we can reconcile this later.
+			slog.Error("broadcast failed", "match_id", m.ID, "canonical_id", m.CanonicalID, "error", err)
+			failedCount++
+			continue
+		}
+
+		slog.Info("broadcasted match", "canonical_id", m.CanonicalID)
+	}
+
+	return failedCount
 }
