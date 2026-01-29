@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -16,6 +17,8 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"relayer/entity"
+
+	ethereum "github.com/ethereum/go-ethereum"
 )
 
 // BlockchainBroadcaster sends signed matches to the MatchRegistry contract.
@@ -37,6 +40,7 @@ func (broadcaster *BlockchainBroadcaster) Broadcast(ctx context.Context, match e
 	}
 	defer client.Close()
 
+	// TODO: we need to extract the building logic to a separate function so we can test it.
 	matchID := common.HexToHash(strings.TrimPrefix(match.CanonicalID, "0x"))
 	calldata, err := broadcaster.config.ContractABI.Pack("submitMatch",
 		matchID,
@@ -91,8 +95,42 @@ func (broadcaster *BlockchainBroadcaster) Broadcast(ctx context.Context, match e
 		return fmt.Errorf("send tx: %w", err)
 	}
 
+	receipt, err := waitForReceipt(ctx, client, signed.Hash())
+	if err != nil {
+		return fmt.Errorf("failed to wait for receipt: %w", err)
+	}
+
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return fmt.Errorf("transaction reverted (status %d, tx %s)", receipt.Status, signed.Hash().Hex())
+	}
+
 	slog.Info("broadcasted match", "canonical_id", match.CanonicalID, "tx_hash", signed.Hash().Hex())
 	return nil
+}
+
+// waitForReceipt polls for the transaction receipt until it is available or ctx is done.
+// Only NotFound (receipt not yet available) is retried; any other error is returned immediately.
+// The ticker is created once and sends every 500ms, so we only poll at that interval.
+func waitForReceipt(ctx context.Context, client *ethclient.Client, txHash common.Hash) (*types.Receipt, error) {
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		receipt, err := client.TransactionReceipt(ctx, txHash)
+		if err == nil {
+			return receipt, nil
+		}
+
+		if !errors.Is(err, ethereum.NotFound) {
+			return nil, err
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-ticker.C:
+			// Receipt not found yet; wait 500ms and loop again
+		}
+	}
 }
 
 func isMatchAlreadySubmitted(err error, contractABI abi.ABI) bool {
