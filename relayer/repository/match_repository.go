@@ -7,11 +7,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"relayer/config"
 	"relayer/entity"
 )
 
 const signedStatus = 4
+const broadcastedStatus = 5
 
 func FindSignedMatches(ctx context.Context) ([]entity.Match, error) {
 	if config.DB == nil {
@@ -65,4 +67,22 @@ func FindSignedMatches(ctx context.Context) ([]entity.Match, error) {
 	}
 
 	return matches, nil
+}
+
+func BroadcastMatch(ctx context.Context, matchID uuid.UUID) error {
+	if config.DB == nil {
+		return fmt.Errorf("database not initialized")
+	}
+
+	result, err := config.DB.ExecContext(ctx, `UPDATE matches SET status = $1 WHERE id = $2`, broadcastedStatus, matchID)
+	if err != nil {
+		return fmt.Errorf("update match status: %w", err)
+	}
+
+	rows, _ := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("match not found: %s", matchID)
+	}
+
+	return nil
 }

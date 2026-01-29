@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"relayer/config"
 	"relayer/testutil"
 )
 
@@ -45,8 +46,10 @@ func Test_we_can_broadcast_matches(t *testing.T) {
 	// Insert two signed matches so Run will pick them up
 	start := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
 	sigHex := "deadbeef"
-	testutil.InsertSignedMatch(t, uuid.New(), "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 1, 10, 20, 2, 1, start, sigHex)
-	testutil.InsertSignedMatch(t, uuid.New(), "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", 1, 30, 40, 0, 0, start, sigHex)
+	id1 := uuid.New()
+	id2 := uuid.New()
+	testutil.InsertSignedMatch(t, id1, "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 1, 10, 20, 2, 1, start, sigHex)
+	testutil.InsertSignedMatch(t, id2, "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", 1, 30, 40, 0, 0, start, sigHex)
 
 	broadcaster := &testutil.MockBroadcaster{}
 	errorCode := Run(broadcaster)
@@ -57,5 +60,20 @@ func Test_we_can_broadcast_matches(t *testing.T) {
 
 	if broadcaster.TimesCalled != 2 {
 		t.Errorf("broadcaster expected 2 times called, got %d", broadcaster.TimesCalled)
+	}
+
+	assertMatchStatus(t, id1, 5) // TODO: use the constant
+	assertMatchStatus(t, id2, 5) // TODO: use the constant
+}
+
+func assertMatchStatus(t *testing.T, matchID uuid.UUID, expectedStatus int) {
+	t.Helper()
+	var actualStatus int
+
+	err := config.DB.QueryRow("SELECT status FROM matches WHERE id = $1", matchID).Scan(&actualStatus)
+	testutil.AssertNoError(t, err)
+
+	if actualStatus != expectedStatus {
+		t.Errorf("match %s: expected status %d, got %d", matchID, expectedStatus, actualStatus)
 	}
 }
