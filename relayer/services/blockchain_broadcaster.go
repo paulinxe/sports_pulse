@@ -16,7 +16,6 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
-	"relayer/entity"
 
 	ethereum "github.com/ethereum/go-ethereum"
 )
@@ -31,30 +30,14 @@ func NewBlockchainBroadcaster(cfg BroadcasterConfig) *BlockchainBroadcaster {
 	return &BlockchainBroadcaster{config: cfg}
 }
 
-// Broadcast submits a single match to the chain via MatchRegistry.submitMatch.
-func (broadcaster *BlockchainBroadcaster) Broadcast(ctx context.Context, match entity.Match) error {
+// Broadcast submits a single match to the chain via MatchRegistry.submitMatch using the pre-built calldata.
+func (broadcaster *BlockchainBroadcaster) Broadcast(ctx context.Context, calldata []byte) error {
 	// TODO: most probably we should open only one client and use it for all broadcasts.
 	client, err := ethclient.DialContext(ctx, broadcaster.config.RPCURL)
 	if err != nil {
 		return fmt.Errorf("dial rpc: %w", err)
 	}
 	defer client.Close()
-
-	// TODO: we need to extract the building logic to a separate function so we can test it.
-	matchID := common.HexToHash(strings.TrimPrefix(match.CanonicalID, "0x"))
-	calldata, err := broadcaster.config.ContractABI.Pack("submitMatch",
-		matchID,
-		uint32(match.CompetitionID),
-		uint32(match.HomeTeamID),
-		uint32(match.AwayTeamID),
-		uint8(match.HomeTeamScore),
-		uint8(match.AwayTeamScore),
-		match.Start,
-		match.Signature,
-	)
-	if err != nil {
-		return fmt.Errorf("pack submitMatch: %w", err)
-	}
 
 	auth := crypto.PubkeyToAddress(broadcaster.config.PrivateKey.PublicKey)
 	nonce, err := client.PendingNonceAt(ctx, auth)
@@ -104,7 +87,7 @@ func (broadcaster *BlockchainBroadcaster) Broadcast(ctx context.Context, match e
 		return fmt.Errorf("transaction reverted (status %d, tx %s)", receipt.Status, signed.Hash().Hex())
 	}
 
-	slog.Info("broadcasted match", "canonical_id", match.CanonicalID, "tx_hash", signed.Hash().Hex())
+	slog.Info("broadcasted match", "tx_hash", signed.Hash().Hex())
 	return nil
 }
 

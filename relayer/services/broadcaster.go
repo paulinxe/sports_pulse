@@ -25,7 +25,7 @@ var ErrMatchAlreadySubmitted = errors.New("match already submitted")
 const matchRegistrySubmitMatchABI = `[{"type":"function","name":"submitMatch","inputs":[{"name":"matchId","type":"bytes32","internalType":"bytes32"},{"name":"competitionId","type":"uint32","internalType":"uint32"},{"name":"homeTeamId","type":"uint32","internalType":"uint32"},{"name":"awayTeamId","type":"uint32","internalType":"uint32"},{"name":"homeTeamScore","type":"uint8","internalType":"uint8"},{"name":"awayTeamScore","type":"uint8","internalType":"uint8"},{"name":"matchDate","type":"uint32","internalType":"uint32"},{"name":"signature","type":"bytes","internalType":"bytes"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"error","name":"MatchAlreadySubmitted","inputs":[{"name":"matchId","type":"bytes32","internalType":"bytes32"}]}]`
 
 type Broadcaster interface {
-	Broadcast(ctx context.Context, match entity.Match) error
+	Broadcast(ctx context.Context, calldata []byte) error
 }
 
 // BroadcastConfig holds pre-loaded RPC, contract, key, chain ID and ABI for broadcasting.
@@ -64,7 +64,17 @@ func BuildBroadcasterConfig(envVars config.EnvVars) (BroadcasterConfig, error) {
 func BroadcastMatches(broadcaster Broadcaster, matches []entity.Match, timeout time.Duration) (failedCount int) {
 	for _, m := range matches {
 		bctx, cancel := context.WithTimeout(context.Background(), timeout)
-		err := broadcaster.Broadcast(bctx, m)
+		calldata, err := buildCalldata(m)
+		if err != nil {
+			// This should never happen as the only reason for this to fail is if the ABI is invalid.
+			// Anyways, lest's just log it and continue.
+			slog.Error("build submitMatch calldata failed", "match_id", m.ID, "error", err)
+			failedCount++
+			cancel()
+			continue
+		}
+
+		err = broadcaster.Broadcast(bctx, calldata)
 
 		if err != nil {
 			if errors.Is(err, ErrMatchAlreadySubmitted) {
@@ -96,4 +106,23 @@ func BroadcastMatches(broadcaster Broadcaster, matches []entity.Match, timeout t
 	}
 
 	return failedCount
+}
+
+func buildCalldata(match entity.Match) ([]byte, error) {
+	contractABI, err := abi.JSON(strings.NewReader(matchRegistrySubmitMatchABI))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse abi: %w", err)
+	}
+
+	matchID := common.HexToHash(strings.TrimPrefix(match.CanonicalID, "0x"))
+	return contractABI.Pack("submitMatch",
+		matchID,
+		uint32(match.CompetitionID),
+		uint32(match.HomeTeamID),
+		uint32(match.AwayTeamID),
+		uint8(match.HomeTeamScore),
+		uint8(match.AwayTeamScore),
+		match.Start,
+		match.Signature,
+	)
 }
