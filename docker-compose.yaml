@@ -138,6 +138,7 @@ services:
       # Persist VS Code extensions
       - vscode_extensions_oracle:/root/.vscode-server/extensions
     environment:
+      - RPC_URL=${RPC_URL}
       - DEPLOYER_PRIVATE_KEY=${DEPLOYER_PRIVATE_KEY}
       - CONTRACTS_OWNER_ADDRESS=${CONTRACTS_OWNER_ADDRESS}
       - AUTHORIZED_SIGNER_ADDRESS=${AUTHORIZED_SIGNER_ADDRESS}

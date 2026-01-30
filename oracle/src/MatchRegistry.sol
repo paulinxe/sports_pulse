@@ -6,7 +6,6 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {CompetitionRegistry} from "./CompetitionRegistry.sol";
 import {TeamRegistry} from "./TeamRegistry.sol";
-import {console} from "forge-std/console.sol";
 
 contract MatchRegistry is EIP712, Ownable {
     using ECDSA for bytes32;
