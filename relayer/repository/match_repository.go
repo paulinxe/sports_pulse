@@ -12,9 +12,6 @@ import (
 	"relayer/entity"
 )
 
-const signedStatus = 4
-const broadcastedStatus = 5
-
 func FindSignedMatches(ctx context.Context) ([]entity.Match, error) {
 	if config.DB == nil {
 		return nil, fmt.Errorf("database not initialized")
@@ -26,7 +23,7 @@ func FindSignedMatches(ctx context.Context) ([]entity.Match, error) {
 		FROM matches
 		WHERE status = $1
 	`
-	rows, err := config.DB.QueryContext(ctx, query, signedStatus)
+	rows, err := config.DB.QueryContext(ctx, query, entity.SIGNED_STATUS)
 	if err != nil {
 		return nil, fmt.Errorf("query signed matches: %w", err)
 	}
@@ -74,7 +71,7 @@ func BroadcastMatch(ctx context.Context, matchID uuid.UUID) error {
 		return fmt.Errorf("database not initialized")
 	}
 
-	result, err := config.DB.ExecContext(ctx, `UPDATE matches SET status = $1 WHERE id = $2`, broadcastedStatus, matchID)
+	result, err := config.DB.ExecContext(ctx, `UPDATE matches SET status = $1 WHERE id = $2`, entity.BROADCASTED_STATUS, matchID)
 	if err != nil {
 		return fmt.Errorf("update match status: %w", err)
 	}

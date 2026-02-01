@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/ethereum/go-ethereum/ethclient"
 	"relayer/config"
 	"relayer/repository"
 	"relayer/services"
@@ -40,12 +41,17 @@ func main() {
 		os.Exit(int(BUILD_CONFIG_ERROR))
 	}
 
-	broadcaster := services.NewBlockchainBroadcaster(cfg)
+	client, err := ethclient.DialContext(context.Background(), cfg.RPCURL)
+	if err != nil {
+		slog.Error("failed to dial chain", "error", err)
+		os.Exit(int(BUILD_CONFIG_ERROR))
+	}
+	defer client.Close()
 
-	os.Exit(Run(broadcaster))
+	os.Exit(Run(client, cfg))
 }
 
-func Run(broadcaster services.Broadcaster) int {
+func Run(client services.ChainClient, cfg services.BroadcasterConfig) int {
 	shouldClose, err := config.InitDB()
 	if err != nil {
 		slog.Error("failed to initialize database", "error", err)
@@ -66,7 +72,7 @@ func Run(broadcaster services.Broadcaster) int {
 
 	slog.Info("found signed matches to broadcast", "count", len(matches))
 
-	failed := services.BroadcastMatches(broadcaster, matches, broadcastCtx)
+	failed := services.BroadcastMatches(client, cfg, matches, broadcastCtx)
 	if failed > 0 {
 		return int(BROADCAST_FAILURE)
 	}

@@ -7,12 +7,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"relayer/config"
-	"relayer/testutil"
 )
 
 func Test_we_get_an_error_when_chain_id_is_invalid(t *testing.T) {
 	key, err := crypto.GenerateKey()
-	testutil.AssertNoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	envVars := config.EnvVars{
 		RPCURL:          "https://rpc.example.com",
@@ -33,7 +34,9 @@ func Test_we_get_an_error_when_chain_id_is_invalid(t *testing.T) {
 
 func Test_we_get_an_error_when_chain_id_is_empty(t *testing.T) {
 	key, err := crypto.GenerateKey()
-	testutil.AssertNoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	envVars := config.EnvVars{
 		RPCURL:          "https://rpc.example.com",
@@ -54,7 +57,9 @@ func Test_we_get_an_error_when_chain_id_is_empty(t *testing.T) {
 
 func Test_we_get_a_broadcaster_config_when_all_env_vars_are_valid(t *testing.T) {
 	key, err := crypto.GenerateKey()
-	testutil.AssertNoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	envVars := config.EnvVars{
 		RPCURL:          "https://rpc.example.com",
@@ -64,7 +69,9 @@ func Test_we_get_a_broadcaster_config_when_all_env_vars_are_valid(t *testing.T) 
 	}
 
 	cfg, err := BuildBroadcasterConfig(envVars)
-	testutil.AssertNoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if cfg.RPCURL != envVars.RPCURL {
 		t.Errorf("RPCURL: expected %q, got %q", envVars.RPCURL, cfg.RPCURL)

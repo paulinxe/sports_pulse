@@ -4,6 +4,9 @@ import (
 	"github.com/google/uuid"
 )
 
+const SIGNED_STATUS = 4
+const BROADCASTED_STATUS = 5
+
 // Match is a signed match ready to be broadcast to the chain.
 // CanonicalID is the bytes32 match id (stored as hex in DB).
 // Start is YYYYMMDD as uint32 for the contract.

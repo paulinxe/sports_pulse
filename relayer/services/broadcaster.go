@@ -2,104 +2,70 @@ package services
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"log/slog"
 	"math/big"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"relayer/config"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	ethereum "github.com/ethereum/go-ethereum"
 	"relayer/entity"
 	"relayer/repository"
 )
 
+// ChainClient is the subset of chain operations needed for broadcasting and waiting for receipts.
+type ChainClient interface {
+	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
+	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
+	SuggestGasPrice(ctx context.Context) (*big.Int, error)
+	SendTransaction(ctx context.Context, tx *types.Transaction) error
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+}
+
 // ErrMatchAlreadySubmitted is returned when the contract reverts with MatchAlreadySubmitted(bytes32).
 var ErrMatchAlreadySubmitted = errors.New("match already submitted")
 
-// MatchRegistry submitMatch + MatchAlreadySubmitted error ABI
-const matchRegistrySubmitMatchABI = `[{"type":"function","name":"submitMatch","inputs":[{"name":"matchId","type":"bytes32","internalType":"bytes32"},{"name":"competitionId","type":"uint32","internalType":"uint32"},{"name":"homeTeamId","type":"uint32","internalType":"uint32"},{"name":"awayTeamId","type":"uint32","internalType":"uint32"},{"name":"homeTeamScore","type":"uint8","internalType":"uint8"},{"name":"awayTeamScore","type":"uint8","internalType":"uint8"},{"name":"matchDate","type":"uint32","internalType":"uint32"},{"name":"signature","type":"bytes","internalType":"bytes"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"error","name":"MatchAlreadySubmitted","inputs":[{"name":"matchId","type":"bytes32","internalType":"bytes32"}]}]`
-
-type Broadcaster interface {
-	Broadcast(ctx context.Context, calldata []byte) error
-}
-
-// BroadcastConfig holds pre-loaded RPC, contract, key, chain ID and ABI for broadcasting.
-type BroadcasterConfig struct {
-	RPCURL          string
-	ContractAddress common.Address
-	PrivateKey      *ecdsa.PrivateKey
-	ChainID         *big.Int
-	ContractABI     abi.ABI
-}
-
-func BuildBroadcasterConfig(envVars config.EnvVars) (BroadcasterConfig, error) {
-	// TODO: see if we can simplify this conversion.
-	chainIDInt, err := strconv.ParseInt(envVars.ChainID, 10, 64)
-	if err != nil {
-		return BroadcasterConfig{}, fmt.Errorf("parse chain id: %w", err)
-	}
-	chainIDBigInt := big.NewInt(chainIDInt)
-
-	contractABI, err := abi.JSON(strings.NewReader(matchRegistrySubmitMatchABI))
-	if err != nil {
-		return BroadcasterConfig{}, fmt.Errorf("parse abi: %w", err)
-	}
-
-	return BroadcasterConfig{
-		RPCURL:          envVars.RPCURL,
-		ContractAddress: envVars.ContractAddress,
-		PrivateKey:      envVars.PrivateKey,
-		ChainID:         chainIDBigInt,
-		ContractABI:     contractABI,
-	}, nil
-}
-
-// BroadcastMatches runs Broadcast for each match in order (sequential for nonce safety).
+// BroadcastMatches runs broadcast for each match in order (sequential for nonce safety).
 // It returns the number of failed broadcasts.
-func BroadcastMatches(broadcaster Broadcaster, matches []entity.Match, timeout time.Duration) (failedCount int) {
-	for _, m := range matches {
+func BroadcastMatches(client ChainClient, config BroadcasterConfig, matches []entity.Match, timeout time.Duration) (failedCount int) {
+	for _, match := range matches {
 		bctx, cancel := context.WithTimeout(context.Background(), timeout)
-		calldata, err := buildCalldata(m)
+		calldata, err := buildCalldata(match)
 		if err != nil {
-			// This should never happen as the only reason for this to fail is if the ABI is invalid.
-			// Anyways, lest's just log it and continue.
-			slog.Error("build submitMatch calldata failed", "match_id", m.ID, "error", err)
+			slog.Error("build submitMatch calldata failed", "match_id", match.ID, "error", err)
 			failedCount++
 			cancel()
 			continue
 		}
 
-		err = broadcaster.Broadcast(bctx, calldata)
+		err = broadcast(bctx, client, config, calldata)
 
 		if err != nil {
 			if errors.Is(err, ErrMatchAlreadySubmitted) {
-				if updateErr := repository.BroadcastMatch(bctx, m.ID); updateErr != nil {
-					slog.Error("broadcast match status update failed after already-submitted", "match_id", m.ID, "error", updateErr)
+				if updateErr := repository.BroadcastMatch(bctx, match.ID); updateErr != nil {
+					slog.Error("broadcast match status update failed after already-submitted", "match_id", match.ID, "error", updateErr)
 				}
 
-				slog.Info("match already submitted on chain", "canonical_id", m.CanonicalID)
+				slog.Info("match already submitted on chain", "canonical_id", match.CanonicalID)
 				cancel()
 				continue
 			}
 
-			// TODO: we need a new status for failed broadcasts so we can reconcile this later.
-			slog.Error("broadcast failed", "match_id", m.ID, "canonical_id", m.CanonicalID, "error", err)
+			slog.Error("broadcast failed", "match_id", match.ID, "canonical_id", match.CanonicalID, "error", err)
 			failedCount++
 			cancel()
 			continue
 		}
 
-		if updateErr := repository.BroadcastMatch(bctx, m.ID); updateErr != nil {
-			// If we don't manage to update the status after a succesful broadcast, that is not an issue.
-			// The next run will retry and contract will return MatchAlreadySubmitted which we are already handling above.
-			slog.Error("broadcast match status update failed", "match_id", m.ID, "error", updateErr)
+		if updateErr := repository.BroadcastMatch(bctx, match.ID); updateErr != nil {
+			slog.Error("broadcast match status update failed", "match_id", match.ID, "error", updateErr)
 		} else {
-			slog.Info("broadcasted match", "canonical_id", m.CanonicalID)
+			slog.Info("broadcasted match", "canonical_id", match.CanonicalID)
 		}
 
 		cancel()
@@ -109,11 +75,10 @@ func BroadcastMatches(broadcaster Broadcaster, matches []entity.Match, timeout t
 }
 
 func buildCalldata(match entity.Match) ([]byte, error) {
-	contractABI, err := abi.JSON(strings.NewReader(matchRegistrySubmitMatchABI))
+	contractABI, err := abi.JSON(strings.NewReader(MATCH_REGISTRY_SUBMIT_MATCH_ABI))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse abi: %w", err)
 	}
-
 	matchID := common.HexToHash(strings.TrimPrefix(match.CanonicalID, "0x"))
 	return contractABI.Pack("submitMatch",
 		matchID,
@@ -125,4 +90,82 @@ func buildCalldata(match entity.Match) ([]byte, error) {
 		match.Start,
 		match.Signature,
 	)
+}
+
+func broadcast(ctx context.Context, client ChainClient, config BroadcasterConfig, calldata []byte) error {
+	auth := crypto.PubkeyToAddress(config.PrivateKey.PublicKey)
+	nonce, err := client.PendingNonceAt(ctx, auth)
+	if err != nil {
+		return fmt.Errorf("nonce: %w", err)
+	}
+
+	tipCap, err := client.SuggestGasTipCap(ctx)
+	if err != nil {
+		return fmt.Errorf("suggest gas tip: %w", err)
+	}
+
+	feeCap, err := client.SuggestGasPrice(ctx)
+	if err != nil {
+		return fmt.Errorf("suggest gas price: %w", err)
+	}
+
+	tx := types.NewTx(&types.DynamicFeeTx{
+		ChainID:   config.ChainID,
+		Nonce:     nonce,
+		GasTipCap: tipCap,
+		GasFeeCap: feeCap,
+		Gas:       300_000, // TODO: check here what the gas limit should be
+		To:        &config.ContractAddress,
+		Value:     big.NewInt(0),
+		Data:      calldata,
+	})
+	signed, err := types.SignTx(tx, types.LatestSignerForChainID(config.ChainID), config.PrivateKey)
+	if err != nil {
+		return fmt.Errorf("sign tx: %w", err)
+	}
+
+	if err := client.SendTransaction(ctx, signed); err != nil {
+		if isMatchAlreadySubmitted(err, config.ContractABI) {
+			return ErrMatchAlreadySubmitted
+		}
+
+		return fmt.Errorf("send tx: %w", err)
+	}
+
+	receipt, err := waitForReceipt(ctx, client, signed.Hash())
+	if err != nil {
+		return fmt.Errorf("failed to wait for receipt: %w", err)
+	}
+
+	if receipt.Status != types.ReceiptStatusSuccessful {
+		return fmt.Errorf("transaction reverted (status %d, tx %s)", receipt.Status, signed.Hash().Hex())
+	}
+
+	slog.Info("broadcasted match", "tx_hash", signed.Hash().Hex())
+	return nil
+}
+
+type chainReceiptGetter interface {
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+}
+
+func waitForReceipt(ctx context.Context, client chainReceiptGetter, txHash common.Hash) (*types.Receipt, error) {
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		receipt, err := client.TransactionReceipt(ctx, txHash)
+		if err == nil {
+			return receipt, nil
+		}
+
+		if !errors.Is(err, ethereum.NotFound) {
+			return nil, err
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-ticker.C:
+		}
+	}
 }
