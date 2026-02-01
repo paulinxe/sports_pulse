@@ -102,8 +102,8 @@ contract DeployTest is Test {
         _deployAndVerify();
         
         assertEq(matchRegistry.authorizedSigner(), authorizedSigner, "Authorized signer should match");
-        assertEq(address(matchRegistry.competitionRegistry()), address(competitionRegistry), "CompetitionRegistry reference should match");
-        assertEq(address(matchRegistry.teamRegistry()), address(teamRegistry), "TeamRegistry reference should match");
+        assertEq(address(matchRegistry.COMPETITION_REGISTRY()), address(competitionRegistry), "CompetitionRegistry reference should match");
+        assertEq(address(matchRegistry.TEAM_REGISTRY()), address(teamRegistry), "TeamRegistry reference should match");
     }
 
     function test_only_owner_can_add_competitions_after_deployment() public {

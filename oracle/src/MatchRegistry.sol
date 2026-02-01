@@ -21,8 +21,8 @@ contract MatchRegistry is EIP712, Ownable {
     // The address of the verified signer who signs matches
     address public authorizedSigner;
     // We need the address of each Registry so we can query to validate the data
-    CompetitionRegistry public immutable competitionRegistry;
-    TeamRegistry public immutable teamRegistry;
+    CompetitionRegistry public immutable COMPETITION_REGISTRY;
+    TeamRegistry public immutable TEAM_REGISTRY;
     // We don't allow scores higher than 80
     uint8 constant MAX_SCORE = 80;
     bytes32 public constant MATCH_TYPEHASH = keccak256("Match(bytes32 matchId,uint8 homeScore,uint8 awayScore)");
@@ -54,8 +54,8 @@ contract MatchRegistry is EIP712, Ownable {
         }
 
         authorizedSigner = _authorizedSigner;
-        competitionRegistry = _competitionRegistry;
-        teamRegistry = _teamRegistry;
+        COMPETITION_REGISTRY = _competitionRegistry;
+        TEAM_REGISTRY = _teamRegistry;
     }
 
     function rotateSigner(address newSigner) external onlyOwner {
@@ -96,15 +96,15 @@ contract MatchRegistry is EIP712, Ownable {
             revert InvalidMatchDate(matchDate);
         }
 
-        if (bytes(competitionRegistry.competitions(competitionId)).length == 0) {
+        if (bytes(COMPETITION_REGISTRY.competitions(competitionId)).length == 0) {
             revert InvalidCompetitionId(competitionId);
         }
 
-        if (bytes(teamRegistry.teams(homeTeamId)).length == 0) {
+        if (bytes(TEAM_REGISTRY.teams(homeTeamId)).length == 0) {
             revert InvalidHomeTeamId(homeTeamId);
         }
 
-        if (bytes(teamRegistry.teams(awayTeamId)).length == 0) {
+        if (bytes(TEAM_REGISTRY.teams(awayTeamId)).length == 0) {
             revert InvalidAwayTeamId(awayTeamId);
         }
 
@@ -118,7 +118,7 @@ contract MatchRegistry is EIP712, Ownable {
 
         validateSignature(matchId, homeTeamScore, awayTeamScore, signature);
 
-        matches[matchId] = Match(matchId, homeTeamScore, awayTeamScore);
+        matches[matchId] = Match({ matchId: matchId, homeTeamScore: homeTeamScore, awayTeamScore: awayTeamScore });
 
         emit MatchRegistered(matchId, homeTeamScore, awayTeamScore);
     }

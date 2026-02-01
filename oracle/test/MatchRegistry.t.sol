@@ -6,7 +6,6 @@ import {Test} from "forge-std/Test.sol";
 import {MatchRegistry} from "../src/MatchRegistry.sol";
 import {CompetitionRegistry} from "../src/CompetitionRegistry.sol";
 import {TeamRegistry} from "../src/TeamRegistry.sol";
-import {console} from "forge-std/console.sol";
 
 contract MatchRegistryTest is Test {
     MatchRegistry public matchRegistry;

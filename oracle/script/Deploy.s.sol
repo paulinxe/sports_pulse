@@ -92,11 +92,13 @@ contract Deploy is Script {
     }
 
     function loadCompetitions() internal view returns (string[] memory) {
+        // forge-lint: disable-next-line(unsafe-cheatcode)
         string memory json = vm.readFile(COMPETITIONS_JSON);
         return json.readStringArray(".competitions");
     }
 
     function loadTeams() internal view returns (string[] memory) {
+        // forge-lint: disable-next-line(unsafe-cheatcode)
         string memory json = vm.readFile(TEAMS_JSON);
         return json.readStringArray(".teams");
     }
