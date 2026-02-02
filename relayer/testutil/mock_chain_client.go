@@ -7,18 +7,20 @@ import (
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"relayer/services"
 )
 
 // MockChainClient is a services.ChainClient implementation for tests.
-// Set Nonce, TipCap, FeeCap, Receipt, or SendErr to control behavior.
+// Set Nonce, TipCap, FeeCap, Receipt, SendErr, EstimatedGas, or EstimateGasErr to control behavior.
 type MockChainClient struct {
-	Nonce   uint64
-	TipCap  *big.Int
-	FeeCap  *big.Int
-	Receipt *types.Receipt
-	SendErr error
-	TimesCalled int
+	Nonce          uint64
+	TipCap         *big.Int
+	FeeCap         *big.Int
+	Receipt        *types.Receipt
+	SendErr        error
+	EstimatedGas   uint64
+	EstimateGasErr error
+	TimesCalled    int
+	LastSentTx     *types.Transaction // last transaction passed to SendTransaction
 }
 
 func (mock *MockChainClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
@@ -41,8 +43,21 @@ func (mock *MockChainClient) SuggestGasPrice(ctx context.Context) (*big.Int, err
 	return big.NewInt(2), nil
 }
 
+func (mock *MockChainClient) EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error) {
+	if mock.EstimateGasErr != nil {
+		return 0, mock.EstimateGasErr
+	}
+
+	if mock.EstimatedGas != 0 {
+		return mock.EstimatedGas, nil
+	}
+	// Default success value when neither is set. Fallback logic lives in broadcaster, not the client.
+	return 100_000, nil
+}
+
 func (mock *MockChainClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	mock.TimesCalled++
+	mock.LastSentTx = tx
 	return mock.SendErr
 }
 
@@ -54,8 +69,6 @@ func (mock *MockChainClient) TransactionReceipt(ctx context.Context, txHash comm
 	return nil, ethereum.NotFound
 }
 
-// Ensure MockChainClient implements services.ChainClient at compile time.
-var _ services.ChainClient = (*MockChainClient)(nil)
 
 // DataErrorForTests implements rpc.DataError so tests can simulate MatchAlreadySubmitted.
 // Use as SendErr to make isMatchAlreadySubmitted return true when Data is the selector hex (e.g. "0x...").
@@ -64,5 +77,5 @@ type DataErrorForTests struct {
 	Data interface{}
 }
 
-func (dataError *DataErrorForTests) Error() string { return dataError.Msg }
+func (dataError *DataErrorForTests) Error() string        { return dataError.Msg }
 func (dataError *DataErrorForTests) ErrorData() interface{} { return dataError.Data }

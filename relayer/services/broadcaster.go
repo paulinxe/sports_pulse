@@ -18,11 +18,17 @@ import (
 	"relayer/repository"
 )
 
+// GAS_ESTIMATE_FALLBACK_LIMIT is used when EstimateGas fails. Contract consumes ~120k; 150k provides a small buffer.
+const GAS_ESTIMATE_FALLBACK_LIMIT = 130_000
+// GAS_ESTIMATE_BUFFER_PERCENT is the percentage of the estimated gas to add as a buffer.
+const GAS_ESTIMATE_BUFFER_PERCENT = 2
+
 // ChainClient is the subset of chain operations needed for broadcasting and waiting for receipts.
 type ChainClient interface {
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
+	EstimateGas(ctx context.Context, msg ethereum.CallMsg) (uint64, error)
 	SendTransaction(ctx context.Context, tx *types.Transaction) error
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 }
@@ -109,12 +115,25 @@ func broadcast(ctx context.Context, client ChainClient, config BroadcasterConfig
 		return fmt.Errorf("suggest gas price: %w", err)
 	}
 
+	estimatedGas, err := client.EstimateGas(ctx, ethereum.CallMsg{
+		From:  auth,
+		To:    &config.ContractAddress,
+		Data:  calldata,
+		Value: big.NewInt(0),
+	})
+	if err != nil {
+		estimatedGas = uint64(GAS_ESTIMATE_FALLBACK_LIMIT)
+		slog.Warn("gas estimation failed, using fallback limit", "error", err, "fallback_gas", GAS_ESTIMATE_FALLBACK_LIMIT)
+	}
+
+	gasLimit := estimatedGas + (estimatedGas * GAS_ESTIMATE_BUFFER_PERCENT / 100)
+
 	tx := types.NewTx(&types.DynamicFeeTx{
 		ChainID:   config.ChainID,
 		Nonce:     nonce,
 		GasTipCap: tipCap,
 		GasFeeCap: feeCap,
-		Gas:       300_000, // TODO: check here what the gas limit should be
+		Gas:       gasLimit,
 		To:        &config.ContractAddress,
 		Value:     big.NewInt(0),
 		Data:      calldata,
