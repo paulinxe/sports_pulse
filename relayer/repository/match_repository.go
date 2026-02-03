@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"relayer/config"
 	"relayer/entity"
+	"log/slog"
 )
 
 func FindSignedMatches(ctx context.Context) ([]entity.Match, error) {
@@ -34,6 +35,7 @@ func FindSignedMatches(ctx context.Context) ([]entity.Match, error) {
 		var match entity.Match
 		var start time.Time
 		var sigHex string
+
 		err := rows.Scan(
 			&match.ID,
 			&match.CanonicalID,
@@ -46,21 +48,24 @@ func FindSignedMatches(ctx context.Context) ([]entity.Match, error) {
 			&sigHex,
 		)
 		if err != nil {
-			return nil, fmt.Errorf("scan match: %w", err)
+			slog.Error("error parsing match. skipping", "match_id", match.ID, "error", err)
+			continue
 		}
+
+		// This is to convert a date into a an integer following the format YYYYMMDD
 		match.Start = uint32(start.Year()*10000 + int(start.Month())*100 + start.Day())
 		sigHex = strings.TrimPrefix(sigHex, "0x")
 		match.Signature, err = hex.DecodeString(sigHex)
 		if err != nil {
-			// TODO: we should log and skip
-			return nil, fmt.Errorf("parse signature for match %s: %w", match.ID, err)
+			slog.Error("error parsing signature. skipping", "match_id", match.ID, "error", err)
+			continue
 		}
 
 		matches = append(matches, match)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate matches: %w", err)
+		return nil, fmt.Errorf("error iterating matches: %w", err)
 	}
 
 	return matches, nil
