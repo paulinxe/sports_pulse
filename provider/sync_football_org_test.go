@@ -252,13 +252,13 @@ func Test_we_insert_a_match_as_finished_when_syncing_a_match_in_final_status(t *
 	}
 }
 
-func Test_no_api_call_is_made_when_last_synced_date_is_in_the_future(t *testing.T) {
+func Test_today_is_used_as_query_date_when_last_synced_date_is_in_the_future(t *testing.T) {
 	testutil.InitDB(t)
 	defer testutil.CloseDB()
 
 	mockServer := testutil.CreateServerBuilder().
 		WithStatusCode(http.StatusOK).
-		WithResponseBody("").
+		WithResponseBody(`{"matches":[]}`).
 		Build()
 	defer mockServer.Close()
 
@@ -266,15 +266,22 @@ func Test_no_api_call_is_made_when_last_synced_date_is_in_the_future(t *testing.
 	_ = repository.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, futureDate)
 
 	err := Sync("football_org", "la_liga", systemClock{})
-	if err == nil {
-		t.Error("Expected error but got nil", err)
+	testutil.AssertNoError(t, err)
+	testutil.ExpectNumberOfRequests(t, mockServer, 1)
+
+	actualLastSyncedDate, err := repository.GetLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg)
+	testutil.AssertNoError(t, err)
+
+	if actualLastSyncedDate == nil {
+		t.Fatalf("Expected sync state to be updated, but it is nil")
 	}
 
-	if !strings.Contains(err.Error(), "sync date is in the future") {
-		t.Errorf("Expected error to contain 'sync date is in the future', but got: %s", err.Error())
-	}
+	expectedDateStr := time.Now().UTC().Format("20060102")
+	actualDateStr := actualLastSyncedDate.Format("20060102")
 
-	testutil.ExpectNumberOfRequests(t, mockServer, 0)
+	if actualDateStr != expectedDateStr {
+		t.Errorf("Expected sync state to be %s, but got %s", expectedDateStr, actualDateStr)
+	}
 }
 
 func Test_sync_state_advances_by_1_day_when_no_matches_are_found(t *testing.T) {

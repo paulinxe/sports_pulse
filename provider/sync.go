@@ -127,8 +127,8 @@ func getQueryDate(ctx *context.Context, competition entity.Competition, today *t
 
 	if lastSyncedDay.After(*today) {
 		// Future date (shouldn't happen, but handle it)
-		// TODO: instead of erroring, we could update the sync date to today and continue.
-		return time.Time{}, fmt.Errorf("sync date is in the future: %s", lastSyncedDay)
+		slog.Info("Sync date is in the future, updating sync date to today", "last_synced_day", lastSyncedDay, "today", today)
+		return *today, nil
 	}
 
 	return lastSyncedDay, nil
