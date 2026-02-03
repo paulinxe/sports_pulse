@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"provider/db"
+	"provider/config"
 	"provider/entity"
 	"time"
 
@@ -20,7 +20,7 @@ type ReconciliationEntry struct {
 }
 
 func SaveToReconciliationQueue(ctx context.Context, providerMatchID string, provider entity.Provider) error {
-	if db.DB == nil {
+	if config.DB == nil {
 		return fmt.Errorf("database connection not initialized")
 	}
 
@@ -29,7 +29,7 @@ func SaveToReconciliationQueue(ctx context.Context, providerMatchID string, prov
 		VALUES ($1, $2, $3, NULL, 0)
 		ON CONFLICT (provider_match_id, provider) DO NOTHING
 	`
-	_, err := db.DB.ExecContext(ctx, query, uuid.New().String(), providerMatchID, provider)
+	_, err := config.DB.ExecContext(ctx, query, uuid.New().String(), providerMatchID, provider)
 	if err != nil {
 		return fmt.Errorf("failed to insert into reconciliation queue: %w", err)
 	}
@@ -39,7 +39,7 @@ func SaveToReconciliationQueue(ctx context.Context, providerMatchID string, prov
 
 // This will be useful when writing the reconciliation logic.
 // func GetPendingReconciliations(ctx context.Context, limit int, maxTries int) ([]ReconciliationEntry, error) {
-// 	if db.DB == nil {
+// 	if config.DB == nil {
 // 		return nil, fmt.Errorf("database connection not initialized")
 // 	}
 
@@ -51,7 +51,7 @@ func SaveToReconciliationQueue(ctx context.Context, providerMatchID string, prov
 // 		LIMIT $2
 // 	`
 
-// 	rows, err := db.DB.QueryContext(ctx, query, maxTries, limit)
+// 	rows, err := config.DB.QueryContext(ctx, query, maxTries, limit)
 // 	if err != nil {
 // 		return nil, fmt.Errorf("failed to query pending reconciliations: %w", err)
 // 	}
@@ -107,7 +107,7 @@ func IncrementTries(ctx context.Context, tx *sql.Tx, id uuid.UUID) error {
 }
 
 func FindByProviderMatchID(ctx context.Context, providerMatchID string, provider entity.Provider) (*ReconciliationEntry, error) {
-	if db.DB == nil {
+	if config.DB == nil {
 		return nil, fmt.Errorf("database connection not initialized")
 	}
 
@@ -119,7 +119,7 @@ func FindByProviderMatchID(ctx context.Context, providerMatchID string, provider
 
 	var entry ReconciliationEntry
 	var reconciledAt sql.NullTime
-	err := db.DB.QueryRowContext(ctx, query, providerMatchID, provider).Scan(
+	err := config.DB.QueryRowContext(ctx, query, providerMatchID, provider).Scan(
 		&entry.ID,
 		&entry.ProviderMatchID,
 		&entry.Provider,

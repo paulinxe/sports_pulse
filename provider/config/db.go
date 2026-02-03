@@ -1,4 +1,4 @@
-package db
+package config
 
 import (
     "database/sql"
@@ -12,8 +12,7 @@ import (
 
 var DB *sql.DB
 
-// Init initializes the database connection pool
-func Init() error {
+func InitDB() error {
     user := os.Getenv("DB_USER")
     password := os.Getenv("DB_PASSWORD")
     port := os.Getenv("DB_PORT")
@@ -50,7 +49,7 @@ func Init() error {
 }
 
 // Close closes the database connection pool
-func Close() error {
+func CloseDB() error {
     if DB != nil {
         return DB.Close()
     }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"provider/db"
+	"provider/config"
 	"provider/entity"
 	"time"
 
@@ -12,7 +12,7 @@ import (
 )
 
 func GetLastSyncedDate(ctx context.Context, competition entity.Competition, provider entity.Provider) (*time.Time, error) {
-	if db.DB == nil {
+	if config.DB == nil {
 		return nil, fmt.Errorf("database connection not initialized")
 	}
 
@@ -22,7 +22,7 @@ func GetLastSyncedDate(ctx context.Context, competition entity.Competition, prov
 		WHERE competition_id = $1 AND provider = $2
 	`
 	var lastSyncedDate time.Time
-	err := db.DB.QueryRowContext(ctx, query, competition, provider).Scan(&lastSyncedDate)
+	err := config.DB.QueryRowContext(ctx, query, competition, provider).Scan(&lastSyncedDate)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
@@ -39,7 +39,7 @@ func UpdateLastSyncedDate(
 	provider entity.Provider,
 	date time.Time,
 ) error {
-	if db.DB == nil {
+	if config.DB == nil {
 		return fmt.Errorf("database connection not initialized")
 	}
 
@@ -49,7 +49,7 @@ func UpdateLastSyncedDate(
 		ON CONFLICT (competition_id, provider)
 		DO UPDATE SET last_synced_date = $4, updated_at = NOW()
 	`
-	_, err := db.DB.ExecContext(ctx, query, uuid.New().String(), competition, provider, date)
+	_, err := config.DB.ExecContext(ctx, query, uuid.New().String(), competition, provider, date)
 	if err != nil {
 		return fmt.Errorf("failed to update last synced date: %w", err)
 	}

@@ -3,7 +3,7 @@ package main
 import (
 	"log/slog"
 	"os"
-	"provider/db"
+	"provider/config"
 	"strings"
 )
 
@@ -29,11 +29,11 @@ func main() {
 		os.Exit(int(BAD_ARGUMENTS))
 	}
 
-	if err := db.Init(); err != nil {
+	if err := config.InitDB(); err != nil {
 		slog.Error("Failed to initialize database", "error", err)
 		os.Exit(int(DB_INIT_ERROR))
 	}
-	defer func() { _ = db.Close() }()
+	defer func() { _ = config.CloseDB() }()
 
 	provider := os.Args[1]
 	competition := os.Args[2]

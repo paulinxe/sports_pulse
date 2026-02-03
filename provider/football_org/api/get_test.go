@@ -76,7 +76,7 @@ func Test_we_can_handle_invalid_json_response(t *testing.T) {
 	}
 
 	errMsg := err.Error()
-	if !strings.Contains(errMsg, "Failed to parse JSON response") {
-		t.Errorf("Expected 'Failed to parse JSON response' in error message, but got: %s", errMsg)
+	if !strings.Contains(errMsg, "failed to parse JSON response") {
+		t.Errorf("Expected 'failed to parse JSON response' in error message, but got: %s", errMsg)
 	}
 }

@@ -10,7 +10,7 @@ func Test_Sync_returns_error_for_unknown_competition(t *testing.T) {
 		t.Error("Expected error for unknown competition, but got nil")
 	}
 
-	expectedError := "Unknown competition: invalid_competition"
+	expectedError := "unknown competition: invalid_competition"
 	if err.Error() != expectedError {
 		t.Errorf("Expected error '%s', but got: %s", expectedError, err.Error())
 	}
@@ -22,7 +22,7 @@ func Test_Sync_returns_error_for_unknown_provider(t *testing.T) {
 		t.Error("Expected error for unknown provider, but got nil")
 	}
 
-	expectedError := "Unknown provider: invalid_provider"
+	expectedError := "unknown provider: invalid_provider"
 	if err.Error() != expectedError {
 		t.Errorf("Expected error '%s', but got: %s", expectedError, err.Error())
 	}

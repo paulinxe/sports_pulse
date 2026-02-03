@@ -6,15 +6,15 @@ import (
 	"testing"
 	"time"
 
-	"provider/db"
+	"provider/config"
 	"provider/entity"
 	"provider/testutil"
 )
 
 // This test is not part of sync_football_org_test.go because for this specific scenario, its easier to "unit" test it here.
 func Test_SaveMatches_continues_when_save_fails_but_reconciliation_succeeds(t *testing.T) {
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	testutil.InitDB(t)
+	defer testutil.CloseDB()
 	logger := testutil.GetLogger()
 
 	provider := &Provider{}
@@ -38,7 +38,7 @@ func Test_SaveMatches_continues_when_save_fails_but_reconciliation_succeeds(t *t
 	// Insert the match directly into the database with SQL to bypass normal flow
 	// Use a different canonical_id so the conflict won't be on canonical_id+competition_id
 	// This ensures the match exists with this ID, causing a primary key violation
-	_, err = db.DB.Exec(`
+	_, err = config.DB.Exec(`
 		INSERT INTO matches (
 			id, canonical_id, home_team_id, away_team_id, start, "end", status,
 			home_team_score, away_team_score, provider_match_id, competition_id, provider
@@ -75,14 +75,14 @@ func Test_SaveMatches_continues_when_save_fails_but_reconciliation_succeeds(t *t
 	testutil.AssertNoError(t, err)
 	// Use the same ID to cause primary key violation
 	match2.ID = match.ID
-	
+
 	provider.SaveMatches(ctx, []entity.Match{match2})
-	
+
 	// Verify match was added to reconciliation queue
 	if !testutil.ReconciliationEntryExists(t, "test_match_123", int(entity.FootballOrg)) {
 		t.Errorf("Expected match to be in reconciliation queue, but it is not")
 	}
-	
+
 	// Verify warning was logged
 	outputStr := logger.String()
 	if !strings.Contains(outputStr, "Match save failed, added to reconciliation queue") {

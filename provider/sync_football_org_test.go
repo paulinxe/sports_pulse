@@ -4,7 +4,7 @@ import (
 	"context"
 	_ "embed"
 	"net/http"
-	"provider/db"
+	"provider/config"
 	"provider/entity"
 	"provider/repository"
 	"provider/testutil"
@@ -52,15 +52,15 @@ func Test_we_can_handle_unknown_competition(t *testing.T) {
 		t.Error("Expected error but got nil", err)
 	}
 
-	expectedError := "Competition not handled by football_org provider: 2"
+	expectedError := "competition not handled by football_org provider: 2"
 	if err.Error() != expectedError {
 		t.Errorf("Expected error '%s', but got: %s", expectedError, err.Error())
 	}
 }
 
 func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	testutil.InitDB(t)
+	defer testutil.CloseDB()
 
 	logger := testutil.GetLogger()
 	mockServer := testutil.CreateServerBuilder().
@@ -75,8 +75,8 @@ func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
 	outputStr := logger.String()
 
 	// The match with unmapped home team should be skipped due to team mapping error
-	if !strings.Contains(outputStr, "Failed to map home team ID (123456), skipping match (654321)") {
-		t.Errorf("Expected 'Failed to map home team ID (123456), skipping match (654321)' in output, but got: %s", outputStr)
+	if !strings.Contains(outputStr, "failed to map home team ID (123456), skipping match (654321)") {
+		t.Errorf("Expected 'failed to map home team ID (123456), skipping match (654321)' in output, but got: %s", outputStr)
 	}
 
 	// Athletic - Real Madrid match should be saved since it has valid team mappings
@@ -86,8 +86,8 @@ func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
 }
 
 func Test_we_skip_the_match_if_away_team_is_not_mapped(t *testing.T) {
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	testutil.InitDB(t)
+	defer testutil.CloseDB()
 
 	logger := testutil.GetLogger()
 	mockServer := testutil.CreateServerBuilder().
@@ -101,8 +101,8 @@ func Test_we_skip_the_match_if_away_team_is_not_mapped(t *testing.T) {
 
 	outputStr := logger.String()
 	// The match with unmapped away team should be skipped due to team mapping error
-	if !strings.Contains(outputStr, "Failed to map away team ID (123456), skipping match (654321)") {
-		t.Errorf("Expected 'Failed to map away team ID (123456), skipping match (654321)' in output, but got: %s", outputStr)
+	if !strings.Contains(outputStr, "failed to map away team ID (123456), skipping match (654321)") {
+		t.Errorf("Expected 'failed to map away team ID (123456), skipping match (654321)' in output, but got: %s", outputStr)
 	}
 
 	// Athletic - Real Madrid match should be saved since it has valid team mappings
@@ -112,8 +112,8 @@ func Test_we_skip_the_match_if_away_team_is_not_mapped(t *testing.T) {
 }
 
 func Test_we_can_insert_a_match_when_no_matches_exist_for_competition(t *testing.T) {
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	testutil.InitDB(t)
+	defer testutil.CloseDB()
 
 	mockServer := testutil.CreateServerBuilder().
 		WithStatusCode(http.StatusOK).
@@ -200,8 +200,8 @@ func Test_we_insert_a_match_as_finished_when_syncing_a_match_in_final_status(t *
 
 	for _, scenario := range tests {
 		t.Run(scenario.name, func(t *testing.T) {
-			testutil.InitDatabase(t)
-			defer testutil.CloseDatabase()
+			testutil.InitDB(t)
+			defer testutil.CloseDB()
 
 			mockServer := testutil.CreateServerBuilder().
 				WithStatusCode(http.StatusOK).
@@ -253,8 +253,8 @@ func Test_we_insert_a_match_as_finished_when_syncing_a_match_in_final_status(t *
 }
 
 func Test_no_api_call_is_made_when_last_synced_date_is_in_the_future(t *testing.T) {
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	testutil.InitDB(t)
+	defer testutil.CloseDB()
 
 	mockServer := testutil.CreateServerBuilder().
 		WithStatusCode(http.StatusOK).
@@ -263,7 +263,7 @@ func Test_no_api_call_is_made_when_last_synced_date_is_in_the_future(t *testing.
 	defer mockServer.Close()
 
 	futureDate := time.Now().UTC().Add(1 * 24 * time.Hour).Add(1 * time.Minute)
-	_ =repository.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, futureDate)
+	_ = repository.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, futureDate)
 
 	err := Sync("football_org", "la_liga", systemClock{})
 	if err == nil {
@@ -278,8 +278,8 @@ func Test_no_api_call_is_made_when_last_synced_date_is_in_the_future(t *testing.
 }
 
 func Test_sync_state_advances_by_1_day_when_no_matches_are_found(t *testing.T) {
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	testutil.InitDB(t)
+	defer testutil.CloseDB()
 	logger := testutil.GetLogger()
 
 	emptyMatchesResponse := `{"matches":[]}`
@@ -324,8 +324,8 @@ func Test_sync_state_advances_by_1_day_when_no_matches_are_found(t *testing.T) {
 }
 
 func Test_sync_state_advances_when_matches_are_found_but_not_in_progress(t *testing.T) {
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	testutil.InitDB(t)
+	defer testutil.CloseDB()
 	logger := testutil.GetLogger()
 
 	mockServer := testutil.CreateServerBuilder().
@@ -367,8 +367,8 @@ func Test_sync_state_advances_when_matches_are_found_but_not_in_progress(t *test
 }
 
 func Test_first_sync_with_no_matches_stays_on_today(t *testing.T) {
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	testutil.InitDB(t)
+	defer testutil.CloseDB()
 	logger := testutil.GetLogger()
 
 	emptyMatchesResponse := `{"matches":[]}`
@@ -408,8 +408,8 @@ func Test_first_sync_with_no_matches_stays_on_today(t *testing.T) {
 }
 
 func Test_we_can_handle_invalid_match_date(t *testing.T) {
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	testutil.InitDB(t)
+	defer testutil.CloseDB()
 
 	logger := testutil.GetLogger()
 	mockServer := testutil.CreateServerBuilder().
@@ -421,8 +421,8 @@ func Test_we_can_handle_invalid_match_date(t *testing.T) {
 	_ = Sync("football_org", "la_liga", systemClock{})
 
 	outputStr := logger.String()
-	if !strings.Contains(outputStr, "Failed to parse match date") {
-		t.Errorf("Expected 'Failed to parse match date' in output, but got: %s", outputStr)
+	if !strings.Contains(outputStr, "failed to parse match date") {
+		t.Errorf("Expected 'failed to parse match date' in output, but got: %s", outputStr)
 	}
 
 	if testutil.MatchExists(t, "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8") {
@@ -431,8 +431,8 @@ func Test_we_can_handle_invalid_match_date(t *testing.T) {
 }
 
 func Test_stale_match_moved_to_reconciliation_queue_and_sync_stays_on_today(t *testing.T) {
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	testutil.InitDB(t)
+	defer testutil.CloseDB()
 	logger := testutil.GetLogger()
 
 	mockServer := testutil.CreateServerBuilder().
@@ -462,7 +462,7 @@ func Test_stale_match_moved_to_reconciliation_queue_and_sync_stays_on_today(t *t
 	// Verify finished match (ID: 544391) is saved in matches table
 	// This match should have canonical_id based on: LaLiga, AthleticClub, RealMadrid, 2025-12-03
 	var matchCount int
-	err = db.DB.QueryRow("SELECT COUNT(*) FROM matches WHERE provider_match_id = $1 AND provider = $2", "544391", entity.FootballOrg).Scan(&matchCount)
+	err = config.DB.QueryRow("SELECT COUNT(*) FROM matches WHERE provider_match_id = $1 AND provider = $2", "544391", entity.FootballOrg).Scan(&matchCount)
 	testutil.AssertNoError(t, err)
 	if matchCount == 0 {
 		t.Errorf("Expected finished match (provider_match_id: 544391) to be in matches table, but it is not")
@@ -497,8 +497,8 @@ func Test_stale_match_moved_to_reconciliation_queue_and_sync_stays_on_today(t *t
 }
 
 func Test_stale_match_moved_to_reconciliation_queue_and_sync_advances(t *testing.T) {
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	testutil.InitDB(t)
+	defer testutil.CloseDB()
 	logger := testutil.GetLogger()
 
 	mockServer := testutil.CreateServerBuilder().
@@ -524,7 +524,7 @@ func Test_stale_match_moved_to_reconciliation_queue_and_sync_advances(t *testing
 
 	// Verify finished match (ID: 544391) is saved in matches table
 	var matchCount int
-	err = db.DB.QueryRow("SELECT COUNT(*) FROM matches WHERE provider_match_id = $1 AND provider = $2", "544391", entity.FootballOrg).Scan(&matchCount)
+	err = config.DB.QueryRow("SELECT COUNT(*) FROM matches WHERE provider_match_id = $1 AND provider = $2", "544391", entity.FootballOrg).Scan(&matchCount)
 	testutil.AssertNoError(t, err)
 	if matchCount == 0 {
 		t.Errorf("Expected finished match (provider_match_id: 544391) to be in matches table, but it is not")
