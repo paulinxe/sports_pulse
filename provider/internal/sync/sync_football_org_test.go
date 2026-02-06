@@ -1,12 +1,11 @@
-package main
+package sync
 
 import (
 	"context"
 	_ "embed"
 	"net/http"
-	"provider/config"
-	"provider/entity"
-	"provider/repository"
+	"provider/internal/entity"
+	"provider/internal/repository"
 	"provider/testutil"
 	"reflect"
 	"strings"
@@ -14,28 +13,28 @@ import (
 	"time"
 )
 
-//go:embed football_org/test_data_provider/competition_matches/valid_response.json
+//go:embed test_data/competition_matches/valid_response.json
 var successResponse string
 
-//go:embed football_org/test_data_provider/competition_matches/home_team_not_mapped.json
+//go:embed test_data/competition_matches/home_team_not_mapped.json
 var homeTeamNotMappedResponse string
 
-//go:embed football_org/test_data_provider/competition_matches/away_team_not_mapped.json
+//go:embed test_data/competition_matches/away_team_not_mapped.json
 var awayTeamNotMappedResponse string
 
-//go:embed football_org/test_data_provider/competition_matches/invalid_match_date.json
+//go:embed test_data/competition_matches/invalid_match_date.json
 var invalidMatchDateResponse string
 
-//go:embed football_org/test_data_provider/competition_matches/finished_match.json
+//go:embed test_data/competition_matches/finished_match.json
 var finishedMatchCompetitionResponse string
 
-//go:embed football_org/test_data_provider/competition_matches/awarded_match.json
+//go:embed test_data/competition_matches/awarded_match.json
 var awardedMatchCompetitionResponse string
 
-//go:embed football_org/test_data_provider/competition_matches/stale_and_finished_matches.json
+//go:embed test_data/competition_matches/stale_and_finished_matches.json
 var staleAndFinishedMatchesResponse string
 
-//go:embed football_org/test_data_provider/competition_matches/stale_pending_match.json
+//go:embed test_data/competition_matches/stale_pending_match.json
 var stalePendingMatchResponse string
 
 type mockClock struct {
@@ -47,7 +46,8 @@ func (m mockClock) Now() time.Time {
 }
 
 func Test_we_can_handle_unknown_competition(t *testing.T) {
-	err := Sync("football_org", "premier_league", systemClock{})
+	repositories := repository.InitRepositories(nil)
+	err := Sync(repositories, "football_org", "premier_league", SystemClock{})
 	if err == nil {
 		t.Error("Expected error but got nil", err)
 	}
@@ -59,9 +59,8 @@ func Test_we_can_handle_unknown_competition(t *testing.T) {
 }
 
 func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
-	testutil.InitDB(t)
-	defer testutil.CloseDB()
-
+	db, repositories := testutil.InitDB(t)
+	defer testutil.CloseDB(db)
 	logger := testutil.GetLogger()
 	mockServer := testutil.CreateServerBuilder().
 		WithStatusCode(http.StatusOK).
@@ -69,7 +68,7 @@ func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
 		Build()
 	defer mockServer.Close()
 
-	err := Sync("football_org", "la_liga", systemClock{})
+	err := Sync(repositories, "football_org", "la_liga", SystemClock{})
 	testutil.AssertNoError(t, err)
 
 	outputStr := logger.String()
@@ -80,15 +79,14 @@ func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
 	}
 
 	// Athletic - Real Madrid match should be saved since it has valid team mappings
-	if !testutil.MatchExists(t, "d0d6f75f29b5b1bb1fc3583476993ede1e43a5c07a57e8280159e0a93510c753") {
+	if !testutil.MatchExists(t, db, "d0d6f75f29b5b1bb1fc3583476993ede1e43a5c07a57e8280159e0a93510c753") {
 		t.Errorf("Athletic - Real Madrid match should exist, but it does not")
 	}
 }
 
 func Test_we_skip_the_match_if_away_team_is_not_mapped(t *testing.T) {
-	testutil.InitDB(t)
-	defer testutil.CloseDB()
-
+	db, repositories := testutil.InitDB(t)
+	defer testutil.CloseDB(db)
 	logger := testutil.GetLogger()
 	mockServer := testutil.CreateServerBuilder().
 		WithStatusCode(http.StatusOK).
@@ -96,7 +94,7 @@ func Test_we_skip_the_match_if_away_team_is_not_mapped(t *testing.T) {
 		Build()
 	defer mockServer.Close()
 
-	err := Sync("football_org", "la_liga", systemClock{})
+	err := Sync(repositories, "football_org", "la_liga", SystemClock{})
 	testutil.AssertNoError(t, err)
 
 	outputStr := logger.String()
@@ -106,22 +104,21 @@ func Test_we_skip_the_match_if_away_team_is_not_mapped(t *testing.T) {
 	}
 
 	// Athletic - Real Madrid match should be saved since it has valid team mappings
-	if !testutil.MatchExists(t, "d0d6f75f29b5b1bb1fc3583476993ede1e43a5c07a57e8280159e0a93510c753") {
+	if !testutil.MatchExists(t, db, "d0d6f75f29b5b1bb1fc3583476993ede1e43a5c07a57e8280159e0a93510c753") {
 		t.Errorf("Athletic - Real Madrid match should exist, but it does not")
 	}
 }
 
 func Test_we_can_insert_a_match_when_no_matches_exist_for_competition(t *testing.T) {
-	testutil.InitDB(t)
-	defer testutil.CloseDB()
-
+	db, repositories := testutil.InitDB(t)
+	defer testutil.CloseDB(db)
 	mockServer := testutil.CreateServerBuilder().
 		WithStatusCode(http.StatusOK).
 		WithResponseBody(successResponse).
 		Build()
 	defer mockServer.Close()
 
-	err := Sync("football_org", "la_liga", systemClock{})
+	err := Sync(repositories, "football_org", "la_liga", SystemClock{})
 	testutil.AssertNoError(t, err)
 
 	now := time.Now().UTC()
@@ -144,7 +141,7 @@ func Test_we_can_insert_a_match_when_no_matches_exist_for_competition(t *testing
 	expectedMatchEnd, _ := time.Parse("2006-01-02 15:04:05", "2025-12-03 20:00:00")
 
 	canonicalID := "d0d6f75f29b5b1bb1fc3583476993ede1e43a5c07a57e8280159e0a93510c753"
-	actualMatch, err := repository.FindByCanonicalID(context.Background(), canonicalID, entity.FootballOrg)
+	actualMatch, err := repositories.Match.FindByCanonicalID(context.Background(), canonicalID, entity.FootballOrg)
 	testutil.AssertNoError(t, err)
 
 	if actualMatch == nil {
@@ -200,8 +197,8 @@ func Test_we_insert_a_match_as_finished_when_syncing_a_match_in_final_status(t *
 
 	for _, scenario := range tests {
 		t.Run(scenario.name, func(t *testing.T) {
-			testutil.InitDB(t)
-			defer testutil.CloseDB()
+			db, repositories := testutil.InitDB(t)
+			defer testutil.CloseDB(db)
 
 			mockServer := testutil.CreateServerBuilder().
 				WithStatusCode(http.StatusOK).
@@ -223,12 +220,12 @@ func Test_we_insert_a_match_as_finished_when_syncing_a_match_in_final_status(t *
 			)
 			testutil.AssertNoError(t, err)
 
-			_ = repository.Save(context.Background(), expectedMatch)
+			_ = repositories.Match.Save(context.Background(), expectedMatch)
 
-			err = Sync("football_org", "la_liga", systemClock{})
+			err = Sync(repositories, "football_org", "la_liga", SystemClock{})
 			testutil.AssertNoError(t, err)
 
-			actualMatch, err := repository.FindByCanonicalID(context.Background(), expectedMatch.CanonicalID, entity.FootballOrg)
+			actualMatch, err := repositories.Match.FindByCanonicalID(context.Background(), expectedMatch.CanonicalID, entity.FootballOrg)
 			testutil.AssertNoError(t, err)
 
 			if actualMatch == nil {
@@ -253,8 +250,8 @@ func Test_we_insert_a_match_as_finished_when_syncing_a_match_in_final_status(t *
 }
 
 func Test_today_is_used_as_query_date_when_last_synced_date_is_in_the_future(t *testing.T) {
-	testutil.InitDB(t)
-	defer testutil.CloseDB()
+	db, repositories := testutil.InitDB(t)
+	defer testutil.CloseDB(db)
 
 	mockServer := testutil.CreateServerBuilder().
 		WithStatusCode(http.StatusOK).
@@ -263,13 +260,13 @@ func Test_today_is_used_as_query_date_when_last_synced_date_is_in_the_future(t *
 	defer mockServer.Close()
 
 	futureDate := time.Now().UTC().Add(1 * 24 * time.Hour).Add(1 * time.Minute)
-	_ = repository.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, futureDate)
+	_ = repositories.SyncState.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, futureDate)
 
-	err := Sync("football_org", "la_liga", systemClock{})
+	err := Sync(repositories, "football_org", "la_liga", SystemClock{})
 	testutil.AssertNoError(t, err)
 	testutil.ExpectNumberOfRequests(t, mockServer, 1)
 
-	actualLastSyncedDate, err := repository.GetLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg)
+	actualLastSyncedDate, err := repositories.SyncState.GetLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg)
 	testutil.AssertNoError(t, err)
 
 	if actualLastSyncedDate == nil {
@@ -285,8 +282,8 @@ func Test_today_is_used_as_query_date_when_last_synced_date_is_in_the_future(t *
 }
 
 func Test_sync_state_advances_by_1_day_when_no_matches_are_found(t *testing.T) {
-	testutil.InitDB(t)
-	defer testutil.CloseDB()
+	db, repositories := testutil.InitDB(t)
+	defer testutil.CloseDB(db)
 	logger := testutil.GetLogger()
 
 	emptyMatchesResponse := `{"matches":[]}`
@@ -298,9 +295,9 @@ func Test_sync_state_advances_by_1_day_when_no_matches_are_found(t *testing.T) {
 
 	// Set a known sync state
 	knownDate := time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
-	_ = repository.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, knownDate)
+	_ = repositories.SyncState.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, knownDate)
 
-	err := Sync("football_org", "la_liga", systemClock{})
+	err := Sync(repositories, "football_org", "la_liga", SystemClock{})
 	testutil.AssertNoError(t, err)
 
 	testutil.ExpectNumberOfRequests(t, mockServer, 1)
@@ -308,7 +305,7 @@ func Test_sync_state_advances_by_1_day_when_no_matches_are_found(t *testing.T) {
 	// Verify the sync state was updated to from + 1 day
 	// from = knownDate (2025-01-15), so nextSyncAt should be 2025-01-16
 	expectedNextSyncAt := knownDate.Add(24 * time.Hour)
-	actualLastSyncedDate, err := repository.GetLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg)
+	actualLastSyncedDate, err := repositories.SyncState.GetLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg)
 	testutil.AssertNoError(t, err)
 
 	if actualLastSyncedDate == nil {
@@ -331,8 +328,8 @@ func Test_sync_state_advances_by_1_day_when_no_matches_are_found(t *testing.T) {
 }
 
 func Test_sync_state_advances_when_matches_are_found_but_not_in_progress(t *testing.T) {
-	testutil.InitDB(t)
-	defer testutil.CloseDB()
+	db, repositories := testutil.InitDB(t)
+	defer testutil.CloseDB(db)
 	logger := testutil.GetLogger()
 
 	mockServer := testutil.CreateServerBuilder().
@@ -343,9 +340,9 @@ func Test_sync_state_advances_when_matches_are_found_but_not_in_progress(t *test
 
 	// Set a known sync state in the past
 	knownDate := time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
-	_ = repository.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, knownDate)
+	_ = repositories.SyncState.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, knownDate)
 
-	err := Sync("football_org", "la_liga", systemClock{})
+	err := Sync(repositories, "football_org", "la_liga", SystemClock{})
 	testutil.AssertNoError(t, err)
 
 	testutil.ExpectNumberOfRequests(t, mockServer, 1)
@@ -353,7 +350,7 @@ func Test_sync_state_advances_when_matches_are_found_but_not_in_progress(t *test
 	// Verify the sync state was advanced by 1 day (matches are TIMED, not in progress, so we advance)
 	// from = knownDate (2025-01-15), so next should be 2025-01-16
 	expectedNextSyncAt := knownDate.Add(24 * time.Hour)
-	actualLastSyncedDate, err := repository.GetLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg)
+	actualLastSyncedDate, err := repositories.SyncState.GetLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg)
 	testutil.AssertNoError(t, err)
 
 	if actualLastSyncedDate == nil {
@@ -374,8 +371,8 @@ func Test_sync_state_advances_when_matches_are_found_but_not_in_progress(t *test
 }
 
 func Test_first_sync_with_no_matches_stays_on_today(t *testing.T) {
-	testutil.InitDB(t)
-	defer testutil.CloseDB()
+	db, repositories := testutil.InitDB(t)
+	defer testutil.CloseDB(db)
 	logger := testutil.GetLogger()
 
 	emptyMatchesResponse := `{"matches":[]}`
@@ -386,7 +383,7 @@ func Test_first_sync_with_no_matches_stays_on_today(t *testing.T) {
 	defer mockServer.Close()
 
 	// No sync state exists (first sync)
-	err := Sync("football_org", "la_liga", systemClock{})
+	err := Sync(repositories, "football_org", "la_liga", SystemClock{})
 	testutil.AssertNoError(t, err)
 
 	testutil.ExpectNumberOfRequests(t, mockServer, 1)
@@ -394,7 +391,7 @@ func Test_first_sync_with_no_matches_stays_on_today(t *testing.T) {
 	// Verify the sync state was created and set to today (no matches, but we're on today so we stay)
 	now := time.Now().UTC()
 	expectedNextSyncAt := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-	actualLastSyncedDate, err := repository.GetLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg)
+	actualLastSyncedDate, err := repositories.SyncState.GetLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg)
 	testutil.AssertNoError(t, err)
 
 	if actualLastSyncedDate == nil {
@@ -415,8 +412,8 @@ func Test_first_sync_with_no_matches_stays_on_today(t *testing.T) {
 }
 
 func Test_we_can_handle_invalid_match_date(t *testing.T) {
-	testutil.InitDB(t)
-	defer testutil.CloseDB()
+	db, repositories := testutil.InitDB(t)
+	defer testutil.CloseDB(db)
 
 	logger := testutil.GetLogger()
 	mockServer := testutil.CreateServerBuilder().
@@ -425,21 +422,21 @@ func Test_we_can_handle_invalid_match_date(t *testing.T) {
 		Build()
 	defer mockServer.Close()
 
-	_ = Sync("football_org", "la_liga", systemClock{})
+	_ = Sync(repositories, "football_org", "la_liga", SystemClock{})
 
 	outputStr := logger.String()
 	if !strings.Contains(outputStr, "failed to parse match date") {
 		t.Errorf("Expected 'failed to parse match date' in output, but got: %s", outputStr)
 	}
 
-	if testutil.MatchExists(t, "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8") {
+	if testutil.MatchExists(t, db, "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8") {
 		t.Errorf("Athletic - Real Madrid match should not exist, but it does")
 	}
 }
 
 func Test_stale_match_moved_to_reconciliation_queue_and_sync_stays_on_today(t *testing.T) {
-	testutil.InitDB(t)
-	defer testutil.CloseDB()
+	db, repositories := testutil.InitDB(t)
+	defer testutil.CloseDB(db)
 	logger := testutil.GetLogger()
 
 	mockServer := testutil.CreateServerBuilder().
@@ -450,33 +447,33 @@ func Test_stale_match_moved_to_reconciliation_queue_and_sync_stays_on_today(t *t
 
 	// The test data has matches on 2025-12-03, so sync will query for that day
 	lastSyncedDate := time.Date(2025, 12, 3, 0, 0, 0, 0, time.UTC)
-	_ = repository.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, lastSyncedDate)
+	_ = repositories.SyncState.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, lastSyncedDate)
 
 	// Use a mock clock set to 14:01:00Z (6 hours and 1 second after match start at 08:00:00Z) to ensure it's detected as stale
 	mockTime := time.Date(2025, 12, 3, 14, 1, 0, 0, time.UTC)
 	clock := mockClock{now: mockTime}
-	err := Sync("football_org", "la_liga", clock)
+	err := Sync(repositories, "football_org", "la_liga", clock)
 	testutil.AssertNoError(t, err)
 
 	testutil.ExpectNumberOfRequests(t, mockServer, 1)
 
 	// Verify stale match (ID: 999999, status: IN_PLAY, started at 10:00:00Z) is in reconciliation queue
 	// This match started more than 6 hours ago
-	if !testutil.ReconciliationEntryExists(t, "999999", int(entity.FootballOrg)) {
+	if !testutil.ReconciliationEntryExists(t, db, "999999", int(entity.FootballOrg)) {
 		t.Errorf("Expected stale match (provider_match_id: 999999) to be in reconciliation queue, but it is not")
 	}
 
 	// Verify finished match (ID: 544391) is saved in matches table
 	// This match should have canonical_id based on: LaLiga, AthleticClub, RealMadrid, 2025-12-03
 	var matchCount int
-	err = config.DB.QueryRow("SELECT COUNT(*) FROM matches WHERE provider_match_id = $1 AND provider = $2", "544391", entity.FootballOrg).Scan(&matchCount)
+	err = db.QueryRow("SELECT COUNT(*) FROM matches WHERE provider_match_id = $1 AND provider = $2", "544391", entity.FootballOrg).Scan(&matchCount)
 	testutil.AssertNoError(t, err)
 	if matchCount == 0 {
 		t.Errorf("Expected finished match (provider_match_id: 544391) to be in matches table, but it is not")
 	}
 
 	// Verify sync date stays on today
-	actualLastSyncedDate, err := repository.GetLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg)
+	actualLastSyncedDate, err := repositories.SyncState.GetLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg)
 	testutil.AssertNoError(t, err)
 
 	if actualLastSyncedDate == nil {
@@ -504,8 +501,8 @@ func Test_stale_match_moved_to_reconciliation_queue_and_sync_stays_on_today(t *t
 }
 
 func Test_stale_match_moved_to_reconciliation_queue_and_sync_advances(t *testing.T) {
-	testutil.InitDB(t)
-	defer testutil.CloseDB()
+	db, repositories := testutil.InitDB(t)
+	defer testutil.CloseDB(db)
 	logger := testutil.GetLogger()
 
 	mockServer := testutil.CreateServerBuilder().
@@ -516,22 +513,22 @@ func Test_stale_match_moved_to_reconciliation_queue_and_sync_advances(t *testing
 
 	// The test data has matches on 2025-12-03, so sync will query for that day
 	lastSyncedDate := time.Date(2025, 12, 3, 0, 0, 0, 0, time.UTC)
-	_ = repository.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, lastSyncedDate)
+	_ = repositories.SyncState.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, lastSyncedDate)
 
-	err := Sync("football_org", "la_liga", systemClock{})
+	err := Sync(repositories, "football_org", "la_liga", SystemClock{})
 	testutil.AssertNoError(t, err)
 
 	testutil.ExpectNumberOfRequests(t, mockServer, 1)
 
 	// Verify stale match (ID: 888888, status: TIMED/Pending, started at 08:00:00Z) is in reconciliation queue
 	// This match should have started more than 6 hours ago but is still Pending
-	if !testutil.ReconciliationEntryExists(t, "888888", int(entity.FootballOrg)) {
+	if !testutil.ReconciliationEntryExists(t, db, "888888", int(entity.FootballOrg)) {
 		t.Errorf("Expected stale pending match (provider_match_id: 888888) to be in reconciliation queue, but it is not")
 	}
 
 	// Verify finished match (ID: 544391) is saved in matches table
 	var matchCount int
-	err = config.DB.QueryRow("SELECT COUNT(*) FROM matches WHERE provider_match_id = $1 AND provider = $2", "544391", entity.FootballOrg).Scan(&matchCount)
+	err = db.QueryRow("SELECT COUNT(*) FROM matches WHERE provider_match_id = $1 AND provider = $2", "544391", entity.FootballOrg).Scan(&matchCount)
 	testutil.AssertNoError(t, err)
 	if matchCount == 0 {
 		t.Errorf("Expected finished match (provider_match_id: 544391) to be in matches table, but it is not")
@@ -539,7 +536,7 @@ func Test_stale_match_moved_to_reconciliation_queue_and_sync_advances(t *testing
 
 	// Verify sync date advanced to next day
 	nextDay := time.Date(2025, 12, 4, 0, 0, 0, 0, time.UTC)
-	actualLastSyncedDate, err := repository.GetLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg)
+	actualLastSyncedDate, err := repositories.SyncState.GetLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg)
 	testutil.AssertNoError(t, err)
 
 	if actualLastSyncedDate == nil {

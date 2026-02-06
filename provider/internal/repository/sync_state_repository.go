@@ -3,16 +3,24 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
-	"provider/config"
-	"provider/entity"
+	"provider/internal/entity"
 	"time"
 
 	"github.com/google/uuid"
 )
 
-func GetLastSyncedDate(ctx context.Context, competition entity.Competition, provider entity.Provider) (*time.Time, error) {
-	if config.DB == nil {
+type SyncStateRepository struct {
+	db *sql.DB
+}
+
+func NewSyncStateRepository(db *sql.DB) *SyncStateRepository {
+	return &SyncStateRepository{db: db}
+}
+
+func (r *SyncStateRepository) GetLastSyncedDate(ctx context.Context, competition entity.Competition, provider entity.Provider) (*time.Time, error) {
+	if r.db == nil {
 		return nil, fmt.Errorf("database connection not initialized")
 	}
 
@@ -22,9 +30,9 @@ func GetLastSyncedDate(ctx context.Context, competition entity.Competition, prov
 		WHERE competition_id = $1 AND provider = $2
 	`
 	var lastSyncedDate time.Time
-	err := config.DB.QueryRowContext(ctx, query, competition, provider).Scan(&lastSyncedDate)
+	err := r.db.QueryRowContext(ctx, query, competition, provider).Scan(&lastSyncedDate)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get last synced date: %w", err)
@@ -33,13 +41,13 @@ func GetLastSyncedDate(ctx context.Context, competition entity.Competition, prov
 	return &lastSyncedDate, nil
 }
 
-func UpdateLastSyncedDate(
+func (r *SyncStateRepository) UpdateLastSyncedDate(
 	ctx context.Context,
 	competition entity.Competition,
 	provider entity.Provider,
 	date time.Time,
 ) error {
-	if config.DB == nil {
+	if r.db == nil {
 		return fmt.Errorf("database connection not initialized")
 	}
 
@@ -49,7 +57,7 @@ func UpdateLastSyncedDate(
 		ON CONFLICT (competition_id, provider)
 		DO UPDATE SET last_synced_date = $4, updated_at = NOW()
 	`
-	_, err := config.DB.ExecContext(ctx, query, uuid.New().String(), competition, provider, date)
+	_, err := r.db.ExecContext(ctx, query, uuid.New().String(), competition, provider, date)
 	if err != nil {
 		return fmt.Errorf("failed to update last synced date: %w", err)
 	}

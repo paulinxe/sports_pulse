@@ -3,7 +3,9 @@ package main
 import (
 	"log/slog"
 	"os"
-	"provider/config"
+	"provider/internal/config"
+	"provider/internal/repository"
+	"provider/internal/sync"
 	"strings"
 )
 
@@ -29,17 +31,20 @@ func main() {
 		os.Exit(int(BAD_ARGUMENTS))
 	}
 
-	if err := config.InitDB(); err != nil {
+	db, err := config.InitDB()
+	if err != nil {
 		slog.Error("Failed to initialize database", "error", err)
 		os.Exit(int(DB_INIT_ERROR))
 	}
-	defer func() { _ = config.CloseDB() }()
+	defer func() { _ = db.Close() }()
+
+	repositories := repository.InitRepositories(db)
 
 	provider := os.Args[1]
 	competition := os.Args[2]
 	slog.Debug("Starting sync", "provider", strings.ToUpper(provider), "competition", strings.ToUpper(competition))
 
-	if err := Sync(provider, competition, systemClock{}); err != nil {
+	if err := sync.Sync(repositories, provider, competition, sync.SystemClock{}); err != nil {
 		slog.Error("Failed to sync", "provider", provider, "competition", competition, "error", err)
 		os.Exit(int(PROVIDER_ERROR))
 	}

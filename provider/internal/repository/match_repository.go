@@ -3,17 +3,26 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"log/slog"
-	"provider/config"
-	"provider/entity"
+	"provider/internal/entity"
 	"time"
 
 	"github.com/google/uuid"
 )
 
-func Save(ctx context.Context, match entity.Match) error {
-	if config.DB == nil {
+// MatchRepository handles match persistence.
+type MatchRepository struct {
+	db *sql.DB
+}
+
+func NewMatchRepository(db *sql.DB) *MatchRepository {
+	return &MatchRepository{db: db}
+}
+
+func (r *MatchRepository) Save(ctx context.Context, match entity.Match) error {
+	if r.db == nil {
 		slog.Warn("Database connection not initialized, skipping insert")
 		return nil
 	}
@@ -30,7 +39,7 @@ func Save(ctx context.Context, match entity.Match) error {
         ON CONFLICT (canonical_id, competition_id) DO NOTHING
     `
 
-	_, err := config.DB.ExecContext(ctx, query,
+	_, err := r.db.ExecContext(ctx, query,
 		match.ID,
 		match.CanonicalID,
 		match.HomeTeamID,
@@ -60,8 +69,8 @@ func Save(ctx context.Context, match entity.Match) error {
 	return nil
 }
 
-func FindByCanonicalID(ctx context.Context, canonicalID string, provider entity.Provider) (*entity.Match, error) {
-	if config.DB == nil {
+func (r *MatchRepository) FindByCanonicalID(ctx context.Context, canonicalID string, provider entity.Provider) (*entity.Match, error) {
+	if r.db == nil {
 		return nil, fmt.Errorf("database connection not initialized")
 	}
 	query := `
@@ -86,7 +95,7 @@ func FindByCanonicalID(ctx context.Context, canonicalID string, provider entity.
 		match entity.Match
 	)
 
-	err := config.DB.QueryRowContext(ctx, query, canonicalID, provider).Scan(
+	err := r.db.QueryRowContext(ctx, query, canonicalID, provider).Scan(
 		&match.ID,
 		&match.CanonicalID,
 		&match.Start,
@@ -102,7 +111,7 @@ func FindByCanonicalID(ctx context.Context, canonicalID string, provider entity.
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to find match by canonical_id %s and provider %v: %w", canonicalID, provider, err)
@@ -111,8 +120,8 @@ func FindByCanonicalID(ctx context.Context, canonicalID string, provider entity.
 	return &match, nil
 }
 
-func FindMostRecentTimestamp(ctx context.Context, competition entity.Competition, provider entity.Provider) (*time.Time, error) {
-	if config.DB == nil {
+func (r *MatchRepository) FindMostRecentTimestamp(ctx context.Context, competition entity.Competition, provider entity.Provider) (*time.Time, error) {
+	if r.db == nil {
 		return nil, fmt.Errorf("database connection not initialized")
 	}
 
@@ -124,9 +133,9 @@ func FindMostRecentTimestamp(ctx context.Context, competition entity.Competition
         LIMIT 1
     `
 	var timestamp time.Time
-	err := config.DB.QueryRowContext(ctx, query, competition, provider).Scan(&timestamp)
+	err := r.db.QueryRowContext(ctx, query, competition, provider).Scan(&timestamp)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 
@@ -136,14 +145,14 @@ func FindMostRecentTimestamp(ctx context.Context, competition entity.Competition
 	return &timestamp, nil
 }
 
-func FinishMatch(ctx context.Context, matchID uuid.UUID, homeTeamScore uint, awayTeamScore uint) error {
-	if config.DB == nil {
+func (r *MatchRepository) FinishMatch(ctx context.Context, matchID uuid.UUID, homeTeamScore uint, awayTeamScore uint) error {
+	if r.db == nil {
 		return fmt.Errorf("database connection not initialized")
 	}
 
 	query := `
         UPDATE matches SET status = $1, home_team_score = $2, away_team_score = $3, updated_at = now() WHERE id = $4
     `
-	_, err := config.DB.ExecContext(ctx, query, entity.Finished, homeTeamScore, awayTeamScore, matchID)
+	_, err := r.db.ExecContext(ctx, query, entity.Finished, homeTeamScore, awayTeamScore, matchID)
 	return err
 }

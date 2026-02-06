@@ -3,18 +3,23 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
-	"os"
 	"net/url"
+	"os"
 	"time"
 )
 
+var defaultClient = &http.Client{
+	Timeout: 30 * time.Second,
+}
+
 func GetList(ctx context.Context, competitionID uint, from time.Time, to time.Time) (MatchesResponse, error) {
-	url := buildAPIPath(competitionID, from, to)
-	body, err := get(ctx, url)
+	path := buildAPIPath(competitionID, from, to)
+	body, err := get(ctx, path)
 	if err != nil {
 		return MatchesResponse{}, err
 	}
@@ -38,27 +43,26 @@ func buildAPIPath(competitionID uint, from time.Time, to time.Time) string {
 	return path + "?" + queryString
 }
 
-func get(ctx context.Context, url string) ([]byte, error) {
-	url = os.Getenv("FOOTBALL_ORG_API_ENDPOINT") + url
+func get(ctx context.Context, path string) ([]byte, error) {
+	fullURL := os.Getenv("FOOTBALL_ORG_API_ENDPOINT") + path
 	apiKey := os.Getenv("FOOTBALL_ORG_API_KEY")
 
-	slog.Debug("Sending GET request", "url", url)
+	slog.Debug("Sending GET request", "url", fullURL)
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", fullURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("X-Auth-Token", apiKey)
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := defaultClient.Do(req)
 	if err != nil {
-		if ctx.Err() == context.Canceled {
+		if errors.Is(err, context.Canceled) {
 			return nil, fmt.Errorf("request canceled: %w", err)
 		}
 
-		if ctx.Err() == context.DeadlineExceeded {
+		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, fmt.Errorf("context timeout: %w", err)
 		}
 

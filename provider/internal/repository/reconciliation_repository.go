@@ -3,9 +3,9 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
-	"provider/config"
-	"provider/entity"
+	"provider/internal/entity"
 	"time"
 
 	"github.com/google/uuid"
@@ -19,8 +19,16 @@ type ReconciliationEntry struct {
 	Tries           int
 }
 
-func SaveToReconciliationQueue(ctx context.Context, providerMatchID string, provider entity.Provider) error {
-	if config.DB == nil {
+type ReconciliationRepository struct {
+	db *sql.DB
+}
+
+func NewReconciliationRepository(db *sql.DB) *ReconciliationRepository {
+	return &ReconciliationRepository{db: db}
+}
+
+func (r *ReconciliationRepository) SaveToReconciliationQueue(ctx context.Context, providerMatchID string, provider entity.Provider) error {
+	if r.db == nil {
 		return fmt.Errorf("database connection not initialized")
 	}
 
@@ -29,7 +37,7 @@ func SaveToReconciliationQueue(ctx context.Context, providerMatchID string, prov
 		VALUES ($1, $2, $3, NULL, 0)
 		ON CONFLICT (provider_match_id, provider) DO NOTHING
 	`
-	_, err := config.DB.ExecContext(ctx, query, uuid.New().String(), providerMatchID, provider)
+	_, err := r.db.ExecContext(ctx, query, uuid.New().String(), providerMatchID, provider)
 	if err != nil {
 		return fmt.Errorf("failed to insert into reconciliation queue: %w", err)
 	}
@@ -92,7 +100,7 @@ func SaveToReconciliationQueue(ctx context.Context, providerMatchID string, prov
 // 	return nil
 // }
 
-func IncrementTries(ctx context.Context, tx *sql.Tx, id uuid.UUID) error {
+func (r *ReconciliationRepository) IncrementTries(ctx context.Context, tx *sql.Tx, id uuid.UUID) error {
 	query := `
 		UPDATE match_reconciliation
 		SET tries = tries + 1
@@ -106,8 +114,8 @@ func IncrementTries(ctx context.Context, tx *sql.Tx, id uuid.UUID) error {
 	return nil
 }
 
-func FindByProviderMatchID(ctx context.Context, providerMatchID string, provider entity.Provider) (*ReconciliationEntry, error) {
-	if config.DB == nil {
+func (r *ReconciliationRepository) FindByProviderMatchID(ctx context.Context, providerMatchID string, provider entity.Provider) (*ReconciliationEntry, error) {
+	if r.db == nil {
 		return nil, fmt.Errorf("database connection not initialized")
 	}
 
@@ -119,7 +127,7 @@ func FindByProviderMatchID(ctx context.Context, providerMatchID string, provider
 
 	var entry ReconciliationEntry
 	var reconciledAt sql.NullTime
-	err := config.DB.QueryRowContext(ctx, query, providerMatchID, provider).Scan(
+	err := r.db.QueryRowContext(ctx, query, providerMatchID, provider).Scan(
 		&entry.ID,
 		&entry.ProviderMatchID,
 		&entry.Provider,
@@ -127,7 +135,7 @@ func FindByProviderMatchID(ctx context.Context, providerMatchID string, provider
 		&entry.Tries,
 	)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 

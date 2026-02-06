@@ -1,11 +1,14 @@
-package main
+package sync
 
 import (
 	"testing"
+
+	"provider/internal/repository"
 )
 
 func Test_Sync_returns_error_for_unknown_competition(t *testing.T) {
-	err := Sync("football_org", "invalid_competition", systemClock{})
+	repositories := repository.InitRepositories(nil)
+	err := Sync(repositories, "football_org", "invalid_competition", SystemClock{})
 	if err == nil {
 		t.Error("Expected error for unknown competition, but got nil")
 	}
@@ -17,7 +20,8 @@ func Test_Sync_returns_error_for_unknown_competition(t *testing.T) {
 }
 
 func Test_Sync_returns_error_for_unknown_provider(t *testing.T) {
-	err := Sync("invalid_provider", "la_liga", systemClock{})
+	repositories := repository.InitRepositories(nil)
+	err := Sync(repositories, "invalid_provider", "la_liga", SystemClock{})
 	if err == nil {
 		t.Error("Expected error for unknown provider, but got nil")
 	}

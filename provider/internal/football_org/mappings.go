@@ -1,6 +1,6 @@
 package football_org
 
-import "provider/entity"
+import "provider/internal/entity"
 
 var CompetitionToFootballOrgID = map[entity.Competition]uint{
 	entity.LaLiga: 2014,

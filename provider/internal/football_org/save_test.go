@@ -6,18 +6,17 @@ import (
 	"testing"
 	"time"
 
-	"provider/config"
-	"provider/entity"
+	"provider/internal/entity"
 	"provider/testutil"
 )
 
 // This test is not part of sync_football_org_test.go because for this specific scenario, its easier to "unit" test it here.
 func Test_SaveMatches_continues_when_save_fails_but_reconciliation_succeeds(t *testing.T) {
-	testutil.InitDB(t)
-	defer testutil.CloseDB()
+	db, repos := testutil.InitDB(t)
+	defer testutil.CloseDB(db)
 	logger := testutil.GetLogger()
 
-	provider := &Provider{}
+	provider := NewProvider(repos.Match, repos.Reconciliation)
 	ctx := context.Background()
 
 	// Create a match
@@ -38,7 +37,7 @@ func Test_SaveMatches_continues_when_save_fails_but_reconciliation_succeeds(t *t
 	// Insert the match directly into the database with SQL to bypass normal flow
 	// Use a different canonical_id so the conflict won't be on canonical_id+competition_id
 	// This ensures the match exists with this ID, causing a primary key violation
-	_, err = config.DB.Exec(`
+	_, err = db.Exec(`
 		INSERT INTO matches (
 			id, canonical_id, home_team_id, away_team_id, start, "end", status,
 			home_team_score, away_team_score, provider_match_id, competition_id, provider
@@ -79,7 +78,7 @@ func Test_SaveMatches_continues_when_save_fails_but_reconciliation_succeeds(t *t
 	provider.SaveMatches(ctx, []entity.Match{match2})
 
 	// Verify match was added to reconciliation queue
-	if !testutil.ReconciliationEntryExists(t, "test_match_123", int(entity.FootballOrg)) {
+	if !testutil.ReconciliationEntryExists(t, db, "test_match_123", int(entity.FootballOrg)) {
 		t.Errorf("Expected match to be in reconciliation queue, but it is not")
 	}
 

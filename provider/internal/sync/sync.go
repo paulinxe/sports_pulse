@@ -1,12 +1,12 @@
-package main
+package sync
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
-	"provider/entity"
-	"provider/football_org"
-	"provider/repository"
+	"provider/internal/entity"
+	"provider/internal/football_org"
+	"provider/internal/repository"
 	"strings"
 	"time"
 )
@@ -19,9 +19,10 @@ type Clock interface {
 	Now() time.Time
 }
 
-type systemClock struct{}
+// SystemClock implements Clock using the system time.
+type SystemClock struct{}
 
-func (s systemClock) Now() time.Time {
+func (s SystemClock) Now() time.Time {
 	return time.Now().UTC()
 }
 
@@ -36,7 +37,7 @@ type SyncProvider interface {
 // Sync queries matches for a natural day period (00:00:00 to 23:59:59 UTC) and only inserts
 // matches with FINISHED or AWARDED status. It implements catch-up logic to advance day-by-day
 // until reaching today, and checks for in-progress matches to avoid advancing too early.
-func Sync(provider string, competition string, clock Clock) error {
+func Sync(repositories *repository.Repositories, provider string, competition string, clock Clock) error {
 	competitionEntity := entity.Competition(0)
 	switch strings.ToLower(competition) {
 	case "la_liga":
@@ -51,7 +52,7 @@ func Sync(provider string, competition string, clock Clock) error {
 	var syncProvider SyncProvider
 	switch strings.ToLower(provider) {
 	case "football_org":
-		syncProvider = &football_org.Provider{}
+		syncProvider = football_org.NewProvider(repositories.Match, repositories.Reconciliation)
 	default:
 		return fmt.Errorf("unknown provider: %s", provider)
 	}
@@ -68,7 +69,7 @@ func Sync(provider string, competition string, clock Clock) error {
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
 
 	// Determine which day to query
-	queryDate, err := getQueryDate(&ctx, competitionEntity, &today, syncProvider.GetProviderEntity())
+	queryDate, err := getQueryDate(ctx, repositories.SyncState, competitionEntity, &today, syncProvider.GetProviderEntity())
 	if err != nil {
 		return fmt.Errorf("failed to get query date: %w", err)
 	}
@@ -83,7 +84,7 @@ func Sync(provider string, competition string, clock Clock) error {
 		return fmt.Errorf("failed to fetch matches: %w", err)
 	}
 
-	filteredMatches, err := filterStaleMatches(ctx, matchesResponse, syncProvider.GetProviderEntity(), clock.Now())
+	filteredMatches, err := filterStaleMatches(ctx, repositories.Reconciliation, matchesResponse, syncProvider.GetProviderEntity(), clock.Now())
 	if err != nil {
 		return fmt.Errorf("failed to filter stale matches: %w", err)
 	}
@@ -105,15 +106,15 @@ func Sync(provider string, competition string, clock Clock) error {
 		slog.Debug("Staying on today", "date", today)
 	}
 
-	if err := repository.UpdateLastSyncedDate(ctx, competitionEntity, syncProvider.GetProviderEntity(), nextSyncDate); err != nil {
+	if err := repositories.SyncState.UpdateLastSyncedDate(ctx, competitionEntity, syncProvider.GetProviderEntity(), nextSyncDate); err != nil {
 		return fmt.Errorf("failed to update last synced date: %w", err)
 	}
 
 	return nil
 }
 
-func getQueryDate(ctx *context.Context, competition entity.Competition, today *time.Time, provider entity.Provider) (time.Time, error) {
-	lastSyncedDate, err := repository.GetLastSyncedDate(*ctx, competition, provider)
+func getQueryDate(ctx context.Context, repository *repository.SyncStateRepository, competition entity.Competition, today *time.Time, provider entity.Provider) (time.Time, error) {
+	lastSyncedDate, err := repository.GetLastSyncedDate(ctx, competition, provider)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("failed to get last synced date: %w", err)
 	}
@@ -140,6 +141,7 @@ func getQueryDate(ctx *context.Context, competition entity.Competition, today *t
 // should have started but haven't reached a finished state (e.g., still Pending).
 func filterStaleMatches(
 	ctx context.Context,
+	reconciliation *repository.ReconciliationRepository,
 	matches []entity.Match,
 	provider entity.Provider,
 	now time.Time,
@@ -150,7 +152,7 @@ func filterStaleMatches(
 	for _, match := range matches {
 		// Check if match is not finished and started more than 6 hours ago
 		if match.Status != entity.Finished && match.Start.Before(staleThreshold) {
-			if err := repository.SaveToReconciliationQueue(ctx, match.ProviderMatchID, provider); err != nil {
+			if err := reconciliation.SaveToReconciliationQueue(ctx, match.ProviderMatchID, provider); err != nil {
 				// Log error but continue - don't fail the entire sync
 				slog.Error("Failed to add stale match to reconciliation queue",
 					"provider_match_id", match.ProviderMatchID,

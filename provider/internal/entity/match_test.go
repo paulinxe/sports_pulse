@@ -1,7 +1,6 @@
 package entity
 
 import (
-	"provider/testutil"
 	"testing"
 	"time"
 )
@@ -30,7 +29,9 @@ func Test_we_dont_have_collisions_when_generating_match_id(t *testing.T) {
 		LaLiga,
 		Pending,
 	)
-	testutil.AssertNoError(t, err)
+	if err != nil {
+		t.Fatalf("Expected no error but got: %v", err)
+	}
 
 	match2, err := NewMatch(
 		time.Now(),
@@ -43,7 +44,9 @@ func Test_we_dont_have_collisions_when_generating_match_id(t *testing.T) {
 		LaLiga,
 		Pending,
 	)
-	testutil.AssertNoError(t, err)
+	if err != nil {
+		t.Fatalf("Expected no error but got: %v", err)
+	}
 
 	match3, err := NewMatch(
 		time.Now(),
@@ -56,7 +59,9 @@ func Test_we_dont_have_collisions_when_generating_match_id(t *testing.T) {
 		111,
 		Pending,
 	)
-	testutil.AssertNoError(t, err)
+	if err != nil {
+		t.Fatalf("Expected no error but got: %v", err)
+	}
 
 	match4, err := NewMatch(
 		time.Now(),
@@ -69,7 +74,9 @@ func Test_we_dont_have_collisions_when_generating_match_id(t *testing.T) {
 		111,
 		Pending,
 	)
-	testutil.AssertNoError(t, err)
+	if err != nil {
+		t.Fatalf("Expected no error but got: %v", err)
+	}
 
 	ids := []string{
 		match1.CanonicalID,

@@ -3,8 +3,7 @@ package football_org
 import (
 	"context"
 	"log/slog"
-	"provider/entity"
-	"provider/repository"
+	"provider/internal/entity"
 )
 
 // SaveMatches saves entity.Match objects to the database, filtering to only save finished matches.
@@ -17,10 +16,10 @@ func (p *Provider) SaveMatches(ctx context.Context, matches []entity.Match) {
 			continue
 		}
 
-		if err := repository.Save(ctx, match); err != nil {
+		if err := p.matchRepository.Save(ctx, match); err != nil {
 			// A single match failure should not fail the entire sync.
 			// Add to reconciliation queue for later reconciliation.
-			if saveErr := repository.SaveToReconciliationQueue(ctx, match.ProviderMatchID, p.GetProviderEntity()); saveErr != nil {
+			if saveErr := p.reconciliationRepository.SaveToReconciliationQueue(ctx, match.ProviderMatchID, p.GetProviderEntity()); saveErr != nil {
 				slog.Error("MANUAL INTERVENTION REQUIRED: Failed to insert match and failed to add to reconciliation queue",
 					"provider_match_id", match.ProviderMatchID,
 					"save_error", err,

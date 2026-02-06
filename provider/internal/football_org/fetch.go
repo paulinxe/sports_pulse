@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"provider/entity"
-	"provider/football_org/api"
+	"provider/internal/entity"
+	"provider/internal/football_org/api"
 	"time"
 )
 

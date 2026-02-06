@@ -1,0 +1,132 @@
+{
+    "filters":{
+        "season":"2025"
+    },
+    "resultSet":{
+        "count":11,
+        "first":"2025-12-03",
+        "last":"2025-12-08",
+        "played":0
+    },
+    "competition":{
+        "id":2014,
+        "name":"Primera Division",
+        "code":"PD",
+        "type":"LEAGUE",
+        "emblem":"https://crests.football-data.org/laliga.png"
+    },
+    "matches":[
+        {
+            "id":654321,
+            "utcDate":"2025-12-03T18:00:00Z",
+            "status":"FINISHED",
+            "matchday":19,
+            "stage":"REGULAR_SEASON",
+            "group":null,
+            "lastUpdated":"2025-12-03T00:21:04Z",
+            "homeTeam":{
+                "id":123456,
+                "name":"Not existing FC",
+                "shortName":"Not existing",
+                "tla":"NEX",
+                "crest":"https://crests.football-data.org/77.png"
+            },
+            "awayTeam":{
+                "id":86,
+                "name":"Real Madrid CF",
+                "shortName":"Real Madrid",
+                "tla":"RMA",
+                "crest":"https://crests.football-data.org/86.png"
+            },
+            "score":{
+                "winner":"AWAY_TEAM",
+                "duration":"REGULAR",
+                "fullTime":{
+                    "home":0,
+                    "away":2
+                },
+                "halfTime":{
+                    "home":0,
+                    "away":1
+                }
+            },
+            "odds":{
+                "msg":"Activate Odds-Package in User-Panel to retrieve odds."
+            },
+            "referees":[
+                {
+                    "id":206211,
+                    "name":"Jesús Gil Manzano",
+                    "type":"REFEREE",
+                    "nationality":"Spain"
+                }
+            ]
+        },
+        {
+            "area":{
+                "id":2224,
+                "name":"Spain",
+                "code":"ESP",
+                "flag":"https://crests.football-data.org/760.svg"
+            },
+            "competition":{
+                "id":2014,
+                "name":"Primera Division",
+                "code":"PD",
+                "type":"LEAGUE",
+                "emblem":"https://crests.football-data.org/laliga.png"
+            },
+            "season":{
+                "id":2429,
+                "startDate":"2025-08-17",
+                "endDate":"2026-05-24",
+                "currentMatchday":19,
+                "winner":null
+            },
+            "id":544391,
+            "utcDate":"2025-12-03T18:00:00Z",
+            "status":"FINISHED",
+            "matchday":19,
+            "stage":"REGULAR_SEASON",
+            "group":null,
+            "lastUpdated":"2025-12-03T00:21:04Z",
+            "homeTeam":{
+                "id":77,
+                "name":"Athletic Club",
+                "shortName":"Athletic",
+                "tla":"ATH",
+                "crest":"https://crests.football-data.org/77.png"
+            },
+            "awayTeam":{
+                "id":86,
+                "name":"Real Madrid CF",
+                "shortName":"Real Madrid",
+                "tla":"RMA",
+                "crest":"https://crests.football-data.org/86.png"
+            },
+            "score":{
+                "winner":"AWAY_TEAM",
+                "duration":"REGULAR",
+                "fullTime":{
+                    "home":0,
+                    "away":3
+                },
+                "halfTime":{
+                    "home":0,
+                    "away":2
+                }
+            },
+            "odds":{
+                "msg":"Activate Odds-Package in User-Panel to retrieve odds."
+            },
+            "referees":[
+                {
+                    "id":206211,
+                    "name":"Jesús Gil Manzano",
+                    "type":"REFEREE",
+                    "nationality":"Spain"
+                }
+            ]
+        }
+    ]
+}
