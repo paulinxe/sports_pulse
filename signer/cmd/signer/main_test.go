@@ -2,11 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"database/sql"
 	"os"
-	"signer/db"
-	"signer/entity"
-	"signer/repository"
+	"signer/internal/entity"
+	"signer/internal/repository"
 	"signer/testutil"
 	"strings"
 	"testing"
@@ -15,18 +14,23 @@ import (
 	"github.com/google/uuid"
 )
 
-func setup() {
-	_ =os.Setenv("CHAIN_ID", "31337")
-	_ =os.Setenv("SIGNER_PRIVATE_KEY", "0x4ba521e286bca3aa5fe1a8a8cf38017246b15fd2a4d9c79f1576ca82b9244279")
-	_ =os.Setenv("ORACLE_CONTRACT_ADDRESS", "0xF62849F9A0B5Bf2913b396098F7c7019b51A820a")
+func setup(t *testing.T) {
+	t.Helper()
+	_ = os.Setenv("CHAIN_ID", "31337")
+	_ = os.Setenv("SIGNER_PRIVATE_KEY", "0x4ba521e286bca3aa5fe1a8a8cf38017246b15fd2a4d9c79f1576ca82b9244279")
+	_ = os.Setenv("ORACLE_CONTRACT_ADDRESS", "0xF62849F9A0B5Bf2913b396098F7c7019b51A820a")
 }
 
 func Test_no_errors_when_nothing_to_sign(t *testing.T) {
-	setup()
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	setup(t)
+	db := testutil.InitDB(t)
+	defer func() { _ = db.Close() }()
 
-	matches, err := repository.FindMatchesToSign(context.Background())
+	repo, err := repository.NewMatchRepository(db)
+	if err != nil {
+		t.Fatalf("failed to create repository: %v", err)
+	}
+	matches, err := repo.FindMatchesToSign(context.Background())
 	if err != nil {
 		t.Fatalf("failed to find matches to sign: %v", err)
 	}
@@ -35,22 +39,22 @@ func Test_no_errors_when_nothing_to_sign(t *testing.T) {
 		t.Fatalf("Expected 0 matches to sign, got %d", len(matches))
 	}
 
-	exitCode := Run(1*time.Second, 1*time.Second)
+	exitCode := Run(db, 1*time.Second, 1*time.Second)
 	if exitCode != 0 {
 		t.Fatalf("Expected exit code 0, got %d", exitCode)
 	}
 }
 
 func Test_we_log_an_error_when_private_key_is_not_valid(t *testing.T) {
-	setup()
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	setup(t)
+	db := testutil.InitDB(t)
+	defer func() { _ = db.Close() }()
 	logger := testutil.GetLogger()
-	insertSignableMatch()
+	insertSignableMatch(t, db)
 
 	_ = os.Setenv("SIGNER_PRIVATE_KEY", "0x69")
 
-	exitCode := Run(1*time.Second, 1*time.Second)
+	exitCode := Run(db, 1*time.Second, 1*time.Second)
 	if exitCode != int(PRIVATE_KEY_LOAD_FAIL) {
 		t.Fatalf("Expected exit code %d, got %d", int(PRIVATE_KEY_LOAD_FAIL), exitCode)
 	}
@@ -62,14 +66,14 @@ func Test_we_log_an_error_when_private_key_is_not_valid(t *testing.T) {
 }
 
 func Test_we_log_an_error_when_chain_id_is_not_valid(t *testing.T) {
-	setup()
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	setup(t)
+	db := testutil.InitDB(t)
+	defer func() { _ = db.Close() }()
 	logger := testutil.GetLogger()
-	insertSignableMatch()
+	insertSignableMatch(t, db)
 
 	_ = os.Setenv("CHAIN_ID", "not_valid")
-	exitCode := Run(1*time.Second, 1*time.Second)
+	exitCode := Run(db, 1*time.Second, 1*time.Second)
 	if exitCode != int(CHAIN_ID_NOT_VALID) {
 		t.Fatalf("Expected exit code %d, got %d", int(CHAIN_ID_NOT_VALID), exitCode)
 	}
@@ -81,15 +85,14 @@ func Test_we_log_an_error_when_chain_id_is_not_valid(t *testing.T) {
 }
 
 func Test_we_sign_a_match(t *testing.T) {
-	setup()
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	setup(t)
+	db := testutil.InitDB(t)
+	defer func() { _ = db.Close() }()
 	logger := testutil.GetLogger()
-	insertSignableMatch()
+	insertSignableMatch(t, db)
 
-	exitCode := Run(1*time.Second, 1*time.Second)
+	exitCode := Run(db, 1*time.Second, 1*time.Second)
 	outputStr := logger.String()
-	fmt.Println(outputStr)
 	if strings.Contains(outputStr, "ERROR") {
 		t.Fatalf("Expected no error message, got %s", outputStr)
 	}
@@ -98,7 +101,11 @@ func Test_we_sign_a_match(t *testing.T) {
 		t.Fatalf("Expected exit code 0, got %d", exitCode)
 	}
 
-	matches, err := repository.FindMatchesToSign(context.Background())
+	repo, err := repository.NewMatchRepository(db)
+	if err != nil {
+		t.Fatalf("failed to create repository: %v", err)
+	}
+	matches, err := repo.FindMatchesToSign(context.Background())
 	if err != nil {
 		t.Fatalf("failed to find matches to sign: %v", err)
 	}
@@ -107,8 +114,11 @@ func Test_we_sign_a_match(t *testing.T) {
 		t.Fatalf("Expected 0 matches to sign, got %d", len(matches))
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
 	var signature string
-	err = db.DB.QueryRow(
+	err = db.QueryRowContext(ctx,
 		"SELECT signature FROM matches WHERE status = $1 AND canonical_id = $2",
 		entity.Signed,
 		"0x7ed54b4173481077ca259c17a51291beed5152f35d37e01142cd6ee2f771127f",
@@ -123,9 +133,9 @@ func Test_we_sign_a_match(t *testing.T) {
 }
 
 func Test_we_log_match_on_store_signature_timeout(t *testing.T) {
-	setup()
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	setup(t)
+	db := testutil.InitDB(t)
+	defer func() { _ = db.Close() }()
 	logger := testutil.GetLogger()
 
 	// Insert a match to sign
@@ -139,7 +149,7 @@ func Test_we_log_match_on_store_signature_timeout(t *testing.T) {
 	competitionId := 1
 	provider := 1
 
-	_, _ = db.DB.Exec(`INSERT INTO matches (
+	if _, err := db.Exec(`INSERT INTO matches (
 		id, canonical_id, home_team_score, away_team_score, home_team_id, away_team_id, "start", "end", provider_match_id, competition_id, provider, status
 	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
 		matchID,
@@ -154,10 +164,12 @@ func Test_we_log_match_on_store_signature_timeout(t *testing.T) {
 		competitionId,
 		provider,
 		entity.Finished,
-	)
+	); err != nil {
+		t.Fatalf("failed to insert match: %v", err)
+	}
 
 	// Use a very short timeout (1ms) to ensure timeout occurs when store timeout is reached
-	exitCode := Run(1*time.Second, 1*time.Millisecond)
+	exitCode := Run(db, 1*time.Second, 1*time.Millisecond)
 	if exitCode != 0 {
 		t.Fatalf("Expected exit code 0, got %d", exitCode)
 	}
@@ -180,7 +192,8 @@ func Test_we_log_match_on_store_signature_timeout(t *testing.T) {
 	}
 }
 
-func insertSignableMatch() {
+func insertSignableMatch(t *testing.T, db *sql.DB) {
+	t.Helper()
 	// Match the Solidity test data:
 	// COMPETITION_ID = 1, HOME_TEAM_ID = 1, AWAY_TEAM_ID = 2, matchDate = 20251219
 	// This should generate: keccak256(abi.encodePacked(1, 1, 2, 20251219))
@@ -193,7 +206,7 @@ func insertSignableMatch() {
 	competitionId := 1
 	provider := 1
 
-	_, _ = db.DB.Exec(`INSERT INTO matches (
+	if _, err := db.Exec(`INSERT INTO matches (
 			id, canonical_id, home_team_score, away_team_score, home_team_id, away_team_id, "start", "end", provider_match_id, competition_id, provider, status
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
 		uuid.New(),
@@ -208,5 +221,7 @@ func insertSignableMatch() {
 		competitionId,
 		provider,
 		entity.Finished,
-	)
+	); err != nil {
+		t.Fatalf("failed to insert signable match: %v", err)
+	}
 }

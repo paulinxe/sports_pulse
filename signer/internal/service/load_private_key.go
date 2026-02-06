@@ -1,10 +1,11 @@
-package services
+package service
 
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
 	"strings"
+
 	"github.com/ethereum/go-ethereum/crypto"
 )
 

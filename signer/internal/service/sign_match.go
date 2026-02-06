@@ -1,11 +1,11 @@
-package services
+package service
 
 import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 	"os"
-	"signer/entity"
+	"signer/internal/entity"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
@@ -51,7 +51,7 @@ func SignMatch(match entity.Match, privKey *ecdsa.PrivateKey, chainId uint) (str
 	// Sign the hash
 	signature, err := crypto.Sign(finalHash.Bytes(), privKey)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("sign hash: %w", err)
 	}
 
 	// Adjust recovery ID: crypto.Sign returns 0 or 1, but Ethereum expects 27 or 28

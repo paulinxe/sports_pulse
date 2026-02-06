@@ -2,12 +2,13 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"os"
-	"signer/db"
-	"signer/repository"
-	"signer/services"
+	"signer/internal/config"
+	"signer/internal/repository"
+	"signer/internal/service"
 	"time"
 )
 
@@ -27,24 +28,25 @@ const (
 )
 
 func main() {
-	os.Exit(Run(DB_TIMEOUT, STORE_TIMEOUT))
-}
-
-func Run(dbTimeout, storeTimeout time.Duration) int {
-	shouldClose, err := db.Init()
+	db, err := config.InitDB()
 	if err != nil {
 		slog.Error("failed to initialize database", "error", err)
-		return int(DB_INIT_FAIL)
+		os.Exit(int(DB_INIT_FAIL))
 	}
+	defer func() { _ = db.Close() }()
+	os.Exit(Run(db, DB_TIMEOUT, STORE_TIMEOUT))
+}
 
-	if shouldClose {
-		defer func() { _ = db.Close() }()
-	}
-
+func Run(db *sql.DB, dbTimeout, storeTimeout time.Duration) int {
 	dbContext, cancel := context.WithTimeout(context.Background(), dbTimeout)
 	defer cancel()
 
-	matches, err := repository.FindMatchesToSign(dbContext)
+	repo, err := repository.NewMatchRepository(db)
+	if err != nil {
+		slog.Error("failed to create repository", "error", err)
+		return int(DB_INIT_FAIL)
+	}
+	matches, err := repo.FindMatchesToSign(dbContext)
 	if err != nil {
 		slog.Error("failed to find matches to sign", "error", err)
 		return int(DB_QUERY_FAIL)
@@ -56,29 +58,28 @@ func Run(dbTimeout, storeTimeout time.Duration) int {
 		return int(SUCCESS)
 	}
 
-	privateKey, err := services.LoadPrivateKey(os.Getenv("SIGNER_PRIVATE_KEY"))
+	privateKey, err := service.LoadPrivateKey(os.Getenv("SIGNER_PRIVATE_KEY"))
 	if err != nil {
 		slog.Error("failed to load private key", "error", err)
 		return int(PRIVATE_KEY_LOAD_FAIL)
 	}
 
-	chainId, err := services.LoadChainId()
+	chainId, err := service.LoadChainId()
 	if err != nil {
 		slog.Error("failed to get chain ID", "error", err)
 		return int(CHAIN_ID_NOT_VALID)
 	}
 
 	for _, match := range matches {
-		signature, err := services.SignMatch(match, privateKey, chainId)
+		signature, err := service.SignMatch(match, privateKey, chainId)
 		if err != nil {
 			slog.Error("failed to sign match", "error", err, "match", match)
 			continue
 		}
 
 		storeContext, storeCancel := context.WithTimeout(context.Background(), storeTimeout)
-		defer storeCancel()
-
-		err = repository.StoreSignature(storeContext, match, signature)
+		err = repo.StoreSignature(storeContext, match, signature)
+		storeCancel()
 
 		if err != nil {
 			slog.Error("failed to store signature", "error", err, "match", match)
