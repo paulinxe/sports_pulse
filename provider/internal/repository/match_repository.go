@@ -17,26 +17,27 @@ type MatchRepository struct {
 	db *sql.DB
 }
 
-func NewMatchRepository(db *sql.DB) *MatchRepository {
-	return &MatchRepository{db: db}
-}
-
-func (r *MatchRepository) Save(ctx context.Context, match entity.Match) error {
-	if r.db == nil {
-		slog.Warn("Database connection not initialized, skipping insert")
-		return nil
+func NewMatchRepository(db *sql.DB) (*MatchRepository, error) {
+	if db == nil {
+		return nil, fmt.Errorf("database connection cannot be nil")
 	}
 
-	// At the moment, if we have a conflict (same match provided by different providers), we skip the insert.
-	// On future versions we would need some kind of consensus mechanism to handle this.
-	// TODO: canonical_id should be unique across all competitions. we don't need to add the competition_id to the unique index.
+	return &MatchRepository{db: db}, nil
+}
+
+// TODO: find a way to unify this with the SaveInTx function.
+func (r *MatchRepository) Save(ctx context.Context, match entity.Match) error {
 	query := `
         INSERT INTO matches (
             id, canonical_id, home_team_id, away_team_id, start, "end", status,
             home_team_score, away_team_score, provider_match_id, competition_id,
             provider
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-        ON CONFLICT (canonical_id, competition_id) DO NOTHING
+        ON CONFLICT (provider, provider_match_id) DO UPDATE SET
+            status = EXCLUDED.status,
+            home_team_score = EXCLUDED.home_team_score,
+            away_team_score = EXCLUDED.away_team_score,
+            updated_at = now()
     `
 
 	_, err := r.db.ExecContext(ctx, query,
@@ -69,10 +70,52 @@ func (r *MatchRepository) Save(ctx context.Context, match entity.Match) error {
 	return nil
 }
 
-func (r *MatchRepository) FindByCanonicalID(ctx context.Context, canonicalID string, provider entity.Provider) (*entity.Match, error) {
-	if r.db == nil {
-		return nil, fmt.Errorf("database connection not initialized")
+// TODO: find a way to unify this with the Save function.
+func (r *MatchRepository) SaveInTx(ctx context.Context, tx *sql.Tx, match entity.Match) error {
+	query := `
+        INSERT INTO matches (
+            id, canonical_id, home_team_id, away_team_id, start, "end", status,
+            home_team_score, away_team_score, provider_match_id, competition_id,
+            provider
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        ON CONFLICT (provider, provider_match_id) DO UPDATE SET
+            status = EXCLUDED.status,
+            home_team_score = EXCLUDED.home_team_score,
+            away_team_score = EXCLUDED.away_team_score,
+            updated_at = now()
+    `
+
+	_, err := tx.ExecContext(ctx, query,
+		match.ID,
+		match.CanonicalID,
+		match.HomeTeamID,
+		match.AwayTeamID,
+		match.Start,
+		match.End,
+		match.Status,
+		match.HomeTeamScore,
+		match.AwayTeamScore,
+		match.ProviderMatchID,
+		match.CompetitionID,
+		match.Provider,
+	)
+
+	if err != nil {
+		slog.Error("Failed to insert match",
+			"id", match.ID,
+			"provider_match_id", match.ProviderMatchID,
+			"error", err)
+		return fmt.Errorf("failed to insert match %s: %w", match.ProviderMatchID, err)
 	}
+
+	slog.Debug("Inserted match (or skipped due to conflict)",
+		"id", match.ID,
+		"canonical_id", match.CanonicalID)
+
+	return nil
+}
+
+func (r *MatchRepository) FindByCanonicalID(ctx context.Context, canonicalID string, provider entity.Provider) (*entity.Match, error) {
 	query := `
         SELECT
             id,
@@ -121,10 +164,6 @@ func (r *MatchRepository) FindByCanonicalID(ctx context.Context, canonicalID str
 }
 
 func (r *MatchRepository) FindMostRecentTimestamp(ctx context.Context, competition entity.Competition, provider entity.Provider) (*time.Time, error) {
-	if r.db == nil {
-		return nil, fmt.Errorf("database connection not initialized")
-	}
-
 	query := `
         SELECT start
         FROM matches
@@ -146,10 +185,6 @@ func (r *MatchRepository) FindMostRecentTimestamp(ctx context.Context, competiti
 }
 
 func (r *MatchRepository) FinishMatch(ctx context.Context, matchID uuid.UUID, homeTeamScore uint, awayTeamScore uint) error {
-	if r.db == nil {
-		return fmt.Errorf("database connection not initialized")
-	}
-
 	query := `
         UPDATE matches SET status = $1, home_team_score = $2, away_team_score = $3, updated_at = now() WHERE id = $4
     `

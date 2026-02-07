@@ -1,7 +1,3 @@
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
--- Create matches table
 CREATE TABLE matches (
     id UUID PRIMARY KEY,
     canonical_id VARCHAR(255) NOT NULL,
@@ -21,9 +17,5 @@ CREATE TABLE matches (
     updated_at TIMESTAMP
 );
 
--- Create index on status field
 CREATE INDEX idx_matches_status ON matches(status);
-
--- Create unique index on canonical_id and competition_id
-CREATE UNIQUE INDEX idx_matches_canonical_competition ON matches(canonical_id, competition_id);
-
+CREATE UNIQUE INDEX idx_matches_provider_match ON matches(provider, provider_match_id);

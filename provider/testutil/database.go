@@ -22,7 +22,11 @@ func InitDB(t *testing.T) (*sql.DB, *repository.Repositories) {
 	_, _ = db.Exec("TRUNCATE TABLE sync_state")
 	_, _ = db.Exec("TRUNCATE TABLE match_reconciliation")
 
-	return db, repository.InitRepositories(db)
+	repositories, err := repository.InitRepositories(db)
+	if err != nil {
+		t.Fatalf("Failed to initialize repositories: %v", err)
+	}
+	return db, repositories
 }
 
 func CloseDB(db *sql.DB) {

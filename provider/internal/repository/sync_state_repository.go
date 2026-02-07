@@ -15,15 +15,15 @@ type SyncStateRepository struct {
 	db *sql.DB
 }
 
-func NewSyncStateRepository(db *sql.DB) *SyncStateRepository {
-	return &SyncStateRepository{db: db}
+func NewSyncStateRepository(db *sql.DB) (*SyncStateRepository, error) {
+	if db == nil {
+		return nil, fmt.Errorf("database connection cannot be nil")
+	}
+
+	return &SyncStateRepository{db: db}, nil
 }
 
 func (r *SyncStateRepository) GetLastSyncedDate(ctx context.Context, competition entity.Competition, provider entity.Provider) (*time.Time, error) {
-	if r.db == nil {
-		return nil, fmt.Errorf("database connection not initialized")
-	}
-
 	query := `
 		SELECT last_synced_date
 		FROM sync_state
@@ -47,10 +47,6 @@ func (r *SyncStateRepository) UpdateLastSyncedDate(
 	provider entity.Provider,
 	date time.Time,
 ) error {
-	if r.db == nil {
-		return fmt.Errorf("database connection not initialized")
-	}
-
 	query := `
 		INSERT INTO sync_state (id, competition_id, provider, last_synced_date, updated_at)
 		VALUES ($1, $2, $3, $4, NOW())

@@ -1,4 +1,4 @@
-package sync
+package service
 
 import (
 	"context"
@@ -32,6 +32,12 @@ type SyncProvider interface {
 	FetchMatches(ctx context.Context, competition entity.Competition, from, to time.Time) ([]entity.Match, error)
 	SaveMatches(ctx context.Context, matches []entity.Match)
 	GetProviderEntity() entity.Provider
+}
+
+// ReconcileProvider extends SyncProvider with the ability to fetch a single match by ID (for reconciliation)
+type ReconcileProvider interface {
+	SyncProvider
+	FetchMatchByID(ctx context.Context, providerMatchID string) (*entity.Match, error)
 }
 
 // Sync queries matches for a natural day period (00:00:00 to 23:59:59 UTC) and only inserts
@@ -113,8 +119,8 @@ func Sync(repositories *repository.Repositories, provider string, competition st
 	return nil
 }
 
-func getQueryDate(ctx context.Context, repository *repository.SyncStateRepository, competition entity.Competition, today *time.Time, provider entity.Provider) (time.Time, error) {
-	lastSyncedDate, err := repository.GetLastSyncedDate(ctx, competition, provider)
+func getQueryDate(ctx context.Context, syncStateRepo *repository.SyncStateRepository, competition entity.Competition, today *time.Time, provider entity.Provider) (time.Time, error) {
+	lastSyncedDate, err := syncStateRepo.GetLastSyncedDate(ctx, competition, provider)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("failed to get last synced date: %w", err)
 	}

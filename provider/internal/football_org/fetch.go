@@ -9,9 +9,31 @@ import (
 	"time"
 )
 
+func (p *Provider) FetchMatchByID(ctx context.Context, providerMatchID string) (*entity.Match, error) {
+	footballOrgMatch, err := api.GetMatch(ctx, providerMatchID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch match %s: %w", providerMatchID, err)
+	}
+
+	if footballOrgMatch.Competition == nil {
+		return nil, fmt.Errorf("match %s has no competition in API response", providerMatchID)
+	}
+	competition, ok := FootballOrgIDToCompetition[footballOrgMatch.Competition.ID]
+	if !ok {
+		return nil, fmt.Errorf("unknown competition ID %d for match %s", footballOrgMatch.Competition.ID, providerMatchID)
+	}
+
+	match, err := convertToEntityMatch(footballOrgMatch, competition, FootballOrgTeamMapping)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert match %s: %w", providerMatchID, err)
+	}
+
+	return match, nil
+}
+
 func (p *Provider) FetchMatches(ctx context.Context, competition entity.Competition, from, to time.Time) ([]entity.Match, error) {
 	competitionID := CompetitionToFootballOrgID[competition]
-	matchesResponse, err := api.GetList(ctx, competitionID, from, to)
+	matchesResponse, err := api.GetMatches(ctx, competitionID, from, to)
 	if err != nil {
 		return nil, err
 	}

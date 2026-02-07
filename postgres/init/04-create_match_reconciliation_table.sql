@@ -10,6 +10,4 @@ CREATE TABLE IF NOT EXISTS match_reconciliation (
     UNIQUE (provider_match_id, provider)
 );
 
-CREATE INDEX IF NOT EXISTS idx_match_reconciliation_pending 
-    ON match_reconciliation (reconciled_at, tries) 
-    WHERE reconciled_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_match_reconciliation_pending ON match_reconciliation (reconciled_at, tries);

@@ -4,13 +4,18 @@ type MatchesResponse struct {
 	Matches []FootballOrgMatch `json:"matches"`
 }
 
+type Competition struct {
+	ID uint `json:"id"`
+}
+
 type FootballOrgMatch struct {
-	ID       uint   `json:"id"`
-	UTCDate  string `json:"utcDate"`
-	Status   string `json:"status"`
-	HomeTeam Team   `json:"homeTeam"`
-	AwayTeam Team   `json:"awayTeam"`
-	Score    Score  `json:"score"`
+	ID          uint         `json:"id"`
+	UTCDate     string       `json:"utcDate"`
+	Status      string       `json:"status"`
+	HomeTeam    Team         `json:"homeTeam"`
+	AwayTeam    Team         `json:"awayTeam"`
+	Score       Score        `json:"score"`
+	Competition *Competition  `json:"competition,omitempty"`
 }
 
 type Team struct {

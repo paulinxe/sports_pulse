@@ -16,7 +16,7 @@ func Test_we_can_handle_unauthorized_response(t *testing.T) {
 		Build()
 	defer mockServer.Close()
 
-	_, err := GetList(context.Background(), 1, time.Now(), time.Now())
+	_, err := GetMatches(context.Background(), 1, time.Now(), time.Now())
 	if err == nil {
 		t.Error("Expected error but got nil")
 	}
@@ -34,7 +34,7 @@ func Test_we_can_handle_too_many_requests_response(t *testing.T) {
 		Build()
 	defer mockServer.Close()
 
-	_, err := GetList(context.Background(), 1, time.Now(), time.Now())
+	_, err := GetMatches(context.Background(), 1, time.Now(), time.Now())
 	if err == nil {
 		t.Error("Expected error but got nil")
 	}
@@ -52,7 +52,7 @@ func Test_we_can_handle_internal_server_error_response(t *testing.T) {
 		Build()
 	defer mockServer.Close()
 
-	_, err := GetList(context.Background(), 1, time.Now(), time.Now())
+	_, err := GetMatches(context.Background(), 1, time.Now(), time.Now())
 	if err == nil {
 		t.Error("Expected error but got nil")
 	}
@@ -70,7 +70,7 @@ func Test_we_can_handle_invalid_json_response(t *testing.T) {
 		Build()
 	defer mockServer.Close()
 
-	_, err := GetList(context.Background(), 1, time.Now(), time.Now())
+	_, err := GetMatches(context.Background(), 1, time.Now(), time.Now())
 	if err == nil {
 		t.Error("Expected error but got nil")
 	}

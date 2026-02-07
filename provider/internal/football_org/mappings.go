@@ -6,6 +6,10 @@ var CompetitionToFootballOrgID = map[entity.Competition]uint{
 	entity.LaLiga: 2014,
 }
 
+var FootballOrgIDToCompetition = map[uint]entity.Competition{
+	2014: entity.LaLiga,
+}
+
 var FootballOrgTeamMapping = map[uint]entity.Team{
 	263:  entity.Alaves,
 	77:   entity.AthleticClub,

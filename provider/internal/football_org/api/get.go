@@ -17,7 +17,7 @@ var defaultClient = &http.Client{
 	Timeout: 30 * time.Second,
 }
 
-func GetList(ctx context.Context, competitionID uint, from time.Time, to time.Time) (MatchesResponse, error) {
+func GetMatches(ctx context.Context, competitionID uint, from time.Time, to time.Time) (MatchesResponse, error) {
 	path := buildAPIPath(competitionID, from, to)
 	body, err := get(ctx, path)
 	if err != nil {
@@ -27,6 +27,21 @@ func GetList(ctx context.Context, competitionID uint, from time.Time, to time.Ti
 	var match MatchesResponse
 	if err := parseResponse(body, &match); err != nil {
 		return MatchesResponse{}, err
+	}
+
+	return match, nil
+}
+
+func GetMatch(ctx context.Context, matchID string) (FootballOrgMatch, error) {
+	path := fmt.Sprintf("/matches/%s", matchID)
+	body, err := get(ctx, path)
+	if err != nil {
+		return FootballOrgMatch{}, err
+	}
+
+	var match FootballOrgMatch
+	if err := parseResponse(body, &match); err != nil {
+		return FootballOrgMatch{}, err
 	}
 
 	return match, nil

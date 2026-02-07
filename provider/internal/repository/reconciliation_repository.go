@@ -23,15 +23,19 @@ type ReconciliationRepository struct {
 	db *sql.DB
 }
 
-func NewReconciliationRepository(db *sql.DB) *ReconciliationRepository {
-	return &ReconciliationRepository{db: db}
+func NewReconciliationRepository(db *sql.DB) (*ReconciliationRepository, error) {
+	if db == nil {
+		return nil, fmt.Errorf("database connection cannot be nil")
+	}
+
+	return &ReconciliationRepository{db: db}, nil
+}
+
+func (r *ReconciliationRepository) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error) {
+	return r.db.BeginTx(ctx, opts)
 }
 
 func (r *ReconciliationRepository) SaveToReconciliationQueue(ctx context.Context, providerMatchID string, provider entity.Provider) error {
-	if r.db == nil {
-		return fmt.Errorf("database connection not initialized")
-	}
-
 	query := `
 		INSERT INTO match_reconciliation (id, provider_match_id, provider, reconciled_at, tries)
 		VALUES ($1, $2, $3, NULL, 0)
@@ -45,68 +49,62 @@ func (r *ReconciliationRepository) SaveToReconciliationQueue(ctx context.Context
 	return nil
 }
 
-// This will be useful when writing the reconciliation logic.
-// func GetPendingReconciliations(ctx context.Context, limit int, maxTries int) ([]ReconciliationEntry, error) {
-// 	if config.DB == nil {
-// 		return nil, fmt.Errorf("database connection not initialized")
-// 	}
+func (r *ReconciliationRepository) GetPendingReconciliations(ctx context.Context, limit, maxTries int) ([]ReconciliationEntry, error) {
+	query := `
+		SELECT id, provider_match_id, provider, reconciled_at, tries
+		FROM match_reconciliation
+		WHERE tries < $1
+		ORDER BY id
+		LIMIT $2
+	`
 
-// 	query := `
-// 		SELECT id, provider_match_id, provider, reconciled_at, tries
-// 		FROM match_reconciliation
-// 		WHERE reconciled_at IS NULL AND tries < $1
-// 		ORDER BY id
-// 		LIMIT $2
-// 	`
+	rows, err := r.db.QueryContext(ctx, query, maxTries, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query pending reconciliations: %w", err)
+	}
 
-// 	rows, err := config.DB.QueryContext(ctx, query, maxTries, limit)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to query pending reconciliations: %w", err)
-// 	}
-// 	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
-// 	var entries []ReconciliationEntry
-// 	for rows.Next() {
-// 		var entry ReconciliationEntry
-// 		var reconciledAt sql.NullTime
-// 		err := rows.Scan(&entry.ID, &entry.ProviderMatchID, &entry.Provider, &reconciledAt, &entry.Tries)
-// 		if err != nil {
-// 			return nil, fmt.Errorf("failed to scan reconciliation entry: %w", err)
-// 		}
-// 		if reconciledAt.Valid {
-// 			entry.ReconciledAt = &reconciledAt.Time
-// 		}
-// 		entries = append(entries, entry)
-// 	}
+	var entries []ReconciliationEntry
+	for rows.Next() {
+		var entry ReconciliationEntry
+		var reconciledAt sql.NullTime
+		err := rows.Scan(&entry.ID, &entry.ProviderMatchID, &entry.Provider, &reconciledAt, &entry.Tries)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan reconciliation entry: %w", err)
+		}
+		if reconciledAt.Valid {
+			entry.ReconciledAt = &reconciledAt.Time
+		}
+		entries = append(entries, entry)
+	}
 
-// 	if err = rows.Err(); err != nil {
-// 		return nil, fmt.Errorf("error iterating reconciliation entries: %w", err)
-// 	}
 
-// 	return entries, nil
-// }
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating reconciliation entries: %w", err)
+	}
 
-// This will be useful when writing the reconciliation logic.
-// func MarkReconciled(ctx context.Context, tx *sql.Tx, id uuid.UUID) error {
-// 	query := `
-// 		UPDATE match_reconciliation
-// 		SET reconciled_at = NOW()
-// 		WHERE id = $1
-// 	`
-// 	_, err := tx.ExecContext(ctx, query, id)
-// 	if err != nil {
-// 		return fmt.Errorf("failed to mark as reconciled: %w", err)
-// 	}
-// 	return nil
-// }
+	return entries, nil
+}
 
-func (r *ReconciliationRepository) IncrementTries(ctx context.Context, tx *sql.Tx, id uuid.UUID) error {
+func (r *ReconciliationRepository) MarkReconciled(ctx context.Context, tx *sql.Tx, id uuid.UUID) error {
+	query := `DELETE FROM match_reconciliation WHERE id = $1`
+	_, err := tx.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to remove from reconciliation queue: %w", err)
+	}
+
+	return nil
+}
+
+// IncrementTries updates the tries count for an entry. Use when not inside a transaction.
+func (r *ReconciliationRepository) IncrementTries(ctx context.Context, id uuid.UUID) error {
 	query := `
 		UPDATE match_reconciliation
-		SET tries = tries + 1
+		SET tries = tries + 1, reconciled_at = NOW()
 		WHERE id = $1
 	`
-	_, err := tx.ExecContext(ctx, query, id)
+	_, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {
 		return fmt.Errorf("failed to increment tries: %w", err)
 	}
@@ -114,11 +112,21 @@ func (r *ReconciliationRepository) IncrementTries(ctx context.Context, tx *sql.T
 	return nil
 }
 
-func (r *ReconciliationRepository) FindByProviderMatchID(ctx context.Context, providerMatchID string, provider entity.Provider) (*ReconciliationEntry, error) {
-	if r.db == nil {
-		return nil, fmt.Errorf("database connection not initialized")
+// IncrementTriesInTx updates the tries count within the given transaction. Use when part of a larger transaction.
+func (r *ReconciliationRepository) IncrementTriesInTx(ctx context.Context, tx *sql.Tx, id uuid.UUID) error {
+	query := `
+		UPDATE match_reconciliation
+		SET tries = tries + 1, reconciled_at = NOW()
+		WHERE id = $1
+	`
+	_, err := tx.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("failed to increment tries: %w", err)
 	}
+	return nil
+}
 
+func (r *ReconciliationRepository) FindByProviderMatchID(ctx context.Context, providerMatchID string, provider entity.Provider) (*ReconciliationEntry, error) {
 	query := `
 		SELECT id, provider_match_id, provider, reconciled_at, tries
 		FROM match_reconciliation

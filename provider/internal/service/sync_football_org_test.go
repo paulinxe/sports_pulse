@@ -1,11 +1,10 @@
-package sync
+package service
 
 import (
 	"context"
 	_ "embed"
 	"net/http"
 	"provider/internal/entity"
-	"provider/internal/repository"
 	"provider/testutil"
 	"reflect"
 	"strings"
@@ -46,7 +45,8 @@ func (m mockClock) Now() time.Time {
 }
 
 func Test_we_can_handle_unknown_competition(t *testing.T) {
-	repositories := repository.InitRepositories(nil)
+	db, repositories := testutil.InitDB(t)
+	defer testutil.CloseDB(db)
 	err := Sync(repositories, "football_org", "premier_league", SystemClock{})
 	if err == nil {
 		t.Error("Expected error but got nil", err)
