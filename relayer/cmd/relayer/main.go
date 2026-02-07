@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
-	"relayer/config"
-	"relayer/repository"
-	"relayer/services"
+	"relayer/internal/config"
+	"relayer/internal/repository"
+	"relayer/internal/services"
 )
 
 const (
@@ -52,18 +52,20 @@ func main() {
 }
 
 func Run(client services.ChainClient, cfg services.BroadcasterConfig) int {
-	shouldClose, err := config.InitDB()
+	db, shouldClose, err := config.InitDB()
 	if err != nil {
 		slog.Error("failed to initialize database", "error", err)
 		return int(DB_INIT_ERROR)
 	}
 
 	if shouldClose {
-		defer func() { _ = config.Close() }()
+		defer func() { _ = db.Close() }()
 	}
 
+	repo := repository.NewMatchRepository(db)
+
 	ctx, cancel := context.WithTimeout(context.Background(), dbTimeout)
-	matches, err := repository.FindSignedMatches(ctx)
+	matches, err := repo.FindSignedMatches(ctx)
 	cancel()
 	if err != nil {
 		slog.Error("failed to find signed matches", "error", err)
@@ -72,7 +74,7 @@ func Run(client services.ChainClient, cfg services.BroadcasterConfig) int {
 
 	slog.Info("found signed matches to broadcast", "count", len(matches))
 
-	failed := services.BroadcastMatches(client, cfg, matches, broadcastCtx)
+	failed := services.BroadcastMatches(client, cfg, repo, matches, broadcastCtx)
 	if failed > 0 {
 		return int(BROADCAST_FAILURE)
 	}

@@ -1,39 +1,40 @@
 package testutil
 
 import (
+	"database/sql"
+	"errors"
 	"log/slog"
 	"os"
 	"testing"
 	"time"
 
+	"relayer/internal/config"
+	"relayer/internal/repository"
+
 	"github.com/google/uuid"
-	"relayer/config"
 )
 
-func InitDatabase(t *testing.T) {
+func InitDB(t *testing.T) (*sql.DB, *repository.MatchRepository) {
 	t.Helper()
-	_, err := config.InitDB()
+	db, _, err := config.InitDB()
 	if err != nil {
 		t.Fatalf("Failed to initialize database: %v", err)
 	}
 
-	// Verify database connection is ready
-	if config.DB == nil {
-		t.Fatalf("Database connection is nil after initialization")
-	}
-
-	_, _ = config.DB.Exec("TRUNCATE TABLE matches")
+	_, _ = db.Exec("TRUNCATE TABLE matches")
+	repo := repository.NewMatchRepository(db)
+	return db, repo
 }
 
 const signedStatus = 4
 
-func InsertSignedMatch(t *testing.T, id uuid.UUID, canonicalID string, competitionID, homeTeamID, awayTeamID, homeTeamScore, awayTeamScore int32, start time.Time, signatureHex string) {
+func InsertSignedMatch(t *testing.T, db *sql.DB, id uuid.UUID, canonicalID string, competitionID, homeTeamID, awayTeamID, homeTeamScore, awayTeamScore int32, start time.Time, signatureHex string) {
 	t.Helper()
-	if config.DB == nil {
+	if db == nil {
 		t.Fatal("database not initialized")
 	}
 
-	_, err := config.DB.Exec(`INSERT INTO matches (id, canonical_id, competition_id, home_team_id, away_team_id, home_team_score, away_team_score, start, "end", signature, status, provider_match_id, provider)
+	_, err := db.Exec(`INSERT INTO matches (id, canonical_id, competition_id, home_team_id, away_team_id, home_team_score, away_team_score, start, "end", signature, status, provider_match_id, provider)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'dummy-provider-match-id', 1)`,
 		id, canonicalID, competitionID, homeTeamID, awayTeamID, homeTeamScore, awayTeamScore, start, start, signatureHex, signedStatus)
 
@@ -42,9 +43,19 @@ func InsertSignedMatch(t *testing.T, id uuid.UUID, canonicalID string, competiti
 	}
 }
 
-func CloseDatabase() {
-	if err := config.Close(); err != nil {
+func CloseDB(db *sql.DB) {
+	if db == nil {
+		return
+	}
+	if err := db.Close(); err != nil {
 		slog.Error("Failed to close database", "error", err)
 		os.Exit(1)
 	}
+}
+
+func QueryMatchStatus(db *sql.DB, matchID uuid.UUID, dest *int) error {
+	if db == nil {
+		return errors.New("database not initialized")
+	}
+	return db.QueryRow("SELECT status FROM matches WHERE id = $1", matchID).Scan(dest)
 }

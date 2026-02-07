@@ -14,8 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	ethereum "github.com/ethereum/go-ethereum"
-	"relayer/entity"
-	"relayer/repository"
+	"relayer/internal/entity"
+	"relayer/internal/repository"
 )
 
 // GAS_ESTIMATE_FALLBACK_LIMIT is used when EstimateGas fails. Contract consumes ~120k; 150k provides a small buffer.
@@ -38,7 +38,7 @@ var ErrMatchAlreadySubmitted = errors.New("match already submitted")
 
 // BroadcastMatches runs broadcast for each match in order (sequential for nonce safety).
 // It returns the number of failed broadcasts.
-func BroadcastMatches(client ChainClient, config BroadcasterConfig, matches []entity.Match, timeout time.Duration) (failedCount int) {
+func BroadcastMatches(client ChainClient, cfg BroadcasterConfig, repo *repository.MatchRepository, matches []entity.Match, timeout time.Duration) (failedCount int) {
 	for _, match := range matches {
 		bctx, cancel := context.WithTimeout(context.Background(), timeout)
 		calldata, err := buildCalldata(match)
@@ -49,11 +49,11 @@ func BroadcastMatches(client ChainClient, config BroadcasterConfig, matches []en
 			continue
 		}
 
-		err = broadcast(bctx, client, config, calldata)
+		err = broadcast(bctx, client, cfg, calldata)
 
 		if err != nil {
 			if errors.Is(err, ErrMatchAlreadySubmitted) {
-				if updateErr := repository.BroadcastMatch(bctx, match.ID); updateErr != nil {
+				if updateErr := repo.BroadcastMatch(bctx, match.ID); updateErr != nil {
 					slog.Error("broadcast match status update failed after already-submitted", "match_id", match.ID, "error", updateErr)
 				}
 
@@ -68,7 +68,7 @@ func BroadcastMatches(client ChainClient, config BroadcasterConfig, matches []en
 			continue
 		}
 
-		if updateErr := repository.BroadcastMatch(bctx, match.ID); updateErr != nil {
+		if updateErr := repo.BroadcastMatch(bctx, match.ID); updateErr != nil {
 			slog.Error("broadcast match status update failed", "match_id", match.ID, "error", updateErr)
 		} else {
 			slog.Info("broadcasted match", "canonical_id", match.CanonicalID)

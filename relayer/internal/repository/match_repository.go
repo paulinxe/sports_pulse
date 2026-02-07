@@ -2,19 +2,27 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"relayer/config"
-	"relayer/entity"
-	"log/slog"
+	"relayer/internal/entity"
 )
 
-func FindSignedMatches(ctx context.Context) ([]entity.Match, error) {
-	if config.DB == nil {
+type MatchRepository struct {
+	db *sql.DB
+}
+
+func NewMatchRepository(db *sql.DB) *MatchRepository {
+	return &MatchRepository{db: db}
+}
+
+func (r *MatchRepository) FindSignedMatches(ctx context.Context) ([]entity.Match, error) {
+	if r.db == nil {
 		return nil, fmt.Errorf("database not initialized")
 	}
 
@@ -24,7 +32,7 @@ func FindSignedMatches(ctx context.Context) ([]entity.Match, error) {
 		FROM matches
 		WHERE status = $1
 	`
-	rows, err := config.DB.QueryContext(ctx, query, entity.SIGNED_STATUS)
+	rows, err := r.db.QueryContext(ctx, query, entity.SIGNED_STATUS)
 	if err != nil {
 		return nil, fmt.Errorf("query signed matches: %w", err)
 	}
@@ -71,12 +79,12 @@ func FindSignedMatches(ctx context.Context) ([]entity.Match, error) {
 	return matches, nil
 }
 
-func BroadcastMatch(ctx context.Context, matchID uuid.UUID) error {
-	if config.DB == nil {
+func (r *MatchRepository) BroadcastMatch(ctx context.Context, matchID uuid.UUID) error {
+	if r.db == nil {
 		return fmt.Errorf("database not initialized")
 	}
 
-	result, err := config.DB.ExecContext(ctx, `UPDATE matches SET status = $1 WHERE id = $2`, entity.BROADCASTED_STATUS, matchID)
+	result, err := r.db.ExecContext(ctx, `UPDATE matches SET status = $1 WHERE id = $2`, entity.BROADCASTED_STATUS, matchID)
 	if err != nil {
 		return fmt.Errorf("update match status: %w", err)
 	}

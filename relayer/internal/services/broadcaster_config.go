@@ -9,7 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"relayer/config"
+	"relayer/internal/config"
 )
 
 // MatchRegistry submitMatch + MatchAlreadySubmitted error ABI

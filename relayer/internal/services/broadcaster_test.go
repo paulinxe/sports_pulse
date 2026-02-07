@@ -9,15 +9,16 @@ import (
 	"testing"
 	"time"
 
+	"relayer/internal/config"
+	"relayer/internal/entity"
+	"relayer/internal/repository"
+	"relayer/testutil"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
-	"relayer/config"
-	"relayer/entity"
-	"relayer/repository"
-	"relayer/testutil"
 )
 
 func Test_we_get_an_error_when_chain_id_is_invalid(t *testing.T) {
@@ -106,12 +107,12 @@ func Test_we_get_a_broadcaster_config_when_all_env_vars_are_valid(t *testing.T) 
 }
 
 func Test_broadcast_uses_gas_estimate_from_client(t *testing.T) {
-	cfg, mockClient, matches := setupTest(t)
+	cfg, mockClient, matches, repo := setupTest(t)
 	mockedGasEstimate := uint64(100_000)
 	mockClient.EstimatedGas = mockedGasEstimate
 	mockClient.Receipt = &types.Receipt{Status: types.ReceiptStatusSuccessful}
 
-	BroadcastMatches(mockClient, cfg, matches, 30*time.Second)
+	BroadcastMatches(mockClient, cfg, repo, matches, 30*time.Second)
 
 	if mockClient.LastSentTx == nil {
 		t.Fatal("expected transaction to be sent")
@@ -125,11 +126,11 @@ func Test_broadcast_uses_gas_estimate_from_client(t *testing.T) {
 }
 
 func Test_broadcast_uses_fallback_gas_when_estimation_fails(t *testing.T) {
-	cfg, mockClient, matches := setupTest(t)
+	cfg, mockClient, matches, repo := setupTest(t)
 	mockClient.EstimateGasErr = errors.New("execution reverted")
 	mockClient.Receipt = &types.Receipt{Status: types.ReceiptStatusSuccessful}
 
-	BroadcastMatches(mockClient, cfg, matches, 30*time.Second)
+	BroadcastMatches(mockClient, cfg, repo, matches, 30*time.Second)
 
 	if mockClient.LastSentTx == nil {
 		t.Fatal("expected transaction to be sent")
@@ -142,26 +143,26 @@ func Test_broadcast_uses_fallback_gas_when_estimation_fails(t *testing.T) {
 	}
 }
 
-func setupTest(t *testing.T) (BroadcasterConfig, *testutil.MockChainClient, []entity.Match) {
+func setupTest(t *testing.T) (BroadcasterConfig, *testutil.MockChainClient, []entity.Match, *repository.MatchRepository) {
 	t.Helper()
-	testutil.InitDatabase(t)
-	t.Cleanup(testutil.CloseDatabase)
+	db, repo := testutil.InitDB(t)
+	t.Cleanup(func() { testutil.CloseDB(db) })
 
 	u := uuid.New()
 	canonicalID := "0x" + hex.EncodeToString(u[:])
 	start := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
-	testutil.InsertSignedMatch(t, uuid.New(), canonicalID, 1, 10, 20, 2, 1, start, "deadbeef")
+	testutil.InsertSignedMatch(t, db, uuid.New(), canonicalID, 1, 10, 20, 2, 1, start, "deadbeef")
 
 	cfg, mockClient := buildBroadcastTestConfig(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	matches, err := repository.FindSignedMatches(ctx)
+	matches, err := repo.FindSignedMatches(ctx)
 	cancel()
 
 	if err != nil {
 		t.Fatalf("find signed matches: %v", err)
 	}
 
-	return cfg, mockClient, matches
+	return cfg, mockClient, matches, repo
 }
 
 func buildBroadcastTestConfig(t *testing.T) (BroadcasterConfig, *testutil.MockChainClient) {
@@ -177,14 +178,14 @@ func buildBroadcastTestConfig(t *testing.T) (BroadcasterConfig, *testutil.MockCh
 	}
 
 	return BroadcasterConfig{
-		RPCURL:          "",
-		ContractAddress: common.HexToAddress("0x0000000000000000000000000000000000000001"),
-		PrivateKey:      key,
-		ChainID:         big.NewInt(31337),
-		ContractABI:     contractABI,
-	}, &testutil.MockChainClient{
-		Nonce:  0,
-		TipCap: big.NewInt(1),
-		FeeCap: big.NewInt(2),
-	}
+			RPCURL:          "",
+			ContractAddress: common.HexToAddress("0x0000000000000000000000000000000000000001"),
+			PrivateKey:      key,
+			ChainID:         big.NewInt(31337),
+			ContractABI:     contractABI,
+		}, &testutil.MockChainClient{
+			Nonce:  0,
+			TipCap: big.NewInt(1),
+			FeeCap: big.NewInt(2),
+		}
 }

@@ -12,10 +12,10 @@ import (
 )
 
 type EnvVars struct {
-	RPCURL string
+	RPCURL          string
 	ContractAddress common.Address
-	PrivateKey *ecdsa.PrivateKey
-	ChainID string
+	PrivateKey      *ecdsa.PrivateKey
+	ChainID         string
 }
 
 func LoadEnvVars() (EnvVars, error) {
@@ -47,10 +47,10 @@ func LoadEnvVars() (EnvVars, error) {
 	}
 
 	return EnvVars{
-		RPCURL: rpcURL,
+		RPCURL:          rpcURL,
 		ContractAddress: common.HexToAddress(contractAddr),
-		PrivateKey: privateKeyParsed,
-		ChainID: chainID,
+		PrivateKey:      privateKeyParsed,
+		ChainID:         chainID,
 	}, nil
 }
 

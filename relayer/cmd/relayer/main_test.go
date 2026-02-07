@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/hex"
 	"errors"
 	"os"
@@ -9,17 +10,17 @@ import (
 	"testing"
 	"time"
 
+	"math/big"
+	"relayer/internal/entity"
+	"relayer/internal/services"
+	"relayer/testutil"
+
 	ethereum "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
-	"math/big"
-	"relayer/config"
-	"relayer/entity"
-	"relayer/services"
-	"relayer/testutil"
 )
 
 func Test_we_get_an_error_when_database_is_not_initialized(t *testing.T) {
@@ -36,8 +37,8 @@ func Test_we_get_an_error_when_database_is_not_initialized(t *testing.T) {
 }
 
 func Test_we_handle_no_matches_to_broadcast(t *testing.T) {
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	db, _ := testutil.InitDB(t)
+	defer testutil.CloseDB(db)
 
 	cfg, mockClient := buildTestBroadcasterConfig(t)
 	errorCode := Run(mockClient, cfg)
@@ -52,15 +53,15 @@ func Test_we_handle_no_matches_to_broadcast(t *testing.T) {
 }
 
 func Test_we_can_broadcast_matches(t *testing.T) {
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	db, _ := testutil.InitDB(t)
+	defer testutil.CloseDB(db)
 
 	start := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
 	sigHex := "deadbeef"
 	id1 := uuid.New()
 	id2 := uuid.New()
-	testutil.InsertSignedMatch(t, id1, "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 1, 10, 20, 2, 1, start, sigHex)
-	testutil.InsertSignedMatch(t, id2, "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", 1, 30, 40, 0, 0, start, sigHex)
+	testutil.InsertSignedMatch(t, db, id1, "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 1, 10, 20, 2, 1, start, sigHex)
+	testutil.InsertSignedMatch(t, db, id2, "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", 1, 30, 40, 0, 0, start, sigHex)
 
 	cfg, mockClient := buildTestBroadcasterConfig(t)
 	mockClient.Receipt = &types.Receipt{Status: types.ReceiptStatusSuccessful}
@@ -69,17 +70,17 @@ func Test_we_can_broadcast_matches(t *testing.T) {
 	if errorCode != int(SUCCESS) {
 		t.Errorf("expected error code %d, got %d", SUCCESS, errorCode)
 	}
-	assertMatchStatus(t, id1, entity.BROADCASTED_STATUS)
-	assertMatchStatus(t, id2, entity.BROADCASTED_STATUS)
+	assertMatchStatus(t, db, id1, entity.BROADCASTED_STATUS)
+	assertMatchStatus(t, db, id2, entity.BROADCASTED_STATUS)
 }
 
 func Test_we_update_status_to_broadcasted_when_match_already_submitted(t *testing.T) {
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	db, _ := testutil.InitDB(t)
+	defer testutil.CloseDB(db)
 
 	start := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
 	id := uuid.New()
-	testutil.InsertSignedMatch(t, id, "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", 1, 30, 40, 0, 0, start, "deadbeef")
+	testutil.InsertSignedMatch(t, db, id, "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", 1, 30, 40, 0, 0, start, "deadbeef")
 
 	cfg, mockClient := buildTestBroadcasterConfig(t)
 	matchErr := cfg.ContractABI.Errors["MatchAlreadySubmitted"]
@@ -91,16 +92,16 @@ func Test_we_update_status_to_broadcasted_when_match_already_submitted(t *testin
 		t.Errorf("expected SUCCESS when match already submitted, got %d", errorCode)
 	}
 
-	assertMatchStatus(t, id, entity.BROADCASTED_STATUS)
+	assertMatchStatus(t, db, id, entity.BROADCASTED_STATUS)
 }
 
 func Test_match_remains_signed_when_client_fails_when_sending_transaction(t *testing.T) {
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	db, _ := testutil.InitDB(t)
+	defer testutil.CloseDB(db)
 
 	start := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
 	id := uuid.New()
-	testutil.InsertSignedMatch(t, id, "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", 1, 10, 20, 1, 1, start, "deadbeef")
+	testutil.InsertSignedMatch(t, db, id, "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", 1, 10, 20, 1, 1, start, "deadbeef")
 
 	cfg, mockClient := buildTestBroadcasterConfig(t)
 	mockClient.SendErr = errors.New("send failed")
@@ -110,16 +111,16 @@ func Test_match_remains_signed_when_client_fails_when_sending_transaction(t *tes
 		t.Errorf("expected BROADCAST_FAILURE, got %d", errorCode)
 	}
 
-	assertMatchStatus(t, id, entity.SIGNED_STATUS)
+	assertMatchStatus(t, db, id, entity.SIGNED_STATUS)
 }
 
 func Test_match_remains_signed_when_transaction_reverted(t *testing.T) {
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	db, _ := testutil.InitDB(t)
+	defer testutil.CloseDB(db)
 
 	start := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
 	id := uuid.New()
-	testutil.InsertSignedMatch(t, id, "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", 1, 10, 20, 0, 0, start, "deadbeef")
+	testutil.InsertSignedMatch(t, db, id, "0xdddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", 1, 10, 20, 0, 0, start, "deadbeef")
 
 	cfg, mockClient := buildTestBroadcasterConfig(t)
 	mockClient.Receipt = &types.Receipt{Status: types.ReceiptStatusFailed}
@@ -129,7 +130,7 @@ func Test_match_remains_signed_when_transaction_reverted(t *testing.T) {
 		t.Errorf("expected BROADCAST_FAILURE when transaction reverted, got %d", errorCode)
 	}
 
-	assertMatchStatus(t, id, entity.SIGNED_STATUS)
+	assertMatchStatus(t, db, id, entity.SIGNED_STATUS)
 }
 
 // retryReceiptClient returns ethereum.NotFound for the first receiptCallsBeforeSuccess
@@ -150,12 +151,12 @@ func (client *retryReceiptClient) TransactionReceipt(ctx context.Context, txHash
 }
 
 func Test_broadcast_succeeds_after_waitForReceipt_retries_on_NotFound(t *testing.T) {
-	testutil.InitDatabase(t)
-	defer testutil.CloseDatabase()
+	db, _ := testutil.InitDB(t)
+	defer testutil.CloseDB(db)
 
 	start := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
 	id := uuid.New()
-	testutil.InsertSignedMatch(t, id, "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", 1, 10, 20, 2, 1, start, "deadbeef")
+	testutil.InsertSignedMatch(t, db, id, "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee", 1, 10, 20, 2, 1, start, "deadbeef")
 
 	cfg, mockClient := buildTestBroadcasterConfig(t)
 	mockClient.Receipt = &types.Receipt{Status: types.ReceiptStatusSuccessful}
@@ -169,17 +170,16 @@ func Test_broadcast_succeeds_after_waitForReceipt_retries_on_NotFound(t *testing
 		t.Errorf("expected SUCCESS after retries, got %d", errorCode)
 	}
 
-	assertMatchStatus(t, id, entity.BROADCASTED_STATUS)
+	assertMatchStatus(t, db, id, entity.BROADCASTED_STATUS)
 	if client.receiptCalls != 3 {
 		t.Errorf("expected 3 TransactionReceipt calls, got %d", client.receiptCalls)
 	}
 }
 
-func assertMatchStatus(t *testing.T, matchID uuid.UUID, expectedStatus int) {
+func assertMatchStatus(t *testing.T, db *sql.DB, matchID uuid.UUID, expectedStatus int) {
 	t.Helper()
 	var actualStatus int
-
-	err := config.DB.QueryRow("SELECT status FROM matches WHERE id = $1", matchID).Scan(&actualStatus)
+	err := testutil.QueryMatchStatus(db, matchID, &actualStatus)
 	testutil.AssertNoError(t, err)
 
 	if actualStatus != expectedStatus {

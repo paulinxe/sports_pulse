@@ -12,8 +12,8 @@ import (
 
 func Test_we_get_an_error_when_env_vars_are_not_valid(t *testing.T) {
 	tests := []struct {
-		name    string
-		prepare func(t *testing.T)
+		name          string
+		prepare       func(t *testing.T)
 		expectedError string
 	}{
 		{"rpc url not set", func(t *testing.T) { _ = os.Unsetenv("RPC_URL") }, "RPC_URL is not set"},
