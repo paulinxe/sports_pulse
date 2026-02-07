@@ -12,7 +12,7 @@ import (
 
 	"math/big"
 	"relayer/internal/entity"
-	"relayer/internal/services"
+	"relayer/internal/service"
 	"relayer/testutil"
 
 	ethereum "github.com/ethereum/go-ethereum"
@@ -187,13 +187,13 @@ func assertMatchStatus(t *testing.T, db *sql.DB, matchID uuid.UUID, expectedStat
 	}
 }
 
-func buildTestBroadcasterConfig(t *testing.T) (services.BroadcasterConfig, *testutil.MockChainClient) {
+func buildTestBroadcasterConfig(t *testing.T) (service.BroadcasterConfig, *testutil.MockChainClient) {
 	t.Helper()
 	key, err := crypto.GenerateKey()
 	testutil.AssertNoError(t, err)
-	contractABI, err := abi.JSON(strings.NewReader(services.MATCH_REGISTRY_SUBMIT_MATCH_ABI))
+	contractABI, err := abi.JSON(strings.NewReader(service.MATCH_REGISTRY_SUBMIT_MATCH_ABI))
 	testutil.AssertNoError(t, err)
-	cfg := services.BroadcasterConfig{
+	cfg := service.BroadcasterConfig{
 		RPCURL:          "",
 		ContractAddress: common.HexToAddress("0x0000000000000000000000000000000000000001"),
 		PrivateKey:      key,
