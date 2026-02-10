@@ -49,6 +49,7 @@ func (r *ReconciliationRepository) SaveToReconciliationQueue(ctx context.Context
 	return nil
 }
 
+// TODO: this query should filter recently reconciled entries so we give them time to be processed
 func (r *ReconciliationRepository) GetPendingReconciliations(ctx context.Context, limit, maxTries int) ([]ReconciliationEntry, error) {
 	query := `
 		SELECT id, provider_match_id, provider, reconciled_at, tries
@@ -78,7 +79,6 @@ func (r *ReconciliationRepository) GetPendingReconciliations(ctx context.Context
 		}
 		entries = append(entries, entry)
 	}
-
 
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating reconciliation entries: %w", err)

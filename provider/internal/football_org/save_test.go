@@ -2,7 +2,6 @@ package football_org
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
@@ -77,14 +76,9 @@ func Test_SaveMatches_continues_when_save_fails_but_reconciliation_succeeds(t *t
 
 	provider.SaveMatches(ctx, []entity.Match{match2})
 
-	// Verify match was added to reconciliation queue
 	if !testutil.ReconciliationEntryExists(t, db, "test_match_123", int(entity.FootballOrg)) {
 		t.Errorf("Expected match to be in reconciliation queue, but it is not")
 	}
 
-	// Verify warning was logged
-	outputStr := logger.String()
-	if !strings.Contains(outputStr, "Match save failed, added to reconciliation queue") {
-		t.Errorf("Expected warning log 'Match save failed, added to reconciliation queue', but got: %s", outputStr)
-	}
+	testutil.AssertMessageGotLogged(t, logger, "Match save failed, added to reconciliation queue")
 }

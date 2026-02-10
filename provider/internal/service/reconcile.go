@@ -19,11 +19,17 @@ const (
 	RECONCILE_CONTEXT_TIMEOUT = 2 * time.Minute
 )
 
+// ReconcileProvider extends SyncProvider with the ability to fetch a single match by ID (for reconciliation)
+type ReconcileProvider interface {
+	SyncProvider
+	FetchMatchByID(ctx context.Context, providerMatchID string) (*entity.Match, error)
+}
+
 // Reconcile processes all pending matches in the reconciliation queue.
 // It fetches 10 items at a time, processes them sequentially, then fetches the next batch
 // until the queue is empty. A 2-minute context timeout helps catch API timeouts.
 // It is provider-agnostic: each entry's provider field determines which API to call.
-func Reconcile(repositories *repository.Repositories, clock Clock) error {
+func Reconcile(repositories *repository.Repositories) error {
 	ctx, cancel := context.WithTimeout(context.Background(), RECONCILE_CONTEXT_TIMEOUT)
 	defer cancel()
 

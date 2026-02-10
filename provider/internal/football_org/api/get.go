@@ -24,12 +24,13 @@ func GetMatches(ctx context.Context, competitionID uint, from time.Time, to time
 		return MatchesResponse{}, err
 	}
 
-	var match MatchesResponse
-	if err := parseResponse(body, &match); err != nil {
+	// TODO: make sure we don't get nil pointer exceptions here if the json is not valid
+	var matches MatchesResponse
+	if err := parseResponse(body, &matches); err != nil {
 		return MatchesResponse{}, err
 	}
 
-	return match, nil
+	return matches, nil
 }
 
 func GetMatch(ctx context.Context, matchID string) (FootballOrgMatch, error) {
@@ -42,6 +43,11 @@ func GetMatch(ctx context.Context, matchID string) (FootballOrgMatch, error) {
 	var match FootballOrgMatch
 	if err := parseResponse(body, &match); err != nil {
 		return FootballOrgMatch{}, err
+	}
+
+	// The json unmarshall is not that reliable, so we need to check if the match is found
+	if match.ID == 0 {
+		return FootballOrgMatch{}, fmt.Errorf("unable to deserialize match")
 	}
 
 	return match, nil
@@ -97,8 +103,9 @@ func get(ctx context.Context, path string) ([]byte, error) {
 	return body, nil
 }
 
-func parseResponse(body []byte, parseTo interface{}) error {
+func parseResponse(body []byte, parseTo any) error {
 	if err := json.Unmarshal(body, parseTo); err != nil {
+		fmt.Println("Failed to parse JSON response", string(body))
 		return fmt.Errorf("failed to parse JSON response: %w", err)
 	}
 

@@ -7,7 +7,6 @@ import (
 	"provider/internal/entity"
 	"provider/testutil"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 )
@@ -71,12 +70,8 @@ func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
 	err := Sync(repositories, "football_org", "la_liga", SystemClock{})
 	testutil.AssertNoError(t, err)
 
-	outputStr := logger.String()
-
 	// The match with unmapped home team should be skipped due to team mapping error
-	if !strings.Contains(outputStr, "failed to map home team ID (123456), skipping match (654321)") {
-		t.Errorf("Expected 'failed to map home team ID (123456), skipping match (654321)' in output, but got: %s", outputStr)
-	}
+	testutil.AssertMessageGotLogged(t, logger, "failed to map home team ID (123456), skipping match (654321)")
 
 	// Athletic - Real Madrid match should be saved since it has valid team mappings
 	if !testutil.MatchExists(t, db, "d0d6f75f29b5b1bb1fc3583476993ede1e43a5c07a57e8280159e0a93510c753") {
@@ -96,12 +91,8 @@ func Test_we_skip_the_match_if_away_team_is_not_mapped(t *testing.T) {
 
 	err := Sync(repositories, "football_org", "la_liga", SystemClock{})
 	testutil.AssertNoError(t, err)
-
-	outputStr := logger.String()
 	// The match with unmapped away team should be skipped due to team mapping error
-	if !strings.Contains(outputStr, "failed to map away team ID (123456), skipping match (654321)") {
-		t.Errorf("Expected 'failed to map away team ID (123456), skipping match (654321)' in output, but got: %s", outputStr)
-	}
+	testutil.AssertMessageGotLogged(t, logger, "failed to map away team ID (123456), skipping match (654321)")
 
 	// Athletic - Real Madrid match should be saved since it has valid team mappings
 	if !testutil.MatchExists(t, db, "d0d6f75f29b5b1bb1fc3583476993ede1e43a5c07a57e8280159e0a93510c753") {
@@ -320,11 +311,7 @@ func Test_sync_state_advances_by_1_day_when_no_matches_are_found(t *testing.T) {
 		t.Errorf("Expected sync state to be %s, but got %s", expectedDateStr, actualDateStr)
 	}
 
-	// Verify log message
-	outputStr := logger.String()
-	if !strings.Contains(outputStr, "All matches finished, advancing sync date by 1 day") {
-		t.Errorf("Expected 'All matches finished, advancing sync date by 1 day' in output, but got: %s", outputStr)
-	}
+	testutil.AssertMessageGotLogged(t, logger, "All matches finished, advancing sync date by 1 day")
 }
 
 func Test_sync_state_advances_when_matches_are_found_but_not_in_progress(t *testing.T) {
@@ -364,10 +351,7 @@ func Test_sync_state_advances_when_matches_are_found_but_not_in_progress(t *test
 		t.Errorf("Expected sync state to be %s, but got %s", expectedDateStr, actualDateStr)
 	}
 
-	outputStr := logger.String()
-	if !strings.Contains(outputStr, "All matches finished, advancing sync date by 1 day") {
-		t.Errorf("Expected 'All matches finished, advancing sync date by 1 day' in output, but got: %s", outputStr)
-	}
+	testutil.AssertMessageGotLogged(t, logger, "All matches finished, advancing sync date by 1 day")
 }
 
 func Test_first_sync_with_no_matches_stays_on_today(t *testing.T) {
@@ -405,10 +389,7 @@ func Test_first_sync_with_no_matches_stays_on_today(t *testing.T) {
 		t.Errorf("Expected sync state to be %s (today), but got %s", expectedDateStr, actualDateStr)
 	}
 
-	outputStr := logger.String()
-	if !strings.Contains(outputStr, "Staying on today") {
-		t.Errorf("Expected 'Staying on today' in output, but got: %s", outputStr)
-	}
+	testutil.AssertMessageGotLogged(t, logger, "Staying on today")
 }
 
 func Test_we_can_handle_invalid_match_date(t *testing.T) {
@@ -424,10 +405,7 @@ func Test_we_can_handle_invalid_match_date(t *testing.T) {
 
 	_ = Sync(repositories, "football_org", "la_liga", SystemClock{})
 
-	outputStr := logger.String()
-	if !strings.Contains(outputStr, "failed to parse match date") {
-		t.Errorf("Expected 'failed to parse match date' in output, but got: %s", outputStr)
-	}
+	testutil.AssertMessageGotLogged(t, logger, "failed to parse match date")
 
 	if testutil.MatchExists(t, db, "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8") {
 		t.Errorf("Athletic - Real Madrid match should not exist, but it does")
@@ -488,16 +466,8 @@ func Test_stale_match_moved_to_reconciliation_queue_and_sync_stays_on_today(t *t
 		t.Errorf("Expected sync state to be %s, but got %s", expectedDateStr, actualDateStr)
 	}
 
-	// Verify log message about stale match
-	outputStr := logger.String()
-	if !strings.Contains(outputStr, "Moved stale match to reconciliation queue") {
-		t.Errorf("Expected 'Moved stale match to reconciliation queue' in output, but got: %s", outputStr)
-	}
-
-	// Verify log message about advancing sync date
-	if !strings.Contains(outputStr, "Staying on today") {
-		t.Errorf("Expected 'Staying on today' in output, but got: %s", outputStr)
-	}
+	testutil.AssertMessageGotLogged(t, logger, "Moved stale match to reconciliation queue")
+	testutil.AssertMessageGotLogged(t, logger, "Staying on today")
 }
 
 func Test_stale_match_moved_to_reconciliation_queue_and_sync_advances(t *testing.T) {
@@ -551,14 +521,6 @@ func Test_stale_match_moved_to_reconciliation_queue_and_sync_advances(t *testing
 		t.Errorf("Expected sync state to be %s, but got %s", expectedDateStr, actualDateStr)
 	}
 
-	// Verify log message about stale match
-	outputStr := logger.String()
-	if !strings.Contains(outputStr, "Moved stale match to reconciliation queue") {
-		t.Errorf("Expected 'Moved stale match to reconciliation queue' in output, but got: %s", outputStr)
-	}
-
-	// Verify log message about advancing sync date
-	if !strings.Contains(outputStr, "All matches finished, advancing sync date by 1 day") {
-		t.Errorf("Expected 'All matches finished, advancing sync date by 1 day' in output, but got: %s", outputStr)
-	}
+	testutil.AssertMessageGotLogged(t, logger, "Moved stale match to reconciliation queue")
+	testutil.AssertMessageGotLogged(t, logger, "All matches finished, advancing sync date by 1 day")
 }

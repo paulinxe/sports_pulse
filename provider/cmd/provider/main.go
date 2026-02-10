@@ -54,7 +54,7 @@ func main() {
 		}
 
 		slog.Debug("Starting reconciliation")
-		if err := service.Reconcile(repositories, clock); err != nil {
+		if err := service.Reconcile(repositories); err != nil {
 			slog.Error("Failed to reconcile", "error", err)
 			os.Exit(int(PROVIDER_ERROR))
 		}

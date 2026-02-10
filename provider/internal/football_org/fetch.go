@@ -15,9 +15,6 @@ func (p *Provider) FetchMatchByID(ctx context.Context, providerMatchID string) (
 		return nil, fmt.Errorf("failed to fetch match %s: %w", providerMatchID, err)
 	}
 
-	if footballOrgMatch.Competition == nil {
-		return nil, fmt.Errorf("match %s has no competition in API response", providerMatchID)
-	}
 	competition, ok := FootballOrgIDToCompetition[footballOrgMatch.Competition.ID]
 	if !ok {
 		return nil, fmt.Errorf("unknown competition ID %d for match %s", footballOrgMatch.Competition.ID, providerMatchID)

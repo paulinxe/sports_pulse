@@ -34,12 +34,6 @@ type SyncProvider interface {
 	GetProviderEntity() entity.Provider
 }
 
-// ReconcileProvider extends SyncProvider with the ability to fetch a single match by ID (for reconciliation)
-type ReconcileProvider interface {
-	SyncProvider
-	FetchMatchByID(ctx context.Context, providerMatchID string) (*entity.Match, error)
-}
-
 // Sync queries matches for a natural day period (00:00:00 to 23:59:59 UTC) and only inserts
 // matches with FINISHED or AWARDED status. It implements catch-up logic to advance day-by-day
 // until reaching today, and checks for in-progress matches to avoid advancing too early.
