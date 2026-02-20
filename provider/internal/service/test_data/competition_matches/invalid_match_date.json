@@ -58,16 +58,16 @@
                 "tla":"RMA",
                 "crest":"https://crests.football-data.org/86.png"
             },
-            "score":{
-                "winner":null,
-                "duration":"REGULAR",
-                "fullTime":{
-                    "home":null,
-                    "away":null
+            "score": {
+                "winner": "AWAY_TEAM",
+                "duration": "REGULAR",
+                "fullTime": {
+                    "home": 1,
+                    "away": 3
                 },
-                "halfTime":{
-                    "home":null,
-                    "away":null
+                "halfTime": {
+                    "home": 0,
+                    "away": 3
                 }
             },
             "odds":{

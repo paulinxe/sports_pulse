@@ -6,9 +6,13 @@ import (
 	"provider/testutil"
 	"provider/internal/entity"
 	"database/sql"
+	_ "embed"
 
 	"github.com/google/uuid"
 )
+
+//go:embed test_data/matches/unknown_competition.json
+var unknownCompetitionResponse string
 
 func Test_we_log_a_warning_and_increment_tries_when_match_is_not_found(t *testing.T) {
 	db, repositories := testutil.InitDB(t)
@@ -17,7 +21,7 @@ func Test_we_log_a_warning_and_increment_tries_when_match_is_not_found(t *testin
 	initialTries := 0
 	expectedTries := 5
 
-	_, err := db.Exec(`
+	_, _ = db.Exec(`
 		INSERT INTO match_reconciliation (id, provider_match_id, provider, reconciled_at, tries)
 		VALUES ($1, $2, $3, $4, $5)
 	`,
@@ -34,7 +38,7 @@ func Test_we_log_a_warning_and_increment_tries_when_match_is_not_found(t *testin
 		Build()
 	defer mockServer.Close()
 
-	err = Reconcile(repositories)
+	err := Reconcile(repositories)
 	testutil.AssertNoError(t, err)
 	testutil.ExpectNumberOfRequests(t, mockServer, uint(expectedTries))
 	testutil.AssertMessageGotLogged(t, logger, "failed to fetch match")
@@ -69,7 +73,7 @@ func Test_we_log_an_error_and_increment_tries_when_unable_to_map_response_to_ent
 	err = Reconcile(repositories)
 	testutil.AssertNoError(t, err)
 	testutil.ExpectNumberOfRequests(t, mockServer, uint(expectedTries))
-	testutil.AssertMessageGotLogged(t, logger, "unable to deserialize match")
+	testutil.AssertMessageGotLogged(t, logger, "failed to fetch match")
 	assertTries(t, db, expectedTries)
 }
 
@@ -94,7 +98,7 @@ func Test_we_log_an_error_and_increment_tries_when_unknown_competition_is_found(
 
 	mockServer := testutil.CreateServerBuilder().
 		WithStatusCode(http.StatusOK).
-		WithResponseBody(`{"id": 123, "competition": {"id": 999}}`).
+		WithResponseBody(unknownCompetitionResponse).
 		Build()
 	defer mockServer.Close()
 

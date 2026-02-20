@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"log/slog"
 	"provider/internal/entity"
-	"provider/internal/football_org/api"
 	"time"
+
+	"github.com/paulinxe/go-football-data"
+	"github.com/paulinxe/go-football-data/types"
 )
 
 func (p *Provider) FetchMatchByID(ctx context.Context, providerMatchID string) (*entity.Match, error) {
-	footballOrgMatch, err := api.GetMatch(ctx, providerMatchID)
+	footballOrgMatch := types.Match{}
+	err := p.client.GetMatch(ctx, providerMatchID, &footballOrgMatch)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch match %s: %w", providerMatchID, err)
 	}
@@ -30,7 +33,11 @@ func (p *Provider) FetchMatchByID(ctx context.Context, providerMatchID string) (
 
 func (p *Provider) FetchMatches(ctx context.Context, competition entity.Competition, from, to time.Time) ([]entity.Match, error) {
 	competitionID := CompetitionToFootballOrgID[competition]
-	matchesResponse, err := api.GetMatches(ctx, competitionID, from, to)
+	matchesResponse := types.MatchesList{}
+	err := p.client.GetMatches(ctx, competitionID, football_data.MatchesFilter{
+		DateFrom: &from,
+		DateTo:   &to,
+	}, &matchesResponse)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +58,7 @@ func (p *Provider) FetchMatches(ctx context.Context, competition entity.Competit
 }
 
 // convertToEntityMatch converts a FootballOrgMatch to entity.Match, handling all statuses.
-func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition entity.Competition, teamMapping map[uint]entity.Team) (*entity.Match, error) {
+func convertToEntityMatch(footballOrgMatch types.Match, competition entity.Competition, teamMapping map[uint]entity.Team) (*entity.Match, error) {
 	homeTeamID, ok := teamMapping[footballOrgMatch.HomeTeam.ID]
 	if !ok {
 		return nil, fmt.Errorf("failed to map home team ID (%d), skipping match (%d)",
@@ -70,18 +77,28 @@ func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition ent
 
 	startTime, err := time.Parse(time.RFC3339, footballOrgMatch.UTCDate)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse match date (%s), skipping match (%d)",
+		return nil, fmt.Errorf("failed to parse match date (%s): %w, skipping match (%d)",
 			footballOrgMatch.UTCDate,
+			err,
 			footballOrgMatch.ID,
 		)
 	}
 
 	// Map API status to entity status
 	status := entity.Pending
-	if footballOrgMatch.IsInFinalStatus() {
+	if isInFinalStatus(&footballOrgMatch) {
 		status = entity.Finished
-	} else if footballOrgMatch.IsInProgress() {
+	} else if isInProgress(&footballOrgMatch) {
 		status = entity.InProgress
+	}
+
+	homeTeamScore := uint(0)
+	if footballOrgMatch.Score.FullTime.Home != nil {
+		homeTeamScore = *footballOrgMatch.Score.FullTime.Home
+	}
+	awayTeamScore := uint(0)
+	if footballOrgMatch.Score.FullTime.Away != nil {
+		awayTeamScore = *footballOrgMatch.Score.FullTime.Away
 	}
 
 	match, err := entity.NewMatch(
@@ -90,8 +107,8 @@ func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition ent
 		fmt.Sprintf("%d", footballOrgMatch.ID),
 		homeTeamID,
 		awayTeamID,
-		footballOrgMatch.Score.FullTime.Home,
-		footballOrgMatch.Score.FullTime.Away,
+		homeTeamScore,
+		awayTeamScore,
 		competition,
 		status,
 	)
@@ -100,4 +117,21 @@ func convertToEntityMatch(footballOrgMatch api.FootballOrgMatch, competition ent
 	}
 
 	return &match, nil
+}
+
+// The happy path is to have a match in status FINISHED.
+// If a match gets cancelled and never gets played, it will be in status AWARDED.
+func isInFinalStatus(match *types.Match) bool {
+	return match.Status == "FINISHED" || match.Status == "AWARDED"
+}
+
+// Statuses: IN_PLAY, PAUSED, SUSPENDED indicate matches that are actively in progress.
+// Note: TIMED, SCHEDULED are not in-progress (match hasn't started yet).
+func isInProgress(match *types.Match) bool {
+	inProgressStatuses := map[string]bool{
+		"IN_PLAY":   true,
+		"PAUSED":    true,
+		"SUSPENDED": true,
+	}
+	return inProgressStatuses[match.Status]
 }

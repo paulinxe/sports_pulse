@@ -403,8 +403,8 @@ func Test_we_can_handle_invalid_match_date(t *testing.T) {
 		Build()
 	defer mockServer.Close()
 
-	_ = Sync(repositories, "football_org", "la_liga", SystemClock{})
-
+	err := Sync(repositories, "football_org", "la_liga", SystemClock{})
+	testutil.AssertNoError(t, err)
 	testutil.AssertMessageGotLogged(t, logger, "failed to parse match date")
 
 	if testutil.MatchExists(t, db, "58a49d03246d65ce3ce64dd7ca690977fe0f2feeccf3403ebe8b95e515599ff8") {
