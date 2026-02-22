@@ -3,12 +3,13 @@ FROM ghcr.io/foundry-rs/foundry:latest
 # Switch to root to create the user
 USER root
 
-# Create a user with UID 1002 and GID 1002 to match host permissions
-RUN groupadd -g 1002 foundry-user && \
-    useradd -u 1002 -g 1002 -m -s /bin/bash foundry-user
+# Create user matching host IDs
+ARG UID=1000 # Default value if not provided
+ARG GID=1000 # Default value if not provided
+RUN groupadd -g ${GID} foundry-user && \
+    useradd -u ${UID} -g ${GID} -m -s /bin/bash appuser
 
-# Switch to the new user
-USER foundry-user
+USER ${UID}:${GID}
 
 WORKDIR /app
 

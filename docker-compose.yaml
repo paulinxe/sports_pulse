@@ -20,6 +20,9 @@ services:
     build:
       context: ./signer
       dockerfile: ./Dockerfile
+      args:
+        UID: ${UID}
+        GID: ${GID}
     volumes:
       # Mount source code for live reloading
       - ./signer:/app
@@ -48,6 +51,9 @@ services:
     build:
       context: ./provider
       dockerfile: ./Dockerfile
+      args:
+        UID: ${UID}
+        GID: ${GID}
     volumes:
       # Mount source code for live reloading
       - ./provider:/app
@@ -75,6 +81,9 @@ services:
     build:
       context: ./mock-api
       dockerfile: ./Dockerfile
+      args:
+        UID: ${UID}
+        GID: ${GID}
     volumes:
       # Mount source code for live reloading
       - ./mock-api:/app
@@ -103,6 +112,9 @@ services:
     build:
       context: ./relayer
       dockerfile: ./Dockerfile
+      args:
+        UID: ${UID}
+        GID: ${GID}
     volumes:
       # Mount source code for live reloading
       - ./relayer:/app
@@ -132,6 +144,9 @@ services:
     build:
       context: ./oracle
       dockerfile: ./Dockerfile
+      args:
+        UID: ${UID}
+        GID: ${GID}
     volumes:
       # Mount source code
       - ./oracle:/app
