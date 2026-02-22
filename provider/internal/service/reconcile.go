@@ -71,52 +71,39 @@ func Reconcile(repositories *repository.Repositories) error {
 					"provider", entry.Provider,
 					"error", err)
 
-				// Increment tries to eventually stop processing this entry
-				if incErr := repositories.Reconciliation.IncrementTries(ctx, entry.ID); incErr != nil {
-					slog.Error("Failed to increment tries for reconciliation entry",
-						"entry_id", entry.ID,
-						"provider_match_id", entry.ProviderMatchID,
-						"error", incErr)
-				}
+				incrementTries(ctx, repositories, &entry)
 				continue
 			}
 
 			match, err := reconcileProvider.FetchMatchByID(ctx, entry.ProviderMatchID)
 			if err != nil {
-				slog.Warn("Failed to fetch match for reconciliation",
+				slog.Warn("failed to fetch match for reconciliation",
 					"provider_match_id", entry.ProviderMatchID,
 					"error", err)
-				if incErr := repositories.Reconciliation.IncrementTries(ctx, entry.ID); incErr != nil {
-					slog.Error("Failed to increment tries for reconciliation entry",
-						"entry_id", entry.ID,
-						"provider_match_id", entry.ProviderMatchID,
-						"error", incErr)
-				}
+				incrementTries(ctx, repositories, &entry)
 				continue
 			}
 
 			if match.Status != entity.Finished {
-				slog.Debug("Match not yet finished, will retry later",
+				slog.Debug("match not yet finished, will retry later",
 					"provider_match_id", entry.ProviderMatchID,
 					"status", match.Status)
-				if incErr := repositories.Reconciliation.IncrementTries(ctx, entry.ID); incErr != nil {
-					slog.Error("Failed to increment tries for reconciliation entry",
-						"entry_id", entry.ID,
-						"provider_match_id", entry.ProviderMatchID,
-						"error", incErr)
-				}
+
+				// TODO: add a delay to the next reconciliation
+
+				incrementTries(ctx, repositories, &entry)
 				continue
 			}
 
 			// Save match and remove from queue atomically. Data is valid at this point; failures are DB-related.
 			if err := saveAndRemoveFromQueue(ctx, repositories, *match, entry.ID); err != nil {
-				slog.Error("Failed to save reconciled match",
+				slog.Error("failed to save reconciled match",
 					"provider_match_id", entry.ProviderMatchID,
 					"error", err)
 				continue
 			}
 
-			slog.Info("Reconciled match",
+			slog.Info("reconciled match",
 				"provider_match_id", entry.ProviderMatchID,
 				"provider", entry.Provider)
 		}
@@ -132,10 +119,19 @@ func getProviderForReconcile(provider entity.Provider, repositories *repository.
 	}
 }
 
+func incrementTries(ctx context.Context, repositories *repository.Repositories, entry *repository.ReconciliationEntry) {
+	if incErr := repositories.Reconciliation.IncrementTries(ctx, entry.ID); incErr != nil {
+		slog.Error("failed to increment tries for reconciliation entry",
+			"entry_id", entry.ID,
+			"provider_match_id", entry.ProviderMatchID,
+			"error", incErr)
+	}
+}
+
 func saveAndRemoveFromQueue(ctx context.Context, repositories *repository.Repositories, match entity.Match, entryID uuid.UUID) error {
 	tx, err := repositories.Reconciliation.BeginTx(ctx, nil)
 	if err != nil {
-		slog.Error("Failed to begin transaction for reconciliation",
+		slog.Error("failed to begin transaction for reconciliation",
 			"entry_id", entryID,
 			"error", err)
 		return err
@@ -143,7 +139,7 @@ func saveAndRemoveFromQueue(ctx context.Context, repositories *repository.Reposi
 	defer func() { _ = tx.Rollback() }()
 
 	if err := repositories.Match.SaveInTx(ctx, tx, match); err != nil {
-		slog.Error("Failed to save match in reconciliation transaction",
+		slog.Error("failed to save match in reconciliation transaction",
 			"entry_id", entryID,
 			"provider_match_id", match.ProviderMatchID,
 			"error", err)
@@ -151,14 +147,14 @@ func saveAndRemoveFromQueue(ctx context.Context, repositories *repository.Reposi
 	}
 
 	if err := repositories.Reconciliation.MarkReconciled(ctx, tx, entryID); err != nil {
-		slog.Error("Failed to remove entry from reconciliation queue",
+		slog.Error("failed to remove entry from reconciliation queue",
 			"entry_id", entryID,
 			"error", err)
 		return err
 	}
 
 	if err := tx.Commit(); err != nil {
-		slog.Error("Failed to commit reconciliation transaction",
+		slog.Error("failed to commit reconciliation transaction",
 			"entry_id", entryID,
 			"error", err)
 		return err
