@@ -35,8 +35,8 @@ func InsertSignedMatch(t *testing.T, db *sql.DB, id uuid.UUID, canonicalID strin
 	}
 
 	_, err := db.Exec(`INSERT INTO matches (id, canonical_id, competition_id, home_team_id, away_team_id, home_team_score, away_team_score, start, "end", signature, status, provider_match_id, provider)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'dummy-provider-match-id', 1)`,
-		id, canonicalID, competitionID, homeTeamID, awayTeamID, homeTeamScore, awayTeamScore, start, start, signatureHex, signedStatus)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 1)`,
+		id, canonicalID, competitionID, homeTeamID, awayTeamID, homeTeamScore, awayTeamScore, start, start, signatureHex, signedStatus, id)
 
 	if err != nil {
 		t.Fatalf("insert signed match: %v", err)
