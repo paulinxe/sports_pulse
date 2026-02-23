@@ -1,6 +1,5 @@
 TODO:
 - prepare proper makefiles
-- return pointers for New functions
 - use pointers when implementing functions for structs
 - write documentation
 - upgrade to go 1.26 and use errors.AsType 

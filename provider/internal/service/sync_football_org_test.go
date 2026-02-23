@@ -211,7 +211,7 @@ func Test_we_insert_a_match_as_finished_when_syncing_a_match_in_final_status(t *
 			)
 			testutil.AssertNoError(t, err)
 
-			_ = repositories.Match.Save(context.Background(), expectedMatch)
+			_ = repositories.Match.Save(context.Background(), *expectedMatch)
 
 			err = Sync(repositories, "football_org", "la_liga", SystemClock{})
 			testutil.AssertNoError(t, err)

@@ -34,7 +34,7 @@ func Test_we_get_an_error_when_chain_id_is_invalid(t *testing.T) {
 		ChainID:         "not-a-number",
 	}
 
-	_, err = BuildBroadcasterConfig(envVars)
+	_, err = BuildBroadcasterConfig(&envVars)
 	if err == nil {
 		t.Fatal("expected error for invalid chain id")
 	}
@@ -57,7 +57,7 @@ func Test_we_get_an_error_when_chain_id_is_empty(t *testing.T) {
 		ChainID:         "",
 	}
 
-	_, err = BuildBroadcasterConfig(envVars)
+	_, err = BuildBroadcasterConfig(&envVars)
 	if err == nil {
 		t.Fatal("expected error for empty chain id")
 	}
@@ -80,7 +80,7 @@ func Test_we_get_a_broadcaster_config_when_all_env_vars_are_valid(t *testing.T) 
 		ChainID:         "31337",
 	}
 
-	cfg, err := BuildBroadcasterConfig(envVars)
+	cfg, err := BuildBroadcasterConfig(&envVars)
 	if err != nil {
 		t.Fatal(err)
 	}

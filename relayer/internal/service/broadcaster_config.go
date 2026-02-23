@@ -24,19 +24,19 @@ type BroadcasterConfig struct {
 	ContractABI     abi.ABI
 }
 
-func BuildBroadcasterConfig(envVars config.EnvVars) (BroadcasterConfig, error) {
+func BuildBroadcasterConfig(envVars *config.EnvVars) (*BroadcasterConfig, error) {
 	chainIDInt, err := strconv.ParseInt(envVars.ChainID, 10, 64)
 	if err != nil {
-		return BroadcasterConfig{}, fmt.Errorf("parse chain id: %w", err)
+		return nil, fmt.Errorf("parse chain id: %w", err)
 	}
 	chainIDBigInt := big.NewInt(chainIDInt)
 
 	contractABI, err := abi.JSON(strings.NewReader(MATCH_REGISTRY_SUBMIT_MATCH_ABI))
 	if err != nil {
-		return BroadcasterConfig{}, fmt.Errorf("parse abi: %w", err)
+		return nil, fmt.Errorf("parse abi: %w", err)
 	}
 
-	return BroadcasterConfig{
+	return &BroadcasterConfig{
 		RPCURL:          envVars.RPCURL,
 		ContractAddress: envVars.ContractAddress,
 		PrivateKey:      envVars.PrivateKey,

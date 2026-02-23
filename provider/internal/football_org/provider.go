@@ -22,6 +22,7 @@ func NewProvider(matchRepo *repository.MatchRepository, reconciliationRepo *repo
 		// Mainly used for testing but could be useful if we need to use a different endpoint for some reason.
 		opts = append(opts, football_data.WithBaseURL(customEndpoint))
 	}
+
 	return &Provider{
 		matchRepository:          matchRepo,
 		reconciliationRepository: reconciliationRepo,
@@ -33,6 +34,7 @@ func (p *Provider) ValidateCompetition(competition entity.Competition) error {
 	if _, ok := CompetitionToFootballOrgID[competition]; !ok {
 		return fmt.Errorf("competition not handled by football_org provider: %d", competition)
 	}
+
 	return nil
 }
 

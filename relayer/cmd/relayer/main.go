@@ -48,7 +48,7 @@ func main() {
 	}
 	defer client.Close()
 
-	os.Exit(Run(client, cfg))
+	os.Exit(Run(client, *cfg))
 }
 
 func Run(client service.ChainClient, cfg service.BroadcasterConfig) int {

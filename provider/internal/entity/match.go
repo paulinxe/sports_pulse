@@ -45,7 +45,7 @@ func NewMatch(
 	awayTeamScore uint,
 	competition Competition,
 	status MatchStatus,
-) (Match, error) {
+) (*Match, error) {
 	endTime := start.Add(2 * time.Hour)
 
 	if status == 0 {
@@ -54,10 +54,10 @@ func NewMatch(
 
 	canonicalID, err := generateMatchID(competition, homeTeamID, awayTeamID, start)
 	if err != nil {
-		return Match{}, fmt.Errorf("failed to generate match ID: %w", err)
+		return &Match{}, fmt.Errorf("failed to generate match ID: %w", err)
 	}
 
-	return Match{
+	return &Match{
 		ID:              uuid.New(),
 		CanonicalID:     canonicalID,
 		Start:           start,

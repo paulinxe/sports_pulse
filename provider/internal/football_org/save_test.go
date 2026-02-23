@@ -74,7 +74,7 @@ func Test_SaveMatches_continues_when_save_fails_but_reconciliation_succeeds(t *t
 	// Use the same ID to cause primary key violation
 	match2.ID = match.ID
 
-	provider.SaveMatches(ctx, []entity.Match{match2})
+	provider.SaveMatches(ctx, []entity.Match{*match2})
 
 	if !testutil.ReconciliationEntryExists(t, db, "test_match_123", int(entity.FootballOrg)) {
 		t.Errorf("Expected match to be in reconciliation queue, but it is not")

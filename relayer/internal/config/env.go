@@ -18,35 +18,35 @@ type EnvVars struct {
 	ChainID         string
 }
 
-func LoadEnvVars() (EnvVars, error) {
+func LoadEnvVars() (*EnvVars, error) {
 	rpcURL := os.Getenv("RPC_URL")
 	if rpcURL == "" {
-		return EnvVars{}, fmt.Errorf("RPC_URL is not set")
+		return nil, fmt.Errorf("RPC_URL is not set")
 	}
 
 	contractAddr := os.Getenv("ORACLE_CONTRACT_ADDRESS")
 	if contractAddr == "" {
-		return EnvVars{}, fmt.Errorf("ORACLE_CONTRACT_ADDRESS is not set")
+		return nil, fmt.Errorf("ORACLE_CONTRACT_ADDRESS is not set")
 	}
 	if !common.IsHexAddress(contractAddr) {
-		return EnvVars{}, fmt.Errorf("invalid ORACLE_CONTRACT_ADDRESS: %s", contractAddr)
+		return nil, fmt.Errorf("invalid ORACLE_CONTRACT_ADDRESS: %s", contractAddr)
 	}
 
 	privateKey := os.Getenv("RELAYER_PRIVATE_KEY")
 	if privateKey == "" {
-		return EnvVars{}, fmt.Errorf("RELAYER_PRIVATE_KEY is not set")
+		return nil, fmt.Errorf("RELAYER_PRIVATE_KEY is not set")
 	}
 	privateKeyParsed, err := parsePrivateKey(privateKey)
 	if err != nil {
-		return EnvVars{}, fmt.Errorf("parse private key: %w", err)
+		return nil, fmt.Errorf("parse private key: %w", err)
 	}
 
 	chainID := os.Getenv("CHAIN_ID")
 	if chainID == "" {
-		return EnvVars{}, fmt.Errorf("CHAIN_ID is not set")
+		return nil, fmt.Errorf("CHAIN_ID is not set")
 	}
 
-	return EnvVars{
+	return &EnvVars{
 		RPCURL:          rpcURL,
 		ContractAddress: common.HexToAddress(contractAddr),
 		PrivateKey:      privateKeyParsed,

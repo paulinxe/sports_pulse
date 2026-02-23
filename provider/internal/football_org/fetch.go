@@ -116,7 +116,7 @@ func convertToEntityMatch(footballOrgMatch types.Match, competition entity.Compe
 		return nil, fmt.Errorf("failed to create match: %w", err)
 	}
 
-	return &match, nil
+	return match, nil
 }
 
 // The happy path is to have a match in status FINISHED.
