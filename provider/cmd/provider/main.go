@@ -45,7 +45,6 @@ func main() {
 		slog.Error("Failed to initialize repositories", "error", err)
 		os.Exit(int(DB_INIT_ERROR))
 	}
-	clock := service.SystemClock{}
 
 	if args[0] == "--reconcile" {
 		if len(args) != 1 {
@@ -73,7 +72,7 @@ func main() {
 	competition := args[1]
 	slog.Debug("Starting sync", "provider", strings.ToUpper(provider), "competition", strings.ToUpper(competition))
 
-	if err := service.Sync(repositories, provider, competition, clock); err != nil {
+	if err := service.Sync(repositories, provider, competition, &service.SystemClock{}); err != nil {
 		slog.Error("Failed to sync", "provider", provider, "competition", competition, "error", err)
 		os.Exit(int(PROVIDER_ERROR))
 	}

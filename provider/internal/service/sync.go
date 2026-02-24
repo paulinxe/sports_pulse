@@ -22,7 +22,7 @@ type Clock interface {
 // SystemClock implements Clock using the system time.
 type SystemClock struct{}
 
-func (s SystemClock) Now() time.Time {
+func (s *SystemClock) Now() time.Time {
 	return time.Now().UTC()
 }
 

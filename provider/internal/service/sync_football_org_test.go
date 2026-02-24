@@ -39,14 +39,14 @@ type mockClock struct {
 	now time.Time
 }
 
-func (m mockClock) Now() time.Time {
+func (m *mockClock) Now() time.Time {
 	return m.now
 }
 
 func Test_we_can_handle_unknown_competition(t *testing.T) {
 	db, repositories := testutil.InitDB(t)
 	defer testutil.CloseDB(db)
-	err := Sync(repositories, "football_org", "premier_league", SystemClock{})
+	err := Sync(repositories, "football_org", "premier_league", &SystemClock{})
 	if err == nil {
 		t.Error("Expected error but got nil", err)
 	}
@@ -67,7 +67,7 @@ func Test_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T) {
 		Build()
 	defer mockServer.Close()
 
-	err := Sync(repositories, "football_org", "la_liga", SystemClock{})
+	err := Sync(repositories, "football_org", "la_liga", &SystemClock{})
 	testutil.AssertNoError(t, err)
 
 	// The match with unmapped home team should be skipped due to team mapping error
@@ -89,7 +89,7 @@ func Test_we_skip_the_match_if_away_team_is_not_mapped(t *testing.T) {
 		Build()
 	defer mockServer.Close()
 
-	err := Sync(repositories, "football_org", "la_liga", SystemClock{})
+	err := Sync(repositories, "football_org", "la_liga", &SystemClock{})
 	testutil.AssertNoError(t, err)
 	// The match with unmapped away team should be skipped due to team mapping error
 	testutil.AssertMessageGotLogged(t, logger, "failed to map away team ID (123456), skipping match (654321)")
@@ -109,7 +109,7 @@ func Test_we_can_insert_a_match_when_no_matches_exist_for_competition(t *testing
 		Build()
 	defer mockServer.Close()
 
-	err := Sync(repositories, "football_org", "la_liga", SystemClock{})
+	err := Sync(repositories, "football_org", "la_liga", &SystemClock{})
 	testutil.AssertNoError(t, err)
 
 	now := time.Now().UTC()
@@ -213,7 +213,7 @@ func Test_we_insert_a_match_as_finished_when_syncing_a_match_in_final_status(t *
 
 			_ = repositories.Match.Save(context.Background(), *expectedMatch)
 
-			err = Sync(repositories, "football_org", "la_liga", SystemClock{})
+			err = Sync(repositories, "football_org", "la_liga", &SystemClock{})
 			testutil.AssertNoError(t, err)
 
 			actualMatch, err := repositories.Match.FindByCanonicalID(context.Background(), expectedMatch.CanonicalID, entity.FootballOrg)
@@ -253,7 +253,7 @@ func Test_today_is_used_as_query_date_when_last_synced_date_is_in_the_future(t *
 	futureDate := time.Now().UTC().Add(1 * 24 * time.Hour).Add(1 * time.Minute)
 	_ = repositories.SyncState.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, futureDate)
 
-	err := Sync(repositories, "football_org", "la_liga", SystemClock{})
+	err := Sync(repositories, "football_org", "la_liga", &SystemClock{})
 	testutil.AssertNoError(t, err)
 	testutil.ExpectNumberOfRequests(t, mockServer, 1)
 
@@ -288,7 +288,7 @@ func Test_sync_state_advances_by_1_day_when_no_matches_are_found(t *testing.T) {
 	knownDate := time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
 	_ = repositories.SyncState.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, knownDate)
 
-	err := Sync(repositories, "football_org", "la_liga", SystemClock{})
+	err := Sync(repositories, "football_org", "la_liga", &SystemClock{})
 	testutil.AssertNoError(t, err)
 
 	testutil.ExpectNumberOfRequests(t, mockServer, 1)
@@ -329,7 +329,7 @@ func Test_sync_state_advances_when_matches_are_found_but_not_in_progress(t *test
 	knownDate := time.Date(2025, 1, 15, 12, 0, 0, 0, time.UTC)
 	_ = repositories.SyncState.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, knownDate)
 
-	err := Sync(repositories, "football_org", "la_liga", SystemClock{})
+	err := Sync(repositories, "football_org", "la_liga", &SystemClock{})
 	testutil.AssertNoError(t, err)
 
 	testutil.ExpectNumberOfRequests(t, mockServer, 1)
@@ -367,7 +367,7 @@ func Test_first_sync_with_no_matches_stays_on_today(t *testing.T) {
 	defer mockServer.Close()
 
 	// No sync state exists (first sync)
-	err := Sync(repositories, "football_org", "la_liga", SystemClock{})
+	err := Sync(repositories, "football_org", "la_liga", &SystemClock{})
 	testutil.AssertNoError(t, err)
 
 	testutil.ExpectNumberOfRequests(t, mockServer, 1)
@@ -403,7 +403,7 @@ func Test_we_can_handle_invalid_match_date(t *testing.T) {
 		Build()
 	defer mockServer.Close()
 
-	err := Sync(repositories, "football_org", "la_liga", SystemClock{})
+	err := Sync(repositories, "football_org", "la_liga", &SystemClock{})
 	testutil.AssertNoError(t, err)
 	testutil.AssertMessageGotLogged(t, logger, "failed to parse match date")
 
@@ -430,7 +430,7 @@ func Test_stale_match_moved_to_reconciliation_queue_and_sync_stays_on_today(t *t
 	// Use a mock clock set to 14:01:00Z (6 hours and 1 second after match start at 08:00:00Z) to ensure it's detected as stale
 	mockTime := time.Date(2025, 12, 3, 14, 1, 0, 0, time.UTC)
 	clock := mockClock{now: mockTime}
-	err := Sync(repositories, "football_org", "la_liga", clock)
+	err := Sync(repositories, "football_org", "la_liga", &clock)
 	testutil.AssertNoError(t, err)
 
 	testutil.ExpectNumberOfRequests(t, mockServer, 1)
@@ -485,7 +485,7 @@ func Test_stale_match_moved_to_reconciliation_queue_and_sync_advances(t *testing
 	lastSyncedDate := time.Date(2025, 12, 3, 0, 0, 0, 0, time.UTC)
 	_ = repositories.SyncState.UpdateLastSyncedDate(context.Background(), entity.LaLiga, entity.FootballOrg, lastSyncedDate)
 
-	err := Sync(repositories, "football_org", "la_liga", SystemClock{})
+	err := Sync(repositories, "football_org", "la_liga", &SystemClock{})
 	testutil.AssertNoError(t, err)
 
 	testutil.ExpectNumberOfRequests(t, mockServer, 1)
