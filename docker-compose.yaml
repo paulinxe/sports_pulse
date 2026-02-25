@@ -157,6 +157,7 @@ services:
       - DEPLOYER_PRIVATE_KEY=${DEPLOYER_PRIVATE_KEY}
       - CONTRACTS_OWNER_ADDRESS=${CONTRACTS_OWNER_ADDRESS}
       - AUTHORIZED_SIGNER_ADDRESS=${AUTHORIZED_SIGNER_ADDRESS}
+      - ETHERSCAN_API_KEY=${ETHERSCAN_API_KEY}
     working_dir: /app
     # Expose anvil RPC port (development only)
     ports:

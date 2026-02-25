@@ -10,4 +10,4 @@ deploy:
 		echo "Usage: make deploy RPC_URL=<url> DEPLOYER_PRIVATE_KEY=<key> AUTHORIZED_SIGNER_ADDRESS=<address> CONTRACTS_OWNER_ADDRESS=<address>"; \
 		exit 1; \
 	fi
-	forge script script/Deploy.s.sol:Deploy --rpc-url $(RPC_URL) --broadcast
+	forge script script/Deploy.s.sol:Deploy --rpc-url $(RPC_URL) --broadcast --verify
