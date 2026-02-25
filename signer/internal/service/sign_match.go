@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"os"
 	"signer/internal/entity"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
@@ -21,12 +22,17 @@ var types *apitypes.Types
 var domain *apitypes.TypedDataDomain
 
 func SignMatch(match entity.Match, privKey *ecdsa.PrivateKey, chainId uint) (string, error) {
+	matchId := match.CanonicalID
+	if !strings.HasPrefix(matchId, "0x") {
+		matchId = "0x" + matchId
+	}
+
 	message := apitypes.TypedData{
 		Types:       *getTypes(),
 		PrimaryType: ORACLE_STRUCT_NAME,
 		Domain:      *getDomain(chainId),
 		Message: map[string]any{
-			"matchId":   match.CanonicalID,
+			"matchId":   matchId,
 			"homeScore": big.NewInt(int64(match.HomeTeamScore)),
 			"awayScore": big.NewInt(int64(match.AwayTeamScore)),
 		},
