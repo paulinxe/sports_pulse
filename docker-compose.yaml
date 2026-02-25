@@ -4,7 +4,6 @@ services:
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=sports_pulse
     ports:
       - "${POSTGRES_PORT}:5432"
     volumes:
@@ -69,7 +68,7 @@ services:
       - DB_PORT=5432
       - DB_USER=${POSTGRES_USER}
       - DB_PASSWORD=${POSTGRES_PASSWORD}
-      - DB_NAME=sports_pulse
+      - DB_NAME=${POSTGRES_DB}
       - DB_SSLMODE=disable
     depends_on:
       postgres:
@@ -98,7 +97,7 @@ services:
       - DB_PORT=5432
       - DB_USER=${POSTGRES_USER}
       - DB_PASSWORD=${POSTGRES_PASSWORD}
-      - DB_NAME=sports_pulse
+      - DB_NAME=${POSTGRES_DB}
       - DB_SSLMODE=disable
     ports:
       - "8080:8080"
@@ -132,7 +131,7 @@ services:
       - DB_PORT=5432
       - DB_USER=${POSTGRES_USER}
       - DB_PASSWORD=${POSTGRES_PASSWORD}
-      - DB_NAME=sports_pulse
+      - DB_NAME=${POSTGRES_DB}
       - DB_SSLMODE=disable
     depends_on:
       postgres:
