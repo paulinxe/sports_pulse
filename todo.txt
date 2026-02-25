@@ -1,10 +1,27 @@
 TODO:
-- prepare proper makefiles
 - write documentation
+- deploy to sepolia. run offchain services locally
+- prepare golive / cronjobs
+regarding this point, looks like we need to go with Oracle Cloud.
+AMD Compute Instance
+AMD based Compute VMs with 1/8 OCPU and 1 GB memory each
+
+Always Free
+2 AMD based compute VMs
+
+1 VM for Postgres
+1 VM for the Go services
+They communicate via Oracle internal network
+
+- prepare proper makefiles
+
+== POST MVP ==
 - upgrade to go 1.26 and use errors.AsType 
 // using errors.AsType
 if target, ok := errors.AsType[AppError](err); ok {
     fmt.Println("application error:", target)
 }
-- prepare golive
-- prepare cronjobs
+- add a second provider
+- accept more than 1 result on chain for the same match (N of M agreement)
+- target multiple chains
+- accept more sports

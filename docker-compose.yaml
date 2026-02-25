@@ -34,7 +34,7 @@ services:
       - GO_ENV=development
       - CHAIN_ID=${CHAIN_ID}
       - ORACLE_CONTRACT_ADDRESS=${ORACLE_CONTRACT_ADDRESS}
-      - PRIVATE_KEY=${SIGNER_PRIVATE_KEY}
+      - SIGNER_PRIVATE_KEY=${SIGNER_PRIVATE_KEY}
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_USER=${POSTGRES_USER}
