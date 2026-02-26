@@ -76,37 +76,6 @@ services:
     # Override command to use air for hot reloading
     command: air
 
-  mock-api:
-    build:
-      context: ./mock-api
-      dockerfile: ./Dockerfile
-      args:
-        UID: ${UID}
-        GID: ${GID}
-    volumes:
-      # Mount source code for live reloading
-      - ./mock-api:/app
-      # Cache Go modules (speeds up rebuilds)
-      - go_modules:/go/pkg/mod
-      # Persist VS Code extensions
-      - vscode_extensions_mock_api:/root/.vscode-server/extensions
-    environment:
-      - GO_ENV=development
-      - PORT=8080
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=${POSTGRES_USER}
-      - DB_PASSWORD=${POSTGRES_PASSWORD}
-      - DB_NAME=${POSTGRES_DB}
-      - DB_SSLMODE=disable
-    ports:
-      - "8080:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    # Override command to use air for hot reloading
-    command: air
-
   relayer:
     build:
       context: ./relayer
@@ -183,7 +152,6 @@ volumes:
   cargo_target:
   vscode_extensions_signer:
   vscode_extensions_provider:
-  vscode_extensions_mock_api:
   vscode_extensions_relayer:
   vscode_extensions_oracle:
   postgres_data:

@@ -1,6 +1,3 @@
-run:
-	docker compose up postgres signer provider mock-api
-
 sh-provider:
 	docker compose exec provider sh
 
