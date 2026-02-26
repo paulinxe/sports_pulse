@@ -32,3 +32,22 @@ Contract addresses from the Sepolia deployment:
 - **Match:** Alavés – Girona (23/02/2026)
 - **Transaction:** [`0xe85d708276a1d1b2ac8ed4a15c1805d7d7f5ab0fc54961d91dbdc0a154c23215`](https://sepolia.etherscan.io/tx/0xe85d708276a1d1b2ac8ed4a15c1805d7d7f5ab0fc54961d91dbdc0a154c23215)
 - **Canonical ID:** `0xb5eb022f67c0de11b4ee7885df10476f162ae0f5d2cf262e591d5d61c38bbf1b`
+
+## Next steps
+
+Post-MVP improvements:
+
+- Upgrade to Go 1.26 and use `errors.AsType`:
+
+  ```go
+  // using errors.AsType
+  if target, ok := errors.AsType[AppError](err); ok {
+      fmt.Println("application error:", target)
+  }
+  ```
+
+- Add a second provider
+- Accept more than 1 result on chain for the same match (N of M agreement)
+- Target multiple chains
+- Deploy off-chain services to the cloud
+- Accept more sports
