@@ -1,5 +1,6 @@
 TODO:
 - write documentation
+- remove mock-api
 - prepare golive / cronjobs
 regarding this point, looks like we need to go with Oracle Cloud.
 AMD Compute Instance

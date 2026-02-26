@@ -16,7 +16,7 @@ import (
 
 const ORACLE_NAME = "SportsPulse"
 const ORACLE_VERSION = "1"
-const ORACLE_STRUCT_NAME = "Match"
+const ORACLE_MATCH_STRUCT_NAME = "Match"
 
 var types *apitypes.Types
 var domain *apitypes.TypedDataDomain
@@ -29,7 +29,7 @@ func SignMatch(match entity.Match, privKey *ecdsa.PrivateKey, chainId uint) (str
 
 	message := apitypes.TypedData{
 		Types:       *getTypes(),
-		PrimaryType: ORACLE_STRUCT_NAME,
+		PrimaryType: ORACLE_MATCH_STRUCT_NAME,
 		Domain:      *getDomain(chainId),
 		Message: map[string]any{
 			"matchId":   matchId,
@@ -38,8 +38,8 @@ func SignMatch(match entity.Match, privKey *ecdsa.PrivateKey, chainId uint) (str
 		},
 	}
 
-	// Compute struct hash (EIP-712)
-	structHash, err := message.HashStruct(message.PrimaryType, message.Message)
+	// Compute Match struct hash
+	hashedMatch, err := message.HashStruct(message.PrimaryType, message.Message)
 	if err != nil {
 		return "", fmt.Errorf("failed to hash struct: %w", err)
 	}
@@ -51,8 +51,8 @@ func SignMatch(match entity.Match, privKey *ecdsa.PrivateKey, chainId uint) (str
 	}
 
 	// Compute the final EIP-712 hash manually to match Solidity's MessageHashUtils.toTypedDataHash
-	// Solidity does: keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash))
-	finalHash := crypto.Keccak256Hash([]byte("\x19\x01"), domainSeparator, structHash)
+	// Solidity does: keccak256(abi.encodePacked("\x19\x01", domainSeparator, hashedMatch))
+	finalHash := crypto.Keccak256Hash([]byte("\x19\x01"), domainSeparator, hashedMatch)
 
 	// Sign the hash
 	signature, err := crypto.Sign(finalHash.Bytes(), privKey)
@@ -60,8 +60,12 @@ func SignMatch(match entity.Match, privKey *ecdsa.PrivateKey, chainId uint) (str
 		return "", fmt.Errorf("sign hash: %w", err)
 	}
 
-	// Adjust recovery ID: crypto.Sign returns 0 or 1, but Ethereum expects 27 or 28
-	// For EIP-712, we use 27 or 28 (not EIP-155 adjusted, since chainId is in domain)
+	// Adjust recovery ID (v parameter): crypto.Sign returns 0 or 1, but Ethereum expects 27 or 28.
+	// That's because historical reasons when Ethereum got built.
+	// In EIP-155, they added the chainId to this v parameter (to prevent replay attacks) but this applies only for
+	// transaction signing and not message signing which is what we're doing here.
+	// This is why we just add 27 to the recovery ID.
+	// (Since our Domain includes the chainId, we are protected from replay attacks in other chains.)
 	recoveryID := signature[64]
 	if recoveryID > 1 {
 		return "", fmt.Errorf("invalid recovery ID from crypto.Sign: %d", recoveryID)
@@ -77,13 +81,15 @@ func getTypes() *apitypes.Types {
 	}
 
 	types = &apitypes.Types{
+		// The EIP712 Domain data that we fill in getDomain()
 		"EIP712Domain": []apitypes.Type{
 			{Name: "name", Type: "string"},
 			{Name: "version", Type: "string"},
 			{Name: "chainId", Type: "uint256"},
 			{Name: "verifyingContract", Type: "address"},
 		},
-		ORACLE_STRUCT_NAME: []apitypes.Type{
+		// The following represent the 3 fields the Match struct is formed by in Solidity
+		ORACLE_MATCH_STRUCT_NAME: []apitypes.Type{
 			{Name: "matchId", Type: "bytes32"},
 			{Name: "homeScore", Type: "uint8"},
 			{Name: "awayScore", Type: "uint8"},
@@ -93,6 +99,7 @@ func getTypes() *apitypes.Types {
 	return types
 }
 
+// getDomain returns the EIP712 Domain data that we declare in getTypes()
 func getDomain(chainId uint) *apitypes.TypedDataDomain {
 	if domain != nil {
 		return domain
