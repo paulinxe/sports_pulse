@@ -10,8 +10,5 @@ sh-relayer:
 sh-postgres:
 	docker compose exec postgres sh
 
-generate-private-key:
-	openssl ecparam -genkey -name secp256k1 -noout -out signer/private.key
-
 slither:
 	docker compose run --rm slither
