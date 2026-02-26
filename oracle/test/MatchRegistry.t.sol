@@ -131,6 +131,12 @@ contract MatchRegistryTest is Test {
         assertEq(storedMatchId, matchId);
         assertEq(storedHomeTeamScore, homeTeamScore);
         assertEq(storedAwayTeamScore, awayTeamScore);
+
+        // Test the helper function as well
+        MatchRegistry.Match memory storedMatch = matchRegistry.getMatch(COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, matchDate);
+        assertEq(storedMatch.matchId, matchId);
+        assertEq(storedMatch.homeTeamScore, homeTeamScore);
+        assertEq(storedMatch.awayTeamScore, awayTeamScore);
     }
 
     function test_submit_reverts_when_match_already_submitted() public {

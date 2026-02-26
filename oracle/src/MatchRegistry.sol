@@ -123,6 +123,18 @@ contract MatchRegistry is EIP712, Ownable {
         emit MatchRegistered(matchId, homeTeamScore, awayTeamScore);
     }
 
+    /**
+     * @notice A helper to get a match so the caller avoids calculating the keccak256 hash
+     */
+    function getMatch(
+        uint32 competitionId,
+        uint32 homeTeamId,
+        uint32 awayTeamId,
+        uint32 matchDate
+    ) external view returns (Match memory) {
+        return matches[keccak256(abi.encodePacked(competitionId, homeTeamId, awayTeamId, matchDate))];
+    }
+
     function validateSignature(bytes32 matchId, uint8 homeTeamScore, uint8 awayTeamScore, bytes calldata signature) private view {
         bytes32 structHash = keccak256(
             abi.encode(
