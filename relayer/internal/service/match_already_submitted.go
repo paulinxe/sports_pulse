@@ -10,6 +10,7 @@ import (
 )
 
 func isMatchAlreadySubmitted(err error, contractABI abi.ABI) bool {
+	// As we need to parse the error as DataError, we can't take advantage of errors.AsType
 	var dataErr rpc.DataError
 	if !errors.As(err, &dataErr) {
 		return false

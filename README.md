@@ -37,15 +37,6 @@ Contract addresses from the Sepolia deployment:
 
 Post-MVP improvements:
 
-- Upgrade to Go 1.26 and use `errors.AsType`:
-
-  ```go
-  // using errors.AsType
-  if target, ok := errors.AsType[AppError](err); ok {
-      fmt.Println("application error:", target)
-  }
-  ```
-
 - Add a second provider
 - Accept more than 1 result on chain for the same match (N of M agreement)
 - Target multiple chains
