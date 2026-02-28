@@ -51,18 +51,18 @@ func (p *Provider) FetchMatches(ctx context.Context, competition entity.Competit
 		return nil, err
 	}
 
-	entityMatches := make([]entity.Match, 0, len(events))
-	for _, ev := range events {
-		match, err := eventToEntityMatch(ev, competition)
+	matches := make([]entity.Match, 0, len(events))
+	for _, event := range events {
+		match, err := eventToEntityMatch(event, competition)
 		if err != nil {
-			slog.Debug("Skipping apifootball event (unmapped team or parse error)", "match_id", ev.MatchID, "error", err)
+			slog.Debug("Skipping apifootball event (unmapped team or parse error)", "match_id", event.MatchID, "error", err)
 			continue
 		}
 
-		entityMatches = append(entityMatches, *match)
+		matches = append(matches, *match)
 	}
 
-	return entityMatches, nil
+	return matches, nil
 }
 
 // FetchMatchByID fetches a single event by match_id (get_events with match_id param).
@@ -90,7 +90,6 @@ func (p *Provider) FetchMatchByID(ctx context.Context, providerMatchID string) (
 	return match, nil
 }
 
-// get calls the get_events endpoint, adding action, APIkey, and timezone=utc to the given params.
 func (p *Provider) get(ctx context.Context, params url.Values) ([]apifootballEvent, error) {
 	queryParams := make(url.Values)
 	queryParams.Set("action", "get_events")
