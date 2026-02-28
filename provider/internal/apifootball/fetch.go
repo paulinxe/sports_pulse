@@ -25,6 +25,11 @@ type apifootballEvent struct {
 	MatchAwayteamScore string `json:"match_awayteam_score"`
 }
 
+type apifootballError struct {
+	Error   int   `json:"error"`
+	Message string `json:"message"`
+}
+
 // FetchMatches calls get_events for the date range and league, then converts to entity.Match.
 // Only matches where both home and away teams are in the mapping are included; others are skipped with a log.
 // All requests use timezone=utc so match_date and match_time are in UTC.
@@ -65,7 +70,6 @@ func (p *Provider) FetchMatchByID(ctx context.Context, providerMatchID string) (
 	params := url.Values{"match_id": {providerMatchID}}
 	events, err := p.get(ctx, params)
 	if err != nil {
-		// TODO: check if we need custom errors
 		return nil, fmt.Errorf("failed to fetch match %s: %w", providerMatchID, err)
 	}
 
@@ -112,8 +116,26 @@ func (p *Provider) get(ctx context.Context, params url.Values) ([]apifootballEve
 		return nil, fmt.Errorf("apifootball API returned %d: %s", resp.StatusCode, string(body))
 	}
 
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read get_events response: %w", err)
+	}
+
+	apiErr := &apifootballError{}
+	if err := json.Unmarshal(body, apiErr); err == nil && apiErr.Error != 0 {
+		if apiErr.Error == http.StatusNotFound {
+			return []apifootballEvent{}, nil
+		}
+
+		if apiErr.Message != "" {
+			return nil, fmt.Errorf("apifootball API error %d: %s", apiErr.Error, apiErr.Message)
+		}
+
+		return nil, fmt.Errorf("apifootball API error %d", apiErr.Error)
+	}
+
 	var events []apifootballEvent
-	if err := json.NewDecoder(resp.Body).Decode(&events); err != nil {
+	if err := json.Unmarshal(body, &events); err != nil {
 		return nil, fmt.Errorf("decode get_events response: %w", err)
 	}
 
