@@ -1,6 +1,6 @@
 # Provider — Sports Pulse
 
-Fetches football match data from third-party APIs (which right now is only FootballData - https://football-data.org), syncs only finished matches into the shared database, and handles stale or in-progress matches via a reconciliation queue.
+Fetches football match data from third-party APIs (FootballData — https://football-data.org — and APIFootball — https://apifootball.com), syncs only finished matches into the shared database, and handles stale or in-progress matches via a reconciliation queue.
 
 ## Overview
 
@@ -20,10 +20,11 @@ The binary supports two modes.
 ./provider <provider> <competition>
 ```
 
-Example:
+Examples:
 
 ```bash
 ./provider football_org la_liga
+./provider apifootball championship
 ```
 
 - Syncs one UTC day of matches (00:00–23:59).
@@ -43,9 +44,10 @@ Example:
 
 ## Supported providers and competitions
 
-| Provider      | Competitions (football_org) | Notes |
-| ------------- | --------------------------- | ----- |
-| **football_org** | La Liga (ID 2014)           | football-data.org API. Premier League is accepted by the CLI but not yet mapped for this provider. |
+| Provider        | Competitions | Notes |
+| --------------- | ------------ | ----- |
+| **football_org** | La Liga (ID 2014) | football-data.org API. Premier League is accepted by the CLI but not yet mapped for this provider. |
+| **apifootball**  | Championship (league ID 153) | apiv3.apifootball.com API. |
 
 API statuses **FINISHED** and **AWARDED** are both treated as finished and stored.
 
@@ -58,6 +60,8 @@ Environment variables (wired by the root [docker-compose.yaml](../docker-compose
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` | PostgreSQL connection (database name is fixed: `sports_pulse`). |
 | `FOOTBALL_ORG_API_KEY` | Required for the football_org provider. |
 | `FOOTBALL_ORG_API_ENDPOINT` | Optional; override API base URL (e.g. for tests). |
+| `APIFOOTBALL_API_KEY` | Required for the apifootball provider. |
+| `APIFOOTBALL_API_ENDPOINT` | Optional; override API base URL (e.g. for tests). |
 
 ## How to run
 
@@ -70,6 +74,7 @@ All steps are from the **repository root**, using Docker and the root [docker-co
 2. Connect to the container (or run the commands from your host):
    ```bash
    go run ./cmd/provider football_org la_liga
+   go run ./cmd/provider apifootball championship
    go run ./cmd/provider --reconcile
    ```
 
@@ -106,6 +111,7 @@ flowchart LR
 | `internal/config` | Database initialization. |
 | `internal/entity` | Match, Competition, Provider, Team. |
 | `internal/football_org` | football_org provider (fetch, save, mappings). |
+| `internal/apifootball` | apifootball provider (fetch, save, mappings). |
 | `internal/repository` | Match, SyncState, Reconciliation. |
 | `internal/service` | Sync and Reconcile logic. |
 | `testutil` | Test helpers (DB, HTTP server). |
