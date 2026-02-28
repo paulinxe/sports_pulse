@@ -67,7 +67,7 @@ func (b *ServerBuilder) Build() *ServerWithRequestCapture {
 
 	_ = os.Setenv("FOOTBALL_ORG_API_ENDPOINT", capture.Server.URL)
 	_ = os.Setenv("APIFOOTBALL_API_ENDPOINT", capture.Server.URL+"/")
-	_ = os.Setenv("APIFOOTBALL_API_KEY", "test-key") // TODO: not sure if this is needed
+	_ = os.Setenv("APIFOOTBALL_API_KEY", "test-key")
 
 	return capture
 }
