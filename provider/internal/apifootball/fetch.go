@@ -227,7 +227,6 @@ func parseScore(score string) (uint, error) {
 
 	number, err := strconv.ParseUint(score, 10, 32)
 	if err != nil {
-		// TODO: we should log this error
 		return 0, err
 	}
 

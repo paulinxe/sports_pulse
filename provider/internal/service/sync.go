@@ -8,6 +8,7 @@ import (
 	"provider/internal/entity"
 	"provider/internal/football_org"
 	"provider/internal/repository"
+	"provider/internal/save"
 	"strings"
 	"time"
 )
@@ -31,7 +32,6 @@ func (s *SystemClock) Now() time.Time {
 type SyncProvider interface {
 	ValidateCompetition(competition entity.Competition) error
 	FetchMatches(ctx context.Context, competition entity.Competition, from, to time.Time) ([]entity.Match, error)
-	SaveMatches(ctx context.Context, matches []entity.Match)
 	GetProviderEntity() entity.Provider
 }
 
@@ -55,9 +55,9 @@ func Sync(repositories *repository.Repositories, provider string, competition st
 	var syncProvider SyncProvider
 	switch strings.ToLower(provider) {
 	case "football_org":
-		syncProvider = football_org.NewProvider(repositories.Match, repositories.Reconciliation)
+		syncProvider = football_org.NewProvider()
 	case "apifootball":
-		syncProvider = apifootball.NewProvider(repositories.Match, repositories.Reconciliation)
+		syncProvider = apifootball.NewProvider()
 	default:
 		return fmt.Errorf("unknown provider: %s", provider)
 	}
@@ -94,7 +94,8 @@ func Sync(repositories *repository.Repositories, provider string, competition st
 		return fmt.Errorf("failed to filter stale matches: %w", err)
 	}
 
-	syncProvider.SaveMatches(ctx, filteredMatches)
+	saver := save.NewSaver(repositories.Match, repositories.Reconciliation)
+	saver.SaveMatches(ctx, filteredMatches, syncProvider.GetProviderEntity())
 
 	var nextSyncDate time.Time
 	if hasInProgressMatches(filteredMatches) {

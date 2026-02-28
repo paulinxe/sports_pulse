@@ -114,9 +114,9 @@ func Reconcile(repositories *repository.Repositories) error {
 func getProviderForReconcile(provider entity.Provider, repositories *repository.Repositories) (ReconcileProvider, error) {
 	switch provider {
 	case entity.FootballOrg:
-		return football_org.NewProvider(repositories.Match, repositories.Reconciliation), nil
+		return football_org.NewProvider(), nil
 	case entity.APIFootball:
-		return apifootball.NewProvider(repositories.Match, repositories.Reconciliation), nil
+		return apifootball.NewProvider(), nil
 	default:
 		return nil, fmt.Errorf("unknown provider: %v", provider)
 	}

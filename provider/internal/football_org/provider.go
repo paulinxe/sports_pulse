@@ -4,19 +4,16 @@ import (
 	"fmt"
 	"os"
 	"provider/internal/entity"
-	"provider/internal/repository"
 
 	"github.com/paulinxe/go-football-data"
 )
 
 // Provider implements sync.SyncProvider for the football_org data source.
 type Provider struct {
-	matchRepository          *repository.MatchRepository
-	reconciliationRepository *repository.ReconciliationRepository
-	client                   *football_data.Client // TODO: we will need to abstract this so other providers can use other clients
+	client *football_data.Client
 }
 
-func NewProvider(matchRepo *repository.MatchRepository, reconciliationRepo *repository.ReconciliationRepository) *Provider {
+func NewProvider() *Provider {
 	opts := []football_data.Option[football_data.Client]{}
 	if customEndpoint := os.Getenv("FOOTBALL_ORG_API_ENDPOINT"); customEndpoint != "" {
 		// Mainly used for testing but could be useful if we need to use a different endpoint for some reason.
@@ -24,9 +21,7 @@ func NewProvider(matchRepo *repository.MatchRepository, reconciliationRepo *repo
 	}
 
 	return &Provider{
-		matchRepository:          matchRepo,
-		reconciliationRepository: reconciliationRepo,
-		client:                   football_data.New(os.Getenv("FOOTBALL_ORG_API_KEY"), opts...),
+		client: football_data.New(os.Getenv("FOOTBALL_ORG_API_KEY"), opts...),
 	}
 }
 
