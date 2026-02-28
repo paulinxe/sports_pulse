@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log/slog"
 	"os"
 	"provider/internal/config"
@@ -9,11 +10,29 @@ import (
 	"strings"
 )
 
+func validateAPIKeys() error {
+	var missing []string
+	if os.Getenv("APIFOOTBALL_API_KEY") == "" {
+		missing = append(missing, "APIFOOTBALL_API_KEY")
+	}
+
+	if os.Getenv("FOOTBALL_ORG_API_KEY") == "" {
+		missing = append(missing, "FOOTBALL_ORG_API_KEY")
+	}
+
+	if len(missing) > 0 {
+		return errors.New("missing required environment variable(s): " + strings.Join(missing, ", "))
+	}
+
+	return nil
+}
+
 type ErrorCodes int
 
 const (
 	SUCCESS ErrorCodes = iota
 	BAD_ARGUMENTS
+	CONFIG_ERROR
 	DB_INIT_ERROR
 	PROVIDER_ERROR
 )
@@ -32,6 +51,11 @@ func main() {
 		slog.Error("Example: apifootball championship")
 		slog.Error("Example: --reconcile")
 		os.Exit(int(BAD_ARGUMENTS))
+	}
+
+	if err := validateAPIKeys(); err != nil {
+		slog.Error("Invalid configuration", "error", err)
+		os.Exit(int(CONFIG_ERROR))
 	}
 
 	db, err := config.InitDB()

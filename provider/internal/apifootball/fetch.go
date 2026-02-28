@@ -62,10 +62,6 @@ func (p *Provider) FetchMatches(ctx context.Context, competition entity.Competit
 
 // FetchMatchByID fetches a single event by match_id (get_events with match_id param).
 func (p *Provider) FetchMatchByID(ctx context.Context, providerMatchID string) (*entity.Match, error) {
-	// TODO: api key needs to validated in main.go and not here
-	if p.apiKey == "" {
-		return nil, fmt.Errorf("APIFOOTBALL_API_KEY is not set")
-	}
 	params := url.Values{"match_id": {providerMatchID}}
 	events, err := p.get(ctx, params)
 	if err != nil {
