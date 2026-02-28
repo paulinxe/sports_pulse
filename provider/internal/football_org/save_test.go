@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"provider/internal/entity"
+	"provider/internal/save"
 	"provider/testutil"
 )
 
@@ -15,7 +16,7 @@ func Test_SaveMatches_continues_when_save_fails_but_reconciliation_succeeds(t *t
 	defer testutil.CloseDB(db)
 	logger := testutil.GetLogger()
 
-	provider := NewProvider(repos.Match, repos.Reconciliation)
+	saver := save.NewSaver(repos.Match, repos.Reconciliation)
 	ctx := context.Background()
 
 	// Create a match
@@ -74,7 +75,7 @@ func Test_SaveMatches_continues_when_save_fails_but_reconciliation_succeeds(t *t
 	// Use the same ID to cause primary key violation
 	match2.ID = match.ID
 
-	provider.SaveMatches(ctx, []entity.Match{*match2})
+	saver.SaveMatches(ctx, []entity.Match{*match2}, entity.FootballOrg)
 
 	if !testutil.ReconciliationEntryExists(t, db, "test_match_123", int(entity.FootballOrg)) {
 		t.Errorf("Expected match to be in reconciliation queue, but it is not")

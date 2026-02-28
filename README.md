@@ -37,7 +37,6 @@ Contract addresses from the Sepolia deployment:
 
 Post-MVP improvements:
 
-- Add a second provider
 - Accept more than 1 result on chain for the same match (N of M agreement)
 - Target multiple chains
 - Deploy off-chain services to the cloud
