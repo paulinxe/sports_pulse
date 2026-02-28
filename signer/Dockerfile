@@ -15,8 +15,9 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 RUN echo 'export PATH="/usr/local/go/bin:$PATH"' > /etc/profile.d/go.sh && \
     chmod +x /etc/profile.d/go.sh
 
-# Install golangci-lint
-RUN wget -O- -nv https://golangci-lint.run/install.sh | sh -s -- -b /usr/local/bin v2.8.0
+# Install golangci-lint with same Go as image (so version matches go.mod)
+ENV PATH="/go/bin:${PATH}"
+RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 
 WORKDIR /app
 
@@ -34,6 +35,10 @@ RUN addgroup -g ${GID} appgroup && \
     adduser -u ${UID} -G appgroup -D -g "" appuser
 
 RUN chown appuser:appgroup /app
+
+# Ensure appuser can write to .cache (golangci-lint/goimports, gopls, etc.)
+RUN mkdir -p /home/appuser/.cache && chown -R appuser:appgroup /home/appuser
+
 ENV GOCACHE=/home/appuser/.cache/go-cache
 
 ### Development only
