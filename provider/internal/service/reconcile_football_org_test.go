@@ -15,13 +15,13 @@ import (
 	"github.com/google/uuid"
 )
 
-//go:embed test_data/matches/unknown_competition.json
+//go:embed test_data/football_org/matches/unknown_competition.json
 var unknownCompetitionResponse string
 
-//go:embed test_data/matches/not_finished_match.json
+//go:embed test_data/football_org/matches/not_finished_match.json
 var notFinishedMatchResponse string
 
-//go:embed test_data/matches/finished_match.json
+//go:embed test_data/football_org/matches/finished_match.json
 var finishedMatchResponse string
 
 func Test_we_log_a_warning_and_increment_tries_when_match_is_not_found(t *testing.T) {

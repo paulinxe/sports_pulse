@@ -11,28 +11,28 @@ import (
 	"time"
 )
 
-//go:embed test_data/competition_matches/valid_response.json
+//go:embed test_data/football_org/competition_matches/valid_response.json
 var successResponse string
 
-//go:embed test_data/competition_matches/home_team_not_mapped.json
+//go:embed test_data/football_org/competition_matches/home_team_not_mapped.json
 var homeTeamNotMappedResponse string
 
-//go:embed test_data/competition_matches/away_team_not_mapped.json
+//go:embed test_data/football_org/competition_matches/away_team_not_mapped.json
 var awayTeamNotMappedResponse string
 
-//go:embed test_data/competition_matches/invalid_match_date.json
+//go:embed test_data/football_org/competition_matches/invalid_match_date.json
 var invalidMatchDateResponse string
 
-//go:embed test_data/competition_matches/finished_match.json
+//go:embed test_data/football_org/competition_matches/finished_match.json
 var finishedMatchCompetitionResponse string
 
-//go:embed test_data/competition_matches/awarded_match.json
+//go:embed test_data/football_org/competition_matches/awarded_match.json
 var awardedMatchCompetitionResponse string
 
-//go:embed test_data/competition_matches/stale_and_finished_matches.json
+//go:embed test_data/football_org/competition_matches/stale_and_finished_matches.json
 var staleAndFinishedMatchesResponse string
 
-//go:embed test_data/competition_matches/stale_pending_match.json
+//go:embed test_data/football_org/competition_matches/stale_pending_match.json
 var stalePendingMatchResponse string
 
 type mockClock struct {

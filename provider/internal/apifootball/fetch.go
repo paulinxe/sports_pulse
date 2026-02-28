@@ -13,7 +13,6 @@ import (
 	"time"
 )
 
-// TODO: most probably we need the required flag and validation.
 type apifootballEvent struct {
 	MatchID            string `json:"match_id"`
 	LeagueID           string `json:"league_id"`
@@ -119,45 +118,51 @@ func (p *Provider) get(ctx context.Context, params url.Values) ([]apifootballEve
 
 	var events []apifootballEvent
 	if err := json.NewDecoder(resp.Body).Decode(&events); err != nil {
-		// TODO: most probably here we need to run validation so we assert the expected data is set
 		return nil, fmt.Errorf("decode get_events response: %w", err)
 	}
 
 	return events, nil
 }
 
-func eventToEntityMatch(ev apifootballEvent, competition entity.Competition) (*entity.Match, error) {
-	homeTeam, ok := APIFootballTeamMapping[ev.MatchHometeamID]
+func eventToEntityMatch(match apifootballEvent, competition entity.Competition) (*entity.Match, error) {
+	if match.MatchHometeamID == "" || match.MatchAwayteamID == "" || match.MatchID == "" {
+		return nil, fmt.Errorf("missing home or away team ID or match ID")
+	}
+	
+	homeTeam, ok := APIFootballTeamMapping[match.MatchHometeamID]
 	if !ok {
-		return nil, fmt.Errorf("unmapped home team ID %s", ev.MatchHometeamID)
+		return nil, fmt.Errorf("unmapped home team ID %s", match.MatchHometeamID)
 	}
 
-	awayTeam, ok := APIFootballTeamMapping[ev.MatchAwayteamID]
+	awayTeam, ok := APIFootballTeamMapping[match.MatchAwayteamID]
 	if !ok {
-		return nil, fmt.Errorf("unmapped away team ID %s", ev.MatchAwayteamID)
+		return nil, fmt.Errorf("unmapped away team ID %s", match.MatchAwayteamID)
 	}
 
-	start, err := parseMatchStartUTC(ev.MatchDate, ev.MatchTime)
+	start, err := parseMatchStartUTC(match.MatchDate, match.MatchTime)
 	if err != nil {
 		return nil, fmt.Errorf("parse match_date/time: %w", err)
 	}
 
-	status := mapMatchStatus(ev.MatchStatus)
-
-	homeScore, err := parseScore(ev.MatchHometeamScore)
-	if err != nil {
-		return nil, fmt.Errorf("parse home score %q: %w", ev.MatchHometeamScore, err)
+	status := mapMatchStatus(match.MatchStatus)
+	if status == entity.Finished && (match.MatchHometeamScore == "" || match.MatchAwayteamScore == "") {
+		return nil, fmt.Errorf("missing home or away team score for finished match")
 	}
 
-	awayScore, err := parseScore(ev.MatchAwayteamScore)
+	homeScore, err := parseScore(match.MatchHometeamScore)
 	if err != nil {
-		return nil, fmt.Errorf("parse away score %q: %w", ev.MatchAwayteamScore, err)
+		return nil, fmt.Errorf("parse home score %q: %w", match.MatchHometeamScore, err)
+	}
+
+	awayScore, err := parseScore(match.MatchAwayteamScore)
+	if err != nil {
+		return nil, fmt.Errorf("parse away score %q: %w", match.MatchAwayteamScore, err)
 	}
 
 	return entity.NewMatch(
 		*start,
 		entity.APIFootball,
-		ev.MatchID,
+		match.MatchID,
 		homeTeam,
 		awayTeam,
 		homeScore,
