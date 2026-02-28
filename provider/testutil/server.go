@@ -65,8 +65,9 @@ func (b *ServerBuilder) Build() *ServerWithRequestCapture {
 		_, _ = w.Write([]byte(b.responseBody))
 	}))
 
-	// Set up environment variable to point to mock server
 	_ = os.Setenv("FOOTBALL_ORG_API_ENDPOINT", capture.Server.URL)
+	_ = os.Setenv("APIFOOTBALL_API_ENDPOINT", capture.Server.URL+"/")
+	_ = os.Setenv("APIFOOTBALL_API_KEY", "test-key") // TODO: not sure if this is needed
 
 	return capture
 }

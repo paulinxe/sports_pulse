@@ -29,6 +29,7 @@ func main() {
 	if len(args) == 0 {
 		slog.Error("Usage: <provider> <competition>  OR  --reconcile")
 		slog.Error("Example: football_org la_liga")
+		slog.Error("Example: apifootball championship")
 		slog.Error("Example: --reconcile")
 		os.Exit(int(BAD_ARGUMENTS))
 	}
@@ -65,6 +66,7 @@ func main() {
 	if len(args) != 2 {
 		slog.Error("Usage: <provider> <competition>")
 		slog.Error("Example: football_org la_liga")
+		slog.Error("Example: apifootball championship")
 		os.Exit(int(BAD_ARGUMENTS))
 	}
 

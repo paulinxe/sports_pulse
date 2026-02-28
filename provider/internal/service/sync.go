@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"provider/internal/apifootball"
 	"provider/internal/entity"
 	"provider/internal/football_org"
 	"provider/internal/repository"
@@ -44,6 +45,8 @@ func Sync(repositories *repository.Repositories, provider string, competition st
 		competitionEntity = entity.LaLiga
 	case "premier_league":
 		competitionEntity = entity.PremierLeague
+	case "championship":
+		competitionEntity = entity.Championship
 	default:
 		return fmt.Errorf("unknown competition: %s", competition)
 	}
@@ -53,6 +56,8 @@ func Sync(repositories *repository.Repositories, provider string, competition st
 	switch strings.ToLower(provider) {
 	case "football_org":
 		syncProvider = football_org.NewProvider(repositories.Match, repositories.Reconciliation)
+	case "apifootball":
+		syncProvider = apifootball.NewProvider(repositories.Match, repositories.Reconciliation)
 	default:
 		return fmt.Errorf("unknown provider: %s", provider)
 	}
