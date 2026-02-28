@@ -15,9 +15,11 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 RUN echo 'export PATH="/usr/local/go/bin:$PATH"' > /etc/profile.d/go.sh && \
     chmod +x /etc/profile.d/go.sh
 
-# Install golangci-lint with same Go as image (so version matches go.mod)
+# Install golangci-lint with same Go as image (so version matches go.mod).
+# Install to /usr/local/bin so it's found in devcontainer terminals (they often use a minimal PATH without /go/bin).
 ENV PATH="/go/bin:${PATH}"
-RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest && \
+    cp /go/bin/golangci-lint /usr/local/bin/
 
 WORKDIR /app
 
