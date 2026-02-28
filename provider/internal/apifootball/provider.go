@@ -26,12 +26,6 @@ func NewProvider(matchRepo *repository.MatchRepository, reconciliationRepo *repo
 		baseURL = defaultBaseURL
 	}
 
-	// Ensure trailing slash for building URLs
-	// TODO: not sure if we need this
-	if baseURL != "" && baseURL[len(baseURL)-1] != '/' {
-		baseURL += "/"
-	}
-
 	return &Provider{
 		client:                   &http.Client{},
 		baseURL:                  baseURL,
