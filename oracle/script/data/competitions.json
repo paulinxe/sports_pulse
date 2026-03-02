@@ -1,6 +1,10 @@
 {
-  "competitions": [
-    "LaLiga"
-  ]
+    "competitions": [
+        "LaLiga",
+        "PremierLeague",
+        "Championship",
+        "Bundesliga",
+        "Ligue1",
+        "SerieA"
+    ]
 }
-

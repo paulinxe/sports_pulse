@@ -25,6 +25,27 @@ const (
 	Sevilla
 	Valencia
 	Villarreal
+	// Premier League
+	AstonVilla
+	Arsenal
+	Bournemouth
+	Brentford
+	Brighton
+	Burnley
+	Chelsea
+	CrystalPalace
+	Everton
+	Fulham
+	Leeds
+	Liverpool
+	ManchesterCity
+	ManchesterUnited
+	Newcastle
+	NotthingamForest
+	Sunderland
+	Tottenham
+	WestHam
+	Wolves
 	// Championship
 	Birmingham
 	Blackburn

@@ -61,7 +61,7 @@ func Test_apifootball_we_skip_the_match_if_home_team_is_not_mapped(t *testing.T)
 	testutil.AssertMessageGotLogged(t, logger, "unmapped home team ID 9999")
 
 	// We still make sure we can save valid matches
-	if !testutil.MatchExists(t, db, "bd363626a0baca996e06ae5cf3853db238512ea2cb528b437f3902d700717973") {
+	if !testutil.MatchExists(t, db, "1a9dccd8fa8ed283363f18886e457fe3ba1f2f756f11ab502cb4c67961da16ec") {
 		t.Errorf("Swansea - Bristol City match should exist, but it does not")
 	}
 }
@@ -81,7 +81,7 @@ func Test_apifootball_we_skip_the_match_if_away_team_is_not_mapped(t *testing.T)
 	testutil.AssertMessageGotLogged(t, logger, "unmapped away team ID 9999")
 
 	// We still make sure we can save valid matches
-	if !testutil.MatchExists(t, db, "bd363626a0baca996e06ae5cf3853db238512ea2cb528b437f3902d700717973") {
+	if !testutil.MatchExists(t, db, "1a9dccd8fa8ed283363f18886e457fe3ba1f2f756f11ab502cb4c67961da16ec") {
 		t.Errorf("Swansea - Bristol City match should exist, but it does not")
 	}
 }
