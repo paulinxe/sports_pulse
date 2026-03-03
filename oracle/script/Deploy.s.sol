@@ -26,16 +26,11 @@ contract Deploy is Script {
     /// @notice Split in this way so we can test this script without environment issues
     function deploy(
         uint256 deployerPrivateKey,
-        address authorizedSigner,
         address contractsOwner
     ) public virtual {
-        // Security validations
-        require(authorizedSigner != address(0), "AUTHORIZED_SIGNER_ADDRESS cannot be zero");
         require(contractsOwner != address(0), "CONTRACTS_OWNER_ADDRESS cannot be zero");
-        require(authorizedSigner != contractsOwner, "AUTHORIZED_SIGNER_ADDRESS and CONTRACTS_OWNER_ADDRESS must be distinct");
 
         address deployer = vm.addr(deployerPrivateKey);
-        require(deployer != authorizedSigner, "Deployer and AUTHORIZED_SIGNER_ADDRESS must be distinct");
         require(deployer != contractsOwner, "Deployer and CONTRACTS_OWNER_ADDRESS must be distinct");
 
         vm.startBroadcast(deployerPrivateKey);
@@ -60,13 +55,8 @@ contract Deploy is Script {
 
         // Step 3: Deploy MatchRegistry (depends on the above two)
         console.log("Deploying MatchRegistry...");
-        matchRegistry = new MatchRegistry(
-            authorizedSigner,
-            competitionRegistry,
-            teamRegistry
-        );
+        matchRegistry = new MatchRegistry(competitionRegistry, teamRegistry);
         console.log("MatchRegistry deployed at:", address(matchRegistry));
-        console.log("Authorized signer:", authorizedSigner);
         matchRegistry.transferOwnership(contractsOwner);
         console.log("MatchRegistry ownership transferred to:", contractsOwner);
 
@@ -77,7 +67,6 @@ contract Deploy is Script {
         console.log("CompetitionRegistry:", address(competitionRegistry));
         console.log("TeamRegistry:", address(teamRegistry));
         console.log("MatchRegistry:", address(matchRegistry));
-        console.log("Authorized Signer:", authorizedSigner);
         console.log("Contracts Owner:", contractsOwner);
     }
 
@@ -85,10 +74,9 @@ contract Deploy is Script {
     /// @dev This is the entry point for Makefile usage
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
-        address authorizedSigner = vm.envAddress("AUTHORIZED_SIGNER_ADDRESS");
         address contractsOwner = vm.envAddress("CONTRACTS_OWNER_ADDRESS");
 
-        deploy(deployerPrivateKey, authorizedSigner, contractsOwner);
+        deploy(deployerPrivateKey, contractsOwner);
     }
 
     function loadCompetitions() internal view returns (string[] memory) {

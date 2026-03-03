@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.30;
 
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {Test} from "forge-std/Test.sol";
 import {MatchRegistry} from "../src/MatchRegistry.sol";
 import {CompetitionRegistry} from "../src/CompetitionRegistry.sol";
@@ -9,182 +8,297 @@ import {TeamRegistry} from "../src/TeamRegistry.sol";
 
 contract MatchRegistryTest is Test {
     MatchRegistry public matchRegistry;
+    CompetitionRegistry public competitionRegistry;
+    TeamRegistry public teamRegistry;
 
-    uint32 constant COMPETITION_ID = 1;
-    uint32 constant HOME_TEAM_ID = 1;
-    uint32 constant AWAY_TEAM_ID = 2;
+    uint8 constant COMPETITION_ID = 1;
+    uint16 constant HOME_TEAM_ID = 1;
+    uint16 constant AWAY_TEAM_ID = 2;
+    uint16 constant SEASON_YEAR = 2025;
+    uint8 constant JOURNEY = 1;
 
     function setUp() public {
         string[] memory competitionNames = new string[](1);
-        competitionNames[COMPETITION_ID - 1] = "LaLiga";
-        CompetitionRegistry competitionRegistry = new CompetitionRegistry(competitionNames);
+        competitionNames[0] = "Liga AUF Uruguay";
+        competitionRegistry = new CompetitionRegistry(competitionNames);
 
         string[] memory teamNames = new string[](2);
-        teamNames[HOME_TEAM_ID - 1] = "Nacional";
-        teamNames[AWAY_TEAM_ID - 1] = "Basanez";
-        TeamRegistry teamRegistry = new TeamRegistry(teamNames);
+        teamNames[0] = "Nacional";
+        teamNames[1] = "Rampla Juniors";
+        teamRegistry = new TeamRegistry(teamNames);
 
-        address verifiedSigner = 0xCC0724CDc18DaE6B469b8e8B533fCd4dBE32FB46;
-        matchRegistry = new MatchRegistry(verifiedSigner, competitionRegistry, teamRegistry);
+        matchRegistry = new MatchRegistry(competitionRegistry, teamRegistry);
     }
 
-    function test_tx_reverts_when_invalid_authorized_signer() public {
-        string[] memory competitionNames = new string[](1);
-        competitionNames[0] = "League";
-        CompetitionRegistry competitionRegistry = new CompetitionRegistry(competitionNames);
+    function test_registerBatch_reverts_when_batch_too_big() public {
+        uint256 tooMany = matchRegistry.MAX_BATCH_SIZE() + 1;
+        MatchRegistry.MatchInput[] memory inputs = new MatchRegistry.MatchInput[](tooMany);
+        for (uint256 i = 0; i < tooMany; i++) {
+            inputs[i] = MatchRegistry.MatchInput({
+                competitionId: COMPETITION_ID,
+                seasonStartYear: SEASON_YEAR,
+                journeyNumber: uint8(i + 1),
+                homeTeamId: HOME_TEAM_ID,
+                awayTeamId: AWAY_TEAM_ID
+            });
+        }
 
-        string[] memory teamNames = new string[](1);
-        teamNames[0] = "Team1";
-        TeamRegistry teamRegistry = new TeamRegistry(teamNames);
-
-        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.InvalidAuthorizedSigner.selector));
-        new MatchRegistry(address(0), competitionRegistry, teamRegistry);
+        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.BatchTooLarge.selector, tooMany));
+        matchRegistry.registerBatch(inputs);
     }
 
-    function test_submit_reverts_when_invalid_teams() public {
+    function test_registerBatch_reverts_when_same_home_and_away_team() public {
+        MatchRegistry.MatchInput[] memory inputs = new MatchRegistry.MatchInput[](1);
+        inputs[0] = MatchRegistry.MatchInput({
+            competitionId: COMPETITION_ID,
+            seasonStartYear: SEASON_YEAR,
+            journeyNumber: JOURNEY,
+            homeTeamId: HOME_TEAM_ID,
+            awayTeamId: HOME_TEAM_ID
+        });
+
         vm.expectRevert(abi.encodeWithSelector(MatchRegistry.InvalidTeams.selector, HOME_TEAM_ID, HOME_TEAM_ID));
-        matchRegistry.submitMatch(bytes32(0), COMPETITION_ID, HOME_TEAM_ID, HOME_TEAM_ID, 1, 1, 1, "");
+        matchRegistry.registerBatch(inputs);
     }
 
-    function test_submit_reverts_when_invalid_match_id() public {
-        bytes32 matchId = keccak256(abi.encodePacked("invalid_match_id"));
-        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.InvalidMatchId.selector, matchId));
-        matchRegistry.submitMatch(matchId, COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, 1, 1, 1, "");
-    }
-
-    function testFuzz_submit_reverts_when_invalid_match_date(uint32 matchDate) public {
-        vm.assume(matchDate < 20100101 || matchDate > 21001231);
-        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.InvalidMatchDate.selector, matchDate));
-        matchRegistry.submitMatch(generateMatchId(matchDate), COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, 1, 1, matchDate, "");
-    }
-
-    function test_submit_reverts_when_competition_does_not_exist() public {
-        uint32 invalidCompetitionId = 999;
-        uint32 matchDate = 20250101;
+    function test_registerBatch_reverts_when_invalid_competition() public {
+        uint8 invalidCompetitionId = 200;
+        MatchRegistry.MatchInput[] memory inputs = new MatchRegistry.MatchInput[](1);
+        inputs[0] = MatchRegistry.MatchInput({
+            competitionId: invalidCompetitionId,
+            seasonStartYear: SEASON_YEAR,
+            journeyNumber: JOURNEY,
+            homeTeamId: HOME_TEAM_ID,
+            awayTeamId: AWAY_TEAM_ID
+        });
 
         vm.expectRevert(abi.encodeWithSelector(MatchRegistry.InvalidCompetitionId.selector, invalidCompetitionId));
-
-        matchRegistry.submitMatch(generateMatchId(matchDate, invalidCompetitionId), invalidCompetitionId, HOME_TEAM_ID, AWAY_TEAM_ID, 1, 1, matchDate, "");
+        matchRegistry.registerBatch(inputs);
     }
 
-    function test_submit_reverts_when_home_team_does_not_exist() public {
-        uint32 invalidHomeTeamId = 999;
-        uint32 matchDate = 20250101;
+    function test_registerBatch_reverts_when_invalid_home_team() public {
+        uint16 invalidHomeTeamId = 999;
+        MatchRegistry.MatchInput[] memory inputs = new MatchRegistry.MatchInput[](1);
+        inputs[0] = MatchRegistry.MatchInput({
+            competitionId: COMPETITION_ID,
+            seasonStartYear: SEASON_YEAR,
+            journeyNumber: JOURNEY,
+            homeTeamId: invalidHomeTeamId,
+            awayTeamId: AWAY_TEAM_ID
+        });
 
         vm.expectRevert(abi.encodeWithSelector(MatchRegistry.InvalidHomeTeamId.selector, invalidHomeTeamId));
-
-        matchRegistry.submitMatch(generateMatchId(matchDate, invalidHomeTeamId, AWAY_TEAM_ID), COMPETITION_ID, invalidHomeTeamId, AWAY_TEAM_ID, 1, 1, matchDate, "");
+        matchRegistry.registerBatch(inputs);
     }
 
-    function test_submit_reverts_when_away_team_does_not_exist() public {
-        uint32 invalidAwayTeamId = 999;
-        uint32 matchDate = 20250101;
+    function test_registerBatch_reverts_when_invalid_away_team() public {
+        uint16 invalidAwayTeamId = 999;
+        MatchRegistry.MatchInput[] memory inputs = new MatchRegistry.MatchInput[](1);
+        inputs[0] = MatchRegistry.MatchInput({
+            competitionId: COMPETITION_ID,
+            seasonStartYear: SEASON_YEAR,
+            journeyNumber: JOURNEY,
+            homeTeamId: HOME_TEAM_ID,
+            awayTeamId: invalidAwayTeamId
+        });
 
         vm.expectRevert(abi.encodeWithSelector(MatchRegistry.InvalidAwayTeamId.selector, invalidAwayTeamId));
-
-        matchRegistry.submitMatch(generateMatchId(matchDate, HOME_TEAM_ID, invalidAwayTeamId), COMPETITION_ID, HOME_TEAM_ID, invalidAwayTeamId, 1, 1, matchDate, "");
+        matchRegistry.registerBatch(inputs);
     }
 
-    function testFuzz_submit_reverts_when_scores_are_higher_than_80(uint8 homeTeamScore, uint8 awayTeamScore) public {
-        vm.assume(homeTeamScore > 80 || awayTeamScore > 80);
-        uint32 matchDate = 20250101;
+    function test_registerBatch_reverts_when_match_already_registered() public {
+        MatchRegistry.MatchInput[] memory inputs = new MatchRegistry.MatchInput[](1);
+        inputs[0] = MatchRegistry.MatchInput({
+            competitionId: COMPETITION_ID,
+            seasonStartYear: SEASON_YEAR,
+            journeyNumber: JOURNEY,
+            homeTeamId: HOME_TEAM_ID,
+            awayTeamId: AWAY_TEAM_ID
+        });
 
-        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.InvalidScores.selector, homeTeamScore, awayTeamScore));
+        matchRegistry.registerBatch(inputs);
 
-        matchRegistry.submitMatch(generateMatchId(matchDate), COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, homeTeamScore, awayTeamScore, matchDate, "");
+        bytes32 expectedMatchId = _computeMatchId(COMPETITION_ID, SEASON_YEAR, JOURNEY, HOME_TEAM_ID, AWAY_TEAM_ID);
+        vm.expectRevert(
+            abi.encodeWithSelector(MatchRegistry.MatchAlreadyRegistered.selector, expectedMatchId)
+        );
+        matchRegistry.registerBatch(inputs);
     }
 
-    function test_submit_reverts_when_signature_is_invalid() public {
-        bytes memory signature = hex"c3dc2b81e3d1f01eb29edd0684cdf9acbd0fa0486dbb11621659507d8d4e5b9c59f3ff5d9b753a776802cde1bfd5a9d041df82e93a9f7efa3880d9015c44552801";
-        uint32 matchDate = 20250101;
+    function test_registerBatch_reverts_entire_batch_when_second_invalid() public {
+        MatchRegistry.MatchInput[] memory inputs = new MatchRegistry.MatchInput[](2);
+        inputs[0] = MatchRegistry.MatchInput({
+            competitionId: COMPETITION_ID,
+            seasonStartYear: SEASON_YEAR,
+            journeyNumber: 1,
+            homeTeamId: HOME_TEAM_ID,
+            awayTeamId: AWAY_TEAM_ID
+        });
+        inputs[1] = MatchRegistry.MatchInput({
+            competitionId: 200,
+            seasonStartYear: SEASON_YEAR,
+            journeyNumber: 2,
+            homeTeamId: HOME_TEAM_ID,
+            awayTeamId: AWAY_TEAM_ID
+        });
 
-        vm.expectRevert(abi.encodeWithSelector(ECDSA.ECDSAInvalidSignature.selector));
+        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.InvalidCompetitionId.selector, uint8(200)));
+        matchRegistry.registerBatch(inputs);
 
-        matchRegistry.submitMatch(generateMatchId(matchDate), COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, 1, 1, matchDate, signature);
+        bytes32 firstMatchId = _computeMatchId(COMPETITION_ID, SEASON_YEAR, 1, HOME_TEAM_ID, AWAY_TEAM_ID);
+        assertFalse(matchRegistry.registeredMatches(firstMatchId));
     }
 
-    function test_submit_reverts_when_signature_format_is_valid_but_signer_is_not_allowed() public {
-        bytes memory signature = hex"cea04c025cd2c580f76d1eb92199e900ee82fe12d3a23979e25d455bfbeb275f5ca198283f8bda7f6679c2a3847d6da34c47303f2830a08d6016199b9584478e1c";
-        uint32 matchDate = 20251219;
-        uint8 homeTeamScore = 1;
-        uint8 awayTeamScore = 2;
+    function test_registerBatch_reverts_when_duplicate_in_same_batch() public {
+        MatchRegistry.MatchInput[] memory inputs = new MatchRegistry.MatchInput[](2);
+        inputs[0] = MatchRegistry.MatchInput({
+            competitionId: COMPETITION_ID,
+            seasonStartYear: SEASON_YEAR,
+            journeyNumber: JOURNEY,
+            homeTeamId: HOME_TEAM_ID,
+            awayTeamId: AWAY_TEAM_ID
+        });
+        inputs[1] = MatchRegistry.MatchInput({
+            competitionId: COMPETITION_ID,
+            seasonStartYear: SEASON_YEAR,
+            journeyNumber: JOURNEY,
+            homeTeamId: HOME_TEAM_ID,
+            awayTeamId: AWAY_TEAM_ID
+        });
 
-        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.InvalidSignature.selector, signature));
-
-        matchRegistry.submitMatch(generateMatchId(matchDate), COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, homeTeamScore, awayTeamScore, matchDate, signature);
+        bytes32 expectedMatchId = _computeMatchId(COMPETITION_ID, SEASON_YEAR, JOURNEY, HOME_TEAM_ID, AWAY_TEAM_ID);
+        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.MatchAlreadyRegistered.selector, expectedMatchId));
+        matchRegistry.registerBatch(inputs);
     }
 
-    function test_we_store_the_match() public {
-        // The given signature comes from the Signer go test: Test_we_sign_a_match
-        bytes memory signature = hex"4f0fa54d6dd9629d5f1d6b0f17236f4f9f009b72be6e77bdc56a4d0d891c0c076f6c36472f7b667d5f63895424a19a19bc56f264e49699c58bb07ec0868440081c";
-        uint32 matchDate = 20251219;
-        bytes32 matchId = generateMatchId(matchDate);
-        uint8 homeTeamScore = 1;
-        uint8 awayTeamScore = 2;
-        
+    function test_only_owner_can_registerBatch() public {
+        MatchRegistry.MatchInput[] memory inputs = new MatchRegistry.MatchInput[](1);
+        inputs[0] = MatchRegistry.MatchInput({
+            competitionId: COMPETITION_ID,
+            seasonStartYear: SEASON_YEAR,
+            journeyNumber: JOURNEY,
+            homeTeamId: HOME_TEAM_ID,
+            awayTeamId: AWAY_TEAM_ID
+        });
+
+        vm.prank(makeAddr("stranger"));
+        vm.expectRevert();
+        matchRegistry.registerBatch(inputs);
+    }
+
+    function test_registerBatch_single_match_success() public {
+        MatchRegistry.MatchInput[] memory inputs = new MatchRegistry.MatchInput[](1);
+        inputs[0] = MatchRegistry.MatchInput({
+            competitionId: COMPETITION_ID,
+            seasonStartYear: SEASON_YEAR,
+            journeyNumber: JOURNEY,
+            homeTeamId: HOME_TEAM_ID,
+            awayTeamId: AWAY_TEAM_ID
+        });
+
+        bytes32 expectedMatchId = _computeMatchId(COMPETITION_ID, SEASON_YEAR, JOURNEY, HOME_TEAM_ID, AWAY_TEAM_ID);
+
         vm.expectEmit(true, true, true, true);
-        emit MatchRegistry.MatchRegistered(matchId, homeTeamScore, awayTeamScore);
-        
-        matchRegistry.submitMatch(matchId, COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, homeTeamScore, awayTeamScore, matchDate, signature);
+        emit MatchRegistry.MatchRegistered(expectedMatchId);
 
-        (bytes32 storedMatchId, uint8 storedHomeTeamScore, uint8 storedAwayTeamScore) = matchRegistry.matches(matchId);
-        assertEq(storedMatchId, matchId);
-        assertEq(storedHomeTeamScore, homeTeamScore);
-        assertEq(storedAwayTeamScore, awayTeamScore);
+        matchRegistry.registerBatch(inputs);
 
-        // Test the helper function as well
-        MatchRegistry.Match memory storedMatch = matchRegistry.getMatch(COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, matchDate);
-        assertEq(storedMatch.matchId, matchId);
-        assertEq(storedMatch.homeTeamScore, homeTeamScore);
-        assertEq(storedMatch.awayTeamScore, awayTeamScore);
+        assertTrue(matchRegistry.registeredMatches(expectedMatchId));
     }
 
-    function test_submit_reverts_when_match_already_submitted() public {
-        // The given signature comes from the Signer go test: Test_we_sign_a_match
-        bytes memory signature = hex"4f0fa54d6dd9629d5f1d6b0f17236f4f9f009b72be6e77bdc56a4d0d891c0c076f6c36472f7b667d5f63895424a19a19bc56f264e49699c58bb07ec0868440081c";
-        uint32 matchDate = 20251219;
-        bytes32 matchId = generateMatchId(matchDate);
-        uint8 homeTeamScore = 1;
-        uint8 awayTeamScore = 2;
-        
-        matchRegistry.submitMatch(matchId, COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, homeTeamScore, awayTeamScore, matchDate, signature);
+    function test_registerBatch_emits_MatchRegistered_per_match() public {
+        MatchRegistry.MatchInput[] memory inputs = new MatchRegistry.MatchInput[](3);
+        inputs[0] = MatchRegistry.MatchInput({
+            competitionId: COMPETITION_ID,
+            seasonStartYear: SEASON_YEAR,
+            journeyNumber: 1,
+            homeTeamId: HOME_TEAM_ID,
+            awayTeamId: AWAY_TEAM_ID
+        });
+        inputs[1] = MatchRegistry.MatchInput({
+            competitionId: COMPETITION_ID,
+            seasonStartYear: SEASON_YEAR,
+            journeyNumber: 2,
+            homeTeamId: HOME_TEAM_ID,
+            awayTeamId: AWAY_TEAM_ID
+        });
+        inputs[2] = MatchRegistry.MatchInput({
+            competitionId: COMPETITION_ID,
+            seasonStartYear: SEASON_YEAR,
+            journeyNumber: 3,
+            homeTeamId: HOME_TEAM_ID,
+            awayTeamId: AWAY_TEAM_ID
+        });
 
-        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.MatchAlreadySubmitted.selector, matchId));
-        matchRegistry.submitMatch(matchId, COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, homeTeamScore, awayTeamScore, matchDate, signature);
+        for (uint256 i = 0; i < 3; i++) {
+            vm.expectEmit(true, true, true, true);
+            emit MatchRegistry.MatchRegistered(
+                _computeMatchId(
+                    inputs[i].competitionId,
+                    inputs[i].seasonStartYear,
+                    inputs[i].journeyNumber,
+                    inputs[i].homeTeamId,
+                    inputs[i].awayTeamId
+                )
+            );
+        }
+        matchRegistry.registerBatch(inputs);
+
+        for (uint256 i = 0; i < 3; i++) {
+            assertTrue(
+                matchRegistry.registeredMatches(
+                    _computeMatchId(
+                        inputs[i].competitionId,
+                        inputs[i].seasonStartYear,
+                        inputs[i].journeyNumber,
+                        inputs[i].homeTeamId,
+                        inputs[i].awayTeamId
+                    )
+                )
+            );
+        }
     }
 
-    function test_we_can_rotate_the_signer() public {
-        address newSigner = makeAddr("new_signer");
-        vm.expectEmit(true, true, true, true);
-        emit MatchRegistry.SignerRotated(newSigner);
+    function test_registerBatch_max_50_succeeds() public {
+        uint256 n = matchRegistry.MAX_BATCH_SIZE();
+        MatchRegistry.MatchInput[] memory inputs = new MatchRegistry.MatchInput[](n);
+        for (uint256 i = 0; i < n; i++) {
+            inputs[i] = MatchRegistry.MatchInput({
+                competitionId: COMPETITION_ID,
+                seasonStartYear: SEASON_YEAR,
+                journeyNumber: uint8(i + 1),
+                homeTeamId: HOME_TEAM_ID,
+                awayTeamId: AWAY_TEAM_ID
+            });
+        }
 
-        matchRegistry.rotateSigner(newSigner);
+        matchRegistry.registerBatch(inputs);
 
-        assertEq(matchRegistry.authorizedSigner(), newSigner);
+        for (uint256 i = 0; i < n; i++) {
+            assertTrue(
+                matchRegistry.registeredMatches(
+                    _computeMatchId(
+                        COMPETITION_ID,
+                        SEASON_YEAR,
+                        uint8(i + 1),
+                        HOME_TEAM_ID,
+                        AWAY_TEAM_ID
+                    )
+                )
+            );
+        }
     }
 
-    function test_tx_reverts_when_rotating_to_signer_already_used() public {
-        address newSigner = makeAddr("new_signer");
-        matchRegistry.rotateSigner(newSigner);
-        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.SignerAlreadyUsed.selector, newSigner));
-
-        matchRegistry.rotateSigner(newSigner);
-    }
-
-    function test_tx_reverts_when_rotating_to_zero_address() public {
-        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.InvalidAuthorizedSigner.selector));
-        matchRegistry.rotateSigner(address(0));
-    }
-
-    function generateMatchId(uint32 matchDate) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked(COMPETITION_ID, HOME_TEAM_ID, AWAY_TEAM_ID, matchDate));
-    }
-
-    function generateMatchId(uint32 matchDate, uint32 competitionId) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked(competitionId, HOME_TEAM_ID, AWAY_TEAM_ID, matchDate));
-    }
-
-    function generateMatchId(uint32 matchDate, uint32 homeTeamId, uint32 awayTeamId) private pure returns (bytes32) {
-        return keccak256(abi.encodePacked(COMPETITION_ID, homeTeamId, awayTeamId, matchDate));
+    /// Same formula as MatchRegistry: keccak256(abi.encodePacked(competitionId, seasonStartYear, journeyNumber, homeTeamId, awayTeamId))
+    function _computeMatchId(
+        uint8 competitionId,
+        uint16 seasonStartYear,
+        uint8 journeyNumber,
+        uint16 homeTeamId,
+        uint16 awayTeamId
+    ) private pure returns (bytes32) {
+        return keccak256(
+            abi.encodePacked(competitionId, seasonStartYear, journeyNumber, homeTeamId, awayTeamId)
+        );
     }
 }

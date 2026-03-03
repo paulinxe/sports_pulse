@@ -10,5 +10,7 @@ sh-relayer:
 sh-postgres:
 	docker compose exec postgres sh
 
+#slither:
+#	docker compose run --rm slither
 slither:
-	docker compose run --rm slither
+	docker run -it -v ./oracle:/share trailofbits/eth-security-toolbox

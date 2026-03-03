@@ -1,155 +1,104 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.30;
 
-import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
-import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {CompetitionRegistry} from "./CompetitionRegistry.sol";
 import {TeamRegistry} from "./TeamRegistry.sol";
 
-contract MatchRegistry is EIP712, Ownable {
-    using ECDSA for bytes32;
+contract MatchRegistry is Ownable {
+    // slither-disable-next-line naming-convention
+    CompetitionRegistry public immutable COMPETITION_REGISTRY;
+    // slither-disable-next-line naming-convention
+    TeamRegistry public immutable TEAM_REGISTRY;
 
-    // The match data.
-    // We don't need the competitionId, homeTeamId, and awayTeamId because we can derive them from the matchId.
-    struct Match {
-        bytes32 matchId;
-        uint8 homeTeamScore;
-        uint8 awayTeamScore;
+    struct MatchInput {
+        uint8 competitionId;
+        uint16 seasonStartYear;
+        uint8 journeyNumber;
+        uint16 homeTeamId;
+        uint16 awayTeamId;
     }
 
-    // The address of the verified signer who signs matches
-    address public authorizedSigner;
-    // We need the address of each Registry so we can query to validate the data
-    CompetitionRegistry public immutable COMPETITION_REGISTRY;
-    TeamRegistry public immutable TEAM_REGISTRY;
-    // We don't allow scores higher than 80
-    uint8 constant MAX_SCORE = 80;
-    bytes32 public constant MATCH_TYPEHASH = keccak256("Match(bytes32 matchId,uint8 homeScore,uint8 awayScore)");
-    mapping(bytes32 => Match) public matches;
-    mapping(address => bool) private signersHistory;
+    uint8 public constant MAX_BATCH_SIZE = 50;
+    mapping(bytes32 => bool) public registeredMatches;
 
-    event MatchRegistered(bytes32 indexed matchId, uint8 homeTeamScore, uint8 awayTeamScore);
-    event SignerRotated(address indexed newSigner);
+    event MatchRegistered(bytes32 indexed matchId);
 
-    error InvalidTeams(uint32 homeTeamId, uint32 awayTeamId);
-    error InvalidMatchId(bytes32 matchId);
-    error InvalidCompetitionId(uint32 competitionId);
-    error InvalidHomeTeamId(uint32 homeTeamId);
-    error InvalidAwayTeamId(uint32 awayTeamId);
-    error InvalidMatchDate(uint32 matchDate);
-    error InvalidScores(uint8 homeTeamScore, uint8 awayTeamScore);
-    error InvalidSignature(bytes signature);
-    error MatchAlreadySubmitted(bytes32 matchId);
-    error InvalidAuthorizedSigner();
-    error SignerAlreadyUsed(address signer);
+    error BatchTooLarge(uint256 length);
+    error InvalidCompetitionId(uint8 competitionId);
+    error InvalidHomeTeamId(uint16 homeTeamId);
+    error InvalidAwayTeamId(uint16 awayTeamId);
+    error InvalidTeams(uint16 homeTeamId, uint16 awayTeamId);
+    error MatchAlreadyRegistered(bytes32 matchId);
 
     constructor(
-        address _authorizedSigner,
         CompetitionRegistry _competitionRegistry,
         TeamRegistry _teamRegistry
-    ) EIP712("SportsPulse", "1") Ownable(msg.sender) {
-        if (_authorizedSigner == address(0)) {
-            revert InvalidAuthorizedSigner();
-        }
-
-        authorizedSigner = _authorizedSigner;
+    ) Ownable(msg.sender) {
         COMPETITION_REGISTRY = _competitionRegistry;
         TEAM_REGISTRY = _teamRegistry;
     }
 
-    function rotateSigner(address newSigner) external onlyOwner {
-        if (newSigner == address(0)) {
-            revert InvalidAuthorizedSigner();
-        }
-
-        if (signersHistory[newSigner]) {
-            revert SignerAlreadyUsed(newSigner);
-        }
-
-        signersHistory[newSigner] = true;
-        authorizedSigner = newSigner;
-        emit SignerRotated(newSigner);
-    }
-
-    // The matchDate must be formatted as YYYYMMDD UTC time
-    function submitMatch(
-        bytes32 matchId,
-        uint32 competitionId,
-        uint32 homeTeamId,
-        uint32 awayTeamId,
-        uint8 homeTeamScore,
-        uint8 awayTeamScore,
-        uint32 matchDate,
-        bytes calldata signature
-    ) external {
-        if (homeTeamId == awayTeamId) {
-            revert InvalidTeams(homeTeamId, awayTeamId);
-        }
-
-        if (keccak256(abi.encodePacked(competitionId, homeTeamId, awayTeamId, matchDate)) != matchId) {
-            revert InvalidMatchId(matchId);
-        }
-
-        if (matchDate < 20100101 || matchDate > 21001231) {
-            // We do care more about the length of the int. Making sure we only accept YYYYMMDD format.
-            revert InvalidMatchDate(matchDate);
-        }
-
-        if (bytes(COMPETITION_REGISTRY.competitions(competitionId)).length == 0) {
-            revert InvalidCompetitionId(competitionId);
-        }
-
-        if (bytes(TEAM_REGISTRY.teams(homeTeamId)).length == 0) {
-            revert InvalidHomeTeamId(homeTeamId);
-        }
-
-        if (bytes(TEAM_REGISTRY.teams(awayTeamId)).length == 0) {
-            revert InvalidAwayTeamId(awayTeamId);
-        }
-
-        if (homeTeamScore > MAX_SCORE || awayTeamScore > MAX_SCORE) {
-            revert InvalidScores(homeTeamScore, awayTeamScore);
-        }
-
-        if (matches[matchId].matchId != bytes32(0)) {
-            revert MatchAlreadySubmitted(matchId);
-        }
-
-        validateSignature(matchId, homeTeamScore, awayTeamScore, signature);
-
-        matches[matchId] = Match({ matchId: matchId, homeTeamScore: homeTeamScore, awayTeamScore: awayTeamScore });
-
-        emit MatchRegistered(matchId, homeTeamScore, awayTeamScore);
-    }
-
     /**
-     * @notice A helper to get a match so the caller avoids calculating the keccak256 hash
+     * @notice Register a batch of matches. Reverts entirely if any match is invalid or duplicate.
+     * @param matches Up to MAX_BATCH_SIZE matches to register.
      */
-    function getMatch(
-        uint32 competitionId,
-        uint32 homeTeamId,
-        uint32 awayTeamId,
-        uint32 matchDate
-    ) external view returns (Match memory) {
-        return matches[keccak256(abi.encodePacked(competitionId, homeTeamId, awayTeamId, matchDate))];
+    function registerBatch(MatchInput[] calldata matches) external onlyOwner {
+        if (matches.length > MAX_BATCH_SIZE) {
+            revert BatchTooLarge(matches.length);
+        }
+
+        // slither-disable-start calls-loop
+        // COMPETITION_REGISTRY and TEAM_REGISTRY are immutable contracts under our control; external calls in loop are intentional.
+        for (uint256 i = 0; i < matches.length; i++) {
+            MatchInput calldata m = matches[i];
+
+            if (m.homeTeamId == m.awayTeamId) {
+                revert InvalidTeams(m.homeTeamId, m.awayTeamId);
+            }
+
+            if (bytes(COMPETITION_REGISTRY.competitions(m.competitionId)).length == 0) {
+                revert InvalidCompetitionId(m.competitionId);
+            }
+
+            if (bytes(TEAM_REGISTRY.teams(m.homeTeamId)).length == 0) {
+                revert InvalidHomeTeamId(m.homeTeamId);
+            }
+
+            if (bytes(TEAM_REGISTRY.teams(m.awayTeamId)).length == 0) {
+                revert InvalidAwayTeamId(m.awayTeamId);
+            }
+
+            // TODO: two teams play twice per season only. We need to check that the match is not already registered for other journeys of the same season.
+
+            bytes32 matchId = _getMatchId(
+                m.competitionId,
+                m.seasonStartYear,
+                m.journeyNumber,
+                m.homeTeamId,
+                m.awayTeamId
+            );
+
+            if (registeredMatches[matchId]) {
+                revert MatchAlreadyRegistered(matchId);
+            }
+
+            registeredMatches[matchId] = true;
+
+            emit MatchRegistered(matchId);
+        }
+        // slither-disable-end calls-loop
     }
 
-    function validateSignature(bytes32 matchId, uint8 homeTeamScore, uint8 awayTeamScore, bytes calldata signature) private view {
-        bytes32 structHash = keccak256(
-            abi.encode(
-                MATCH_TYPEHASH,
-                matchId,
-                homeTeamScore,
-                awayTeamScore
-            )
+    function _getMatchId(
+        uint8 competitionId,
+        uint16 seasonStartYear,
+        uint8 journeyNumber,
+        uint16 homeTeamId,
+        uint16 awayTeamId
+    ) private pure returns (bytes32) {
+        return keccak256(
+            abi.encodePacked(competitionId, seasonStartYear, journeyNumber, homeTeamId, awayTeamId)
         );
-        
-        bytes32 digest = _hashTypedDataV4(structHash);
-        address signer = ECDSA.recoverCalldata(digest, signature);
-
-        if (signer != authorizedSigner) {
-            revert InvalidSignature(signature);
-        }
     }
 }

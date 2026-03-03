@@ -5,13 +5,13 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract CompetitionRegistry is Ownable {
 
-    uint32 public competitionIdCounter;
-    mapping(uint32 => string) public competitions;
-    uint8 private constant MAX_COMPETITIONS_PER_BATCH = 200;
+    uint8 public competitionIdCounter;
+    mapping(uint8 => string) public competitions;
+    uint8 private constant MAX_COMPETITIONS_PER_BATCH = 10;
 
-    event CompetitionAdded(uint32 indexed competitionId, string competitionName);
+    event CompetitionAdded(uint8 indexed competitionId, string competitionName);
 
-    error TooManyCompetitions(uint8 numberOfCompetitions);
+    error TooManyCompetitions(uint256 numberOfCompetitions);
     error InvalidCompetitionName();
 
     constructor(string[] memory competitionNames) Ownable(msg.sender) {
@@ -19,9 +19,9 @@ contract CompetitionRegistry is Ownable {
             revert TooManyCompetitions(uint8(competitionNames.length));
         }
 
-        uint32 counter = competitionIdCounter;
+        uint8 counter = competitionIdCounter;
 
-        for (uint32 i = 0; i < competitionNames.length; i++) {
+        for (uint8 i = 0; i < competitionNames.length; i++) {
             revertIfEmptyString(competitionNames[i]);
             
             counter++;

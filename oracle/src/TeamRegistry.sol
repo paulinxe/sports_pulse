@@ -5,11 +5,11 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract TeamRegistry is Ownable {
 
-    uint32 public teamIdCounter;
-    mapping(uint32 => string) public teams;
+    uint16 public teamIdCounter;
+    mapping(uint16 => string) public teams;
     uint8 private constant MAX_TEAMS_PER_BATCH = 200;
 
-    event TeamAdded(uint32 indexed teamId, string teamName);
+    event TeamAdded(uint16 indexed teamId, string teamName);
 
     error TooManyTeams(uint256 numberOfTeams);
     error InvalidTeamName();
@@ -25,9 +25,9 @@ contract TeamRegistry is Ownable {
     }
 
     function add(string[] memory teamNames) private {
-        uint32 counter = teamIdCounter;
+        uint16 counter = teamIdCounter;
 
-        for (uint32 i = 0; i < teamNames.length; i++) {
+        for (uint16 i = 0; i < teamNames.length; i++) {
             revertIfEmptyString(teamNames[i]);
 
             counter++;
