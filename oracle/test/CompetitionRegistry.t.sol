@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.30;
 
-import { Test } from "forge-std/Test.sol";
-import { CompetitionRegistry } from "../src/CompetitionRegistry.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import {Test} from "forge-std/Test.sol";
+import {CompetitionRegistry} from "../src/CompetitionRegistry.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract CompetitionRegistryTest is Test {
     CompetitionRegistry public competitionRegistry;

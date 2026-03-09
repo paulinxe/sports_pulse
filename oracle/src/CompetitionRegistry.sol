@@ -4,7 +4,6 @@ pragma solidity 0.8.30;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract CompetitionRegistry is Ownable {
-
     uint8 public competitionIdCounter;
     mapping(uint8 => string) public competitions;
     uint8 private constant MAX_COMPETITIONS_PER_BATCH = 10;
@@ -23,7 +22,7 @@ contract CompetitionRegistry is Ownable {
 
         for (uint8 i = 0; i < competitionNames.length; i++) {
             revertIfEmptyString(competitionNames[i]);
-            
+
             counter++;
             competitions[counter] = competitionNames[i];
             emit CompetitionAdded(counter, competitionNames[i]);
@@ -34,7 +33,7 @@ contract CompetitionRegistry is Ownable {
 
     function addCompetition(string memory competitionName) external onlyOwner {
         revertIfEmptyString(competitionName);
-        
+
         competitionIdCounter++;
         competitions[competitionIdCounter] = competitionName;
         emit CompetitionAdded(competitionIdCounter, competitionName);

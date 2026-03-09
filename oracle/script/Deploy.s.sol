@@ -24,10 +24,7 @@ contract Deploy is Script {
     MatchRegistry public matchRegistry;
 
     /// @notice Split in this way so we can test this script without environment issues
-    function deploy(
-        uint256 deployerPrivateKey,
-        address contractsOwner
-    ) public virtual {
+    function deploy(uint256 deployerPrivateKey, address contractsOwner) public virtual {
         require(contractsOwner != address(0), "CONTRACTS_OWNER_ADDRESS cannot be zero");
 
         address deployer = vm.addr(deployerPrivateKey);

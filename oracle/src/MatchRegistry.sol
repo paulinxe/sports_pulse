@@ -31,10 +31,7 @@ contract MatchRegistry is Ownable {
     error InvalidTeams(uint16 homeTeamId, uint16 awayTeamId);
     error MatchAlreadyRegistered(bytes32 matchId);
 
-    constructor(
-        CompetitionRegistry _competitionRegistry,
-        TeamRegistry _teamRegistry
-    ) Ownable(msg.sender) {
+    constructor(CompetitionRegistry _competitionRegistry, TeamRegistry _teamRegistry) Ownable(msg.sender) {
         COMPETITION_REGISTRY = _competitionRegistry;
         TEAM_REGISTRY = _teamRegistry;
     }
@@ -71,13 +68,8 @@ contract MatchRegistry is Ownable {
 
             // TODO: two teams play twice per season only. We need to check that the match is not already registered for other journeys of the same season.
 
-            bytes32 matchId = _getMatchId(
-                m.competitionId,
-                m.seasonStartYear,
-                m.journeyNumber,
-                m.homeTeamId,
-                m.awayTeamId
-            );
+            bytes32 matchId =
+                _getMatchId(m.competitionId, m.seasonStartYear, m.journeyNumber, m.homeTeamId, m.awayTeamId);
 
             if (registeredMatches[matchId]) {
                 revert MatchAlreadyRegistered(matchId);
@@ -97,8 +89,6 @@ contract MatchRegistry is Ownable {
         uint16 homeTeamId,
         uint16 awayTeamId
     ) private pure returns (bytes32) {
-        return keccak256(
-            abi.encodePacked(competitionId, seasonStartYear, journeyNumber, homeTeamId, awayTeamId)
-        );
+        return keccak256(abi.encodePacked(competitionId, seasonStartYear, journeyNumber, homeTeamId, awayTeamId));
     }
 }

@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.30;
 
-import { Test } from "forge-std/Test.sol";
-import { TeamRegistry } from "../src/TeamRegistry.sol";
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { Strings } from "@openzeppelin/contracts/utils/Strings.sol";
+import {Test} from "forge-std/Test.sol";
+import {TeamRegistry} from "../src/TeamRegistry.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 
 contract TeamRegistryTest is Test {
     TeamRegistry public teamRegistry;
@@ -45,7 +45,7 @@ contract TeamRegistryTest is Test {
         teamNames[0] = "";
         teamRegistry.addTeams(teamNames);
     }
-    
+
     function test_we_can_add_a_team() public {
         string[] memory teamNames = new string[](2);
         teamNames[0] = "Boca Juniors";

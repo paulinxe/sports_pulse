@@ -119,9 +119,7 @@ contract MatchRegistryTest is Test {
         matchRegistry.registerBatch(inputs);
 
         bytes32 expectedMatchId = _computeMatchId(COMPETITION_ID, SEASON_YEAR, JOURNEY, HOME_TEAM_ID, AWAY_TEAM_ID);
-        vm.expectRevert(
-            abi.encodeWithSelector(MatchRegistry.MatchAlreadyRegistered.selector, expectedMatchId)
-        );
+        vm.expectRevert(abi.encodeWithSelector(MatchRegistry.MatchAlreadyRegistered.selector, expectedMatchId));
         matchRegistry.registerBatch(inputs);
     }
 
@@ -232,15 +230,13 @@ contract MatchRegistryTest is Test {
 
         for (uint256 i = 0; i < 3; i++) {
             vm.expectEmit(true, true, true, true);
-            emit MatchRegistry.MatchRegistered(
-                _computeMatchId(
+            emit MatchRegistry.MatchRegistered(_computeMatchId(
                     inputs[i].competitionId,
                     inputs[i].seasonStartYear,
                     inputs[i].journeyNumber,
                     inputs[i].homeTeamId,
                     inputs[i].awayTeamId
-                )
-            );
+                ));
         }
         matchRegistry.registerBatch(inputs);
 
@@ -277,13 +273,7 @@ contract MatchRegistryTest is Test {
         for (uint256 i = 0; i < n; i++) {
             assertTrue(
                 matchRegistry.registeredMatches(
-                    _computeMatchId(
-                        COMPETITION_ID,
-                        SEASON_YEAR,
-                        uint8(i + 1),
-                        HOME_TEAM_ID,
-                        AWAY_TEAM_ID
-                    )
+                    _computeMatchId(COMPETITION_ID, SEASON_YEAR, uint8(i + 1), HOME_TEAM_ID, AWAY_TEAM_ID)
                 )
             );
         }
@@ -297,8 +287,6 @@ contract MatchRegistryTest is Test {
         uint16 homeTeamId,
         uint16 awayTeamId
     ) private pure returns (bytes32) {
-        return keccak256(
-            abi.encodePacked(competitionId, seasonStartYear, journeyNumber, homeTeamId, awayTeamId)
-        );
+        return keccak256(abi.encodePacked(competitionId, seasonStartYear, journeyNumber, homeTeamId, awayTeamId));
     }
 }

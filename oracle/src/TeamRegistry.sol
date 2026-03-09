@@ -4,7 +4,6 @@ pragma solidity 0.8.30;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 contract TeamRegistry is Ownable {
-
     uint16 public teamIdCounter;
     mapping(uint16 => string) public teams;
     uint8 private constant MAX_TEAMS_PER_BATCH = 200;
