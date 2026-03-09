@@ -3,17 +3,22 @@ pragma solidity 0.8.30;
 
 import {Test} from "forge-std/Test.sol";
 import {ReporterRegistry} from "../src/ReporterRegistry.sol";
+import {ConsensusEngine} from "../src/ConsensusEngine.sol";
 
 contract ReporterRegistryTest is Test {
     ReporterRegistry public registry;
+    ConsensusEngine public consensusEngine;
 
     address public reporter1;
     address public reporter2;
+    address public reporter3;
 
     function setUp() public {
-        registry = new ReporterRegistry();
+        consensusEngine = new ConsensusEngine();
+        registry = new ReporterRegistry(address(consensusEngine));
         reporter1 = makeAddr("reporter1");
         reporter2 = makeAddr("reporter2");
+        reporter3 = makeAddr("reporter3");
     }
 
     // --- stake() ---
@@ -100,7 +105,7 @@ contract ReporterRegistryTest is Test {
         registry.requestWithdrawal();
         vm.stopPrank();
 
-        (uint256 staked, , uint256 requestedAt, , ) = registry.reporters(reporter1);
+        (uint256 staked,, uint256 requestedAt,,) = registry.reporters(reporter1);
         assertEq(staked, 1 ether);
         assertEq(requestedAt, requestTime);
     }
@@ -123,13 +128,11 @@ contract ReporterRegistryTest is Test {
         registry.requestWithdrawal();
         vm.stopPrank();
 
-        (, , uint256 requestedAt, , ) = registry.reporters(reporter1);
+        (,, uint256 requestedAt,,) = registry.reporters(reporter1);
         uint256 claimableAt = requestedAt + registry.WITHDRAWAL_COOLDOWN();
         vm.warp(claimableAt - 1);
         vm.prank(reporter1);
-        vm.expectRevert(
-            abi.encodeWithSelector(ReporterRegistry.CooldownNotElapsed.selector, claimableAt)
-        );
+        vm.expectRevert(abi.encodeWithSelector(ReporterRegistry.CooldownNotElapsed.selector, claimableAt));
         registry.withdraw();
     }
 
@@ -140,7 +143,7 @@ contract ReporterRegistryTest is Test {
         registry.requestWithdrawal();
         vm.stopPrank();
 
-        (, , uint256 requestedAt, , ) = registry.reporters(reporter1);
+        (,, uint256 requestedAt,,) = registry.reporters(reporter1);
         uint256 claimableAt = requestedAt + registry.WITHDRAWAL_COOLDOWN();
         vm.warp(claimableAt);
 
@@ -261,6 +264,194 @@ contract ReporterRegistryTest is Test {
         vm.stopPrank();
     }
 
-    // TODO: we miss tests for the case when the reporter has rewards and tries to claim them
-    // This will come when tackling the Slashing part
+    // --- slash() ---
+
+    function test_constructor_reverts_when_consensus_engine_zero() public {
+        vm.expectRevert(ReporterRegistry.ConsensusEngineZero.selector);
+        new ReporterRegistry(address(0));
+    }
+
+    function test_slash_reverts_when_caller_is_not_consensus_engine() public {
+        vm.deal(reporter1, 1 ether);
+        vm.prank(reporter1);
+        registry.stake{value: 1 ether}();
+
+        address[] memory wrong = new address[](1);
+        wrong[0] = reporter1;
+        address[] memory correct;
+        vm.prank(reporter1);
+        vm.expectRevert(ReporterRegistry.OnlyConsensusEngine.selector);
+        registry.slash(wrong, correct);
+    }
+
+    function test_slash_reverts_when_exceeds_max_reporters() public {
+        address[] memory wrong = new address[](3);
+        wrong[0] = reporter1;
+        wrong[1] = reporter2;
+        wrong[2] = reporter3;
+        address[] memory correct = new address[](3);
+        correct[0] = makeAddr("c1");
+        correct[1] = makeAddr("c2");
+        correct[2] = makeAddr("c3");
+        vm.prank(address(consensusEngine));
+        vm.expectRevert(ReporterRegistry.ExceedsMaxReporters.selector);
+        registry.slash(wrong, correct);
+    }
+
+    function test_slash_one_wrong_reduces_balance() public {
+        vm.deal(reporter1, 1 ether);
+        vm.prank(reporter1);
+        registry.stake{value: 1 ether}();
+
+        address[] memory wrong = new address[](1);
+        wrong[0] = reporter1;
+        address[] memory correct = new address[](1);
+        correct[0] = reporter2;
+        vm.prank(address(consensusEngine));
+        vm.expectEmit(true, true, true, true);
+        emit ReporterRegistry.Slashed(reporter1, 0.25 ether);
+        registry.slash(wrong, correct);
+
+        (uint256 staked,,,,) = registry.reporters(reporter1);
+        assertEq(staked, 0.75 ether);
+    }
+
+    function test_slash_one_wrong_one_correct_distributes_rewards() public {
+        vm.deal(reporter1, 1 ether);
+        vm.deal(reporter2, 1 ether);
+        vm.prank(reporter1);
+        registry.stake{value: 1 ether}();
+        vm.prank(reporter2);
+        registry.stake{value: 1 ether}();
+
+        address[] memory wrong = new address[](1);
+        wrong[0] = reporter1;
+        address[] memory correct = new address[](1);
+        correct[0] = reporter2;
+        vm.prank(address(consensusEngine));
+        registry.slash(wrong, correct);
+
+        (uint256 staked1,,,,) = registry.reporters(reporter1);
+        (, uint256 rewards2,,,) = registry.reporters(reporter2);
+        assertEq(staked1, 0.75 ether);
+        assertEq(rewards2, 0.25 ether);
+
+        vm.prank(reporter2);
+        registry.claimSlashedRewards();
+        assertEq(reporter2.balance, 0.25 ether, "reporter2 received slashed rewards");
+        (, uint256 rewardsAfter,,,) = registry.reporters(reporter2);
+        assertEq(rewardsAfter, 0);
+    }
+
+    function test_slash_two_wrong_two_correct_divides_equally_remainder_stays() public {
+        vm.deal(reporter1, 1 ether);
+        vm.deal(reporter2, 1 ether);
+        vm.deal(reporter3, 1 ether);
+        address reporter4 = makeAddr("reporter4");
+        vm.deal(reporter4, 1 ether);
+        vm.prank(reporter1);
+        registry.stake{value: 1 ether}();
+        vm.prank(reporter2);
+        registry.stake{value: 1 ether}();
+        vm.prank(reporter3);
+        registry.stake{value: 1 ether}();
+        vm.prank(reporter4);
+        registry.stake{value: 1 ether}();
+
+        address[] memory wrong = new address[](2);
+        wrong[0] = reporter1;
+        wrong[1] = reporter2;
+        address[] memory correct = new address[](2);
+        correct[0] = reporter3;
+        correct[1] = reporter4;
+        vm.prank(address(consensusEngine));
+        registry.slash(wrong, correct);
+
+        // 0.25 + 0.25 = 0.5 ether slashed. rewardShare = 0.5/2 = 0.25 each.
+        (uint256 staked1,,,,) = registry.reporters(reporter1);
+        (uint256 staked2,,,,) = registry.reporters(reporter2);
+        (, uint256 rewards3,,,) = registry.reporters(reporter3);
+        (, uint256 rewards4,,,) = registry.reporters(reporter4);
+        assertEq(staked1, 0.75 ether);
+        assertEq(staked2, 0.75 ether);
+        assertEq(rewards3, 0.25 ether);
+        assertEq(rewards4, 0.25 ether);
+    }
+
+    function test_slash_reverts_when_zero_correct_reporters() public {
+        vm.deal(reporter1, 1 ether);
+        vm.prank(reporter1);
+        registry.stake{value: 1 ether}();
+
+        address[] memory wrong = new address[](1);
+        wrong[0] = reporter1;
+        address[] memory correct;
+        vm.prank(address(consensusEngine));
+        vm.expectRevert(ReporterRegistry.ZeroCorrectReporters.selector);
+        registry.slash(wrong, correct);
+    }
+
+    function test_slash_skips_wrong_reporter_with_zero_stake() public {
+        // reporter1 was completely slashed; slash() continues, we simply don't slash (0 amount)
+        address[] memory wrong = new address[](1);
+        wrong[0] = reporter1;
+        (uint256 staked,,,,) = registry.reporters(reporter1);
+        assertEq(staked, 0);
+        address[] memory correct = new address[](1);
+        correct[0] = reporter2;
+        vm.prank(address(consensusEngine));
+        registry.slash(wrong, correct);
+        (staked,,,,) = registry.reporters(reporter1);
+        assertEq(staked, 0);
+    }
+
+    function test_slash_skips_zero_address_in_wrong_reporters() public {
+        address[] memory wrong = new address[](1);
+        wrong[0] = address(0);
+        address[] memory correct = new address[](1);
+        correct[0] = reporter1;
+        vm.prank(address(consensusEngine));
+        registry.slash(wrong, correct);
+        // No revert; totalSlashed is 0 so no distribution
+    }
+
+    function test_slash_integer_division_remainder_stays_in_contract() public {
+        // 4 wei * 25% = 1 wei slashed. 2 correct reporters -> rewardShare = 1/2 = 0 each. Remainder 1 wei stays in contract.
+        vm.deal(reporter1, 4);
+        vm.prank(reporter1);
+        registry.stake{value: 4}();
+        address[] memory wrong = new address[](1);
+        wrong[0] = reporter1;
+        address[] memory correct = new address[](2);
+        correct[0] = reporter2;
+        correct[1] = reporter3;
+        vm.prank(address(consensusEngine));
+        registry.slash(wrong, correct);
+        (uint256 stakedWrong,,,,) = registry.reporters(reporter1);
+        (, uint256 reporter2Rewards,,,) = registry.reporters(reporter2);
+        (, uint256 reporter3Rewards,,,) = registry.reporters(reporter3);
+        assertEq(stakedWrong, 3, "wrong reporter lost 1 wei");
+        assertEq(reporter2Rewards, 0, "rewardShare 1 wei / 2 = 0");
+        assertEq(reporter3Rewards, 0, "rewardShare 1 wei / 2 = 0");
+        assertEq(reporter2Rewards + reporter3Rewards, 0, "remainder stays in contract (dust)");
+    }
+
+    function test_slash_below_min_loses_eligibility() public {
+        uint256 minStake = registry.MIN_STAKE();
+        vm.deal(reporter1, minStake);
+        vm.prank(reporter1);
+        registry.stake{value: minStake}();
+        assertTrue(registry.isEligible(reporter1));
+
+        address[] memory wrong = new address[](1);
+        wrong[0] = reporter1;
+        address[] memory correct = new address[](1);
+        correct[0] = reporter2;
+        vm.prank(address(consensusEngine));
+        registry.slash(wrong, correct);
+        // MIN_STAKE (0.1 ether) * 25% = 0.025, new balance 0.075 ether < 0.1
+        (uint256 staked,,,,) = registry.reporters(reporter1);
+        assertEq(staked, 0.075 ether);
+        assertFalse(registry.isEligible(reporter1));
+    }
 }
