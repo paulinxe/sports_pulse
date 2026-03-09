@@ -176,6 +176,74 @@ contract ReporterRegistryTest is Test {
         assertEq(staked, 0);
     }
 
+    // --- isEligible() ---
+
+    function test_isEligible_returns_false_for_unknown_address() public {
+        assertFalse(registry.isEligible(reporter1));
+        assertFalse(registry.isEligible(address(0)));
+        assertFalse(registry.isEligible(makeAddr("random")));
+    }
+
+    function test_isEligible_returns_false_when_staked_below_minimum() public {
+        uint256 belowMin = registry.MIN_STAKE() - 1;
+        vm.deal(reporter1, belowMin);
+        vm.prank(reporter1);
+        registry.stake{value: belowMin}();
+        assertFalse(registry.isEligible(reporter1));
+    }
+
+    function test_isEligible_returns_true_when_staked_exactly_minimum() public {
+        uint256 minStake = registry.MIN_STAKE();
+        vm.deal(reporter1, minStake);
+        vm.prank(reporter1);
+        registry.stake{value: minStake}();
+        assertTrue(registry.isEligible(reporter1));
+    }
+
+    function test_isEligible_returns_true_when_staked_above_minimum() public {
+        uint256 aboveMin = registry.MIN_STAKE() + 1;
+        vm.deal(reporter1, aboveMin);
+        vm.prank(reporter1);
+        registry.stake{value: aboveMin}();
+        assertTrue(registry.isEligible(reporter1));
+    }
+
+    function test_isEligible_returns_true_when_pending_withdrawal_still_eligible() public {
+        uint256 minStake = registry.MIN_STAKE();
+        vm.deal(reporter1, minStake);
+        vm.startPrank(reporter1);
+        registry.stake{value: minStake}();
+        registry.requestWithdrawal();
+        vm.stopPrank();
+        // During cooldown, ETH is still locked and balance >= MIN_STAKE
+        assertTrue(registry.isEligible(reporter1));
+    }
+
+    function test_isEligible_returns_false_after_withdraw() public {
+        uint256 minStake = registry.MIN_STAKE();
+        vm.deal(reporter1, minStake);
+        vm.startPrank(reporter1);
+        registry.stake{value: minStake}();
+        registry.requestWithdrawal();
+        vm.stopPrank();
+        vm.warp(block.timestamp + registry.WITHDRAWAL_COOLDOWN());
+        vm.prank(reporter1);
+        registry.withdraw();
+        assertFalse(registry.isEligible(reporter1));
+    }
+
+    function test_isEligible_works_with_multiple_reporters_independent() public {
+        uint256 minStake = registry.MIN_STAKE();
+        vm.deal(reporter1, minStake);
+        vm.deal(reporter2, minStake - 1);
+        vm.prank(reporter1);
+        registry.stake{value: minStake}();
+        vm.prank(reporter2);
+        registry.stake{value: minStake - 1}();
+        assertTrue(registry.isEligible(reporter1));
+        assertFalse(registry.isEligible(reporter2));
+    }
+
     // --- claimSlashedRewards() ---
 
     function test_claimSlashedRewards_reverts_when_nothing_to_claim() public {

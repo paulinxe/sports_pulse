@@ -86,6 +86,14 @@ contract ReporterRegistry {
     }
 
     /**
+     * @notice Check if a reporter is eligible to submit (staked balance >= minimum).
+     * @dev Used by Report Aggregator before accepting a submission. Pending withdrawal does not affect eligibility.
+     */
+    function isEligible(address reporter) external view returns (bool) {
+        return reporters[reporter].stakedBalance >= MIN_STAKE;
+    }
+
+    /**
      * @notice Claim accumulated slashed rewards. Pull model; resets claimableRewards to 0.
      */
     function claimSlashedRewards() external {
