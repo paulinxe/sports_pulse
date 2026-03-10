@@ -19,6 +19,9 @@ contract ReporterRegistry {
     /// @notice Only this address may call slash().
     address public immutable consensusEngine;
 
+    /// @notice Only this address may call cancelWithdrawalRequest().
+    address public immutable resultRegistry;
+
     uint256 public constant MIN_STAKE = 0.1 ether;
     uint256 public constant WITHDRAWAL_COOLDOWN = 7 days;
     uint8 public constant MAX_REPORTERS = 5;
@@ -29,6 +32,7 @@ contract ReporterRegistry {
     event Withdrawn(address indexed reporter, uint256 amount);
     event Slashed(address indexed reporter, uint256 amount);
     event SlashedRewardsClaimed(address indexed reporter, uint256 amount);
+    event WithdrawalRequestCancelled(address indexed reporter);
 
     error ZeroStake();
     error NoStakedBalance();
@@ -37,7 +41,9 @@ contract ReporterRegistry {
     error CooldownNotElapsed(uint256 claimableAt);
     error NothingToClaim();
     error OnlyConsensusEngine();
+    error OnlyResultRegistry();
     error ConsensusEngineZero();
+    error ResultRegistryZero();
     error ExceedsMaxReporters();
     error ZeroReporterAddress();
     error ZeroCorrectReporters();
@@ -49,12 +55,24 @@ contract ReporterRegistry {
         _;
     }
 
-    constructor(address _consensusEngine) {
+    modifier onlyResultRegistry() {
+        if (msg.sender != resultRegistry) {
+            revert OnlyResultRegistry();
+        }
+        _;
+    }
+
+    constructor(address _consensusEngine, address _resultRegistry) {
         if (_consensusEngine == address(0)) {
             revert ConsensusEngineZero();
         }
 
+        if (_resultRegistry == address(0)) {
+            revert ResultRegistryZero();
+        }
+
         consensusEngine = _consensusEngine;
+        resultRegistry = _resultRegistry;
     }
 
     /**
@@ -116,6 +134,22 @@ contract ReporterRegistry {
      */
     function isEligible(address reporter) external view returns (bool) {
         return reporters[reporter].stakedBalance >= MIN_STAKE;
+    }
+
+    /**
+     * @notice Cancel a pending withdrawal request. Only callable by ResultRegistry.
+     * @param reporter The reporter whose withdrawal request should be cancelled.
+     * @dev Called when a reporter submits a score while a withdrawal is pending.
+     *      This ensures a reporter cannot be actively participating and exiting simultaneously.
+     */
+    function cancelWithdrawalRequest(address reporter) external onlyResultRegistry {
+        Reporter storage r = reporters[reporter];
+        if (r.withdrawalRequestedAt == 0) {
+            return;
+        }
+
+        r.withdrawalRequestedAt = 0;
+        emit WithdrawalRequestCancelled(reporter);
     }
 
     /**

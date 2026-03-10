@@ -4,10 +4,12 @@ pragma solidity 0.8.30;
 import {Test} from "forge-std/Test.sol";
 import {ReporterRegistry} from "../src/ReporterRegistry.sol";
 import {ConsensusEngine} from "../src/ConsensusEngine.sol";
+import {ResultRegistry} from "../src/ResultRegistry.sol";
 
 contract ReporterRegistryTest is Test {
     ReporterRegistry public registry;
     ConsensusEngine public consensusEngine;
+    ResultRegistry public resultRegistry;
 
     address public reporter1;
     address public reporter2;
@@ -15,7 +17,8 @@ contract ReporterRegistryTest is Test {
 
     function setUp() public {
         consensusEngine = new ConsensusEngine();
-        registry = new ReporterRegistry(address(consensusEngine));
+        resultRegistry = new ResultRegistry();
+        registry = new ReporterRegistry(address(consensusEngine), address(resultRegistry));
         reporter1 = makeAddr("reporter1");
         reporter2 = makeAddr("reporter2");
         reporter3 = makeAddr("reporter3");
@@ -268,7 +271,12 @@ contract ReporterRegistryTest is Test {
 
     function test_constructor_reverts_when_consensus_engine_zero() public {
         vm.expectRevert(ReporterRegistry.ConsensusEngineZero.selector);
-        new ReporterRegistry(address(0));
+        new ReporterRegistry(address(0), address(resultRegistry));
+    }
+
+    function test_constructor_reverts_when_result_registry_zero() public {
+        vm.expectRevert(ReporterRegistry.ResultRegistryZero.selector);
+        new ReporterRegistry(address(consensusEngine), address(0));
     }
 
     function test_slash_reverts_when_caller_is_not_consensus_engine() public {
@@ -453,5 +461,115 @@ contract ReporterRegistryTest is Test {
         (uint256 staked,,,,) = registry.reporters(reporter1);
         assertEq(staked, 0.075 ether);
         assertFalse(registry.isEligible(reporter1));
+    }
+
+    // --- cancelWithdrawalRequest() ---
+
+    function test_cancelWithdrawalRequest_reverts_when_caller_not_result_registry() public {
+        vm.deal(reporter1, 1 ether);
+        vm.startPrank(reporter1);
+        registry.stake{value: 1 ether}();
+        registry.requestWithdrawal();
+        vm.stopPrank();
+
+        address notResultRegistry = makeAddr("notResultRegistry");
+        vm.prank(notResultRegistry);
+        vm.expectRevert(ReporterRegistry.OnlyResultRegistry.selector);
+        registry.cancelWithdrawalRequest(reporter1);
+    }
+
+    function test_cancelWithdrawalRequest_resets_withdrawal_requested_at_and_emits() public {
+        vm.deal(reporter1, 1 ether);
+        vm.startPrank(reporter1);
+        registry.stake{value: 1 ether}();
+        registry.requestWithdrawal();
+        vm.stopPrank();
+
+        (,, uint256 requestedAtBefore,,) = registry.reporters(reporter1);
+        assertGt(requestedAtBefore, 0);
+
+        vm.prank(address(resultRegistry));
+        vm.expectEmit(true, true, true, true);
+        emit ReporterRegistry.WithdrawalRequestCancelled(reporter1);
+        registry.cancelWithdrawalRequest(reporter1);
+
+        (,, uint256 requestedAtAfter,,) = registry.reporters(reporter1);
+        assertEq(requestedAtAfter, 0);
+    }
+
+    function test_cancelWithdrawalRequest_succeeds_when_no_pending_withdrawal() public {
+        // If there's no pending withdrawal, the function should silently succeed (no-op)
+        vm.deal(reporter1, 1 ether);
+        vm.prank(reporter1);
+        registry.stake{value: 1 ether}();
+        // No withdrawal requested
+
+        vm.prank(address(resultRegistry));
+        registry.cancelWithdrawalRequest(reporter1);
+        // No revert, no event emitted (since withdrawalRequestedAt was already 0)
+
+        (,, uint256 requestedAt,,) = registry.reporters(reporter1);
+        assertEq(requestedAt, 0);
+    }
+
+    function test_cancelWithdrawalRequest_allows_reporter_to_request_withdrawal_again() public {
+        vm.deal(reporter1, 1 ether);
+        vm.startPrank(reporter1);
+        registry.stake{value: 1 ether}();
+        registry.requestWithdrawal();
+        vm.stopPrank();
+
+        (,, uint256 firstRequestAt,,) = registry.reporters(reporter1);
+        assertGt(firstRequestAt, 0);
+
+        vm.prank(address(resultRegistry));
+        registry.cancelWithdrawalRequest(reporter1);
+
+        // Reporter can now request withdrawal again
+        vm.warp(block.timestamp + 1); // Move time forward
+        vm.prank(reporter1);
+        registry.requestWithdrawal();
+
+        (,, uint256 secondRequestAt,,) = registry.reporters(reporter1);
+        assertGt(secondRequestAt, firstRequestAt);
+    }
+
+    function test_cancelWithdrawalRequest_preserves_other_reporter_data() public {
+        vm.deal(reporter1, 1 ether);
+        vm.startPrank(reporter1);
+        registry.stake{value: 1 ether}();
+        registry.requestWithdrawal();
+        vm.stopPrank();
+
+        // Simulate reporter having rewards (note: correctSubmissions/incorrectSubmissions not yet implemented in slash)
+        address[] memory wrong = new address[](1);
+        wrong[0] = reporter2;
+        address[] memory correct = new address[](1);
+        correct[0] = reporter1;
+        vm.deal(reporter2, 1 ether);
+        vm.prank(reporter2);
+        registry.stake{value: 1 ether}();
+        vm.prank(address(consensusEngine));
+        registry.slash(wrong, correct);
+
+        (uint256 stakedBefore,, uint256 reqAtBefore, uint256 correctBefore, uint256 incorrectBefore) =
+            registry.reporters(reporter1);
+        assertEq(stakedBefore, 1 ether);
+        assertGt(reqAtBefore, 0);
+        // Note: correctSubmissions/incorrectSubmissions not yet updated by slash() per current basecode
+        assertEq(correctBefore, 0);
+        assertEq(incorrectBefore, 0);
+
+        vm.prank(address(resultRegistry));
+        registry.cancelWithdrawalRequest(reporter1);
+
+        (uint256 stakedAfter, uint256 rewardsAfter, uint256 reqAtAfter, uint256 correctAfter, uint256 incorrectAfter) =
+            registry.reporters(reporter1);
+        assertEq(stakedAfter, 1 ether);
+        assertEq(rewardsAfter, 0.25 ether);
+        assertEq(reqAtAfter, 0);
+        // Other fields unchanged
+        assertEq(correctAfter, 0);
+        assertEq(incorrectAfter, 0);
     }
 }
