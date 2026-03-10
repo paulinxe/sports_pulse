@@ -116,6 +116,7 @@ contract ReporterRegistry {
         }
 
         uint256 claimableAt = withdrawalRequestedAt + WITHDRAWAL_COOLDOWN;
+        // slither-disable-next-line timestamp As our window is 7 days, +- 15 seconds is negligible. We can safely ignore the timestamp check.
         if (block.timestamp < claimableAt) {
             revert CooldownNotElapsed(claimableAt);
         }
@@ -123,9 +124,10 @@ contract ReporterRegistry {
         uint256 amount = reporter.stakedBalance;
         reporter.stakedBalance = 0;
         reporter.withdrawalRequestedAt = 0;
+        emit Withdrawn(msg.sender, amount);
+        // slither-disable-next-line low-level-calls We are checking the return value to revert if the transfer fails.
         (bool ok,) = msg.sender.call{value: amount}("");
         require(ok, "Transfer failed"); // TODO: check here if we need a custom error
-        emit Withdrawn(msg.sender, amount);
     }
 
     /**
@@ -163,9 +165,10 @@ contract ReporterRegistry {
         }
 
         reporter.claimableRewards = 0;
+        emit SlashedRewardsClaimed(msg.sender, amount);
+        // slither-disable-next-line low-level-calls We are checking the return value to revert if the transfer fails.
         (bool ok,) = msg.sender.call{value: amount}("");
         require(ok, "Transfer failed"); // TODO: check here if we need a custom error
-        emit SlashedRewardsClaimed(msg.sender, amount);
     }
 
     /**
