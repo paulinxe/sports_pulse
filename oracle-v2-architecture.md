@@ -302,7 +302,7 @@ Guards:
 On success:
 - Stores `SubmittedScore` for `msg.sender`
 - Pushes `msg.sender` to `matchReporters[matchId]`
-- Calls `reporterRegistry.cancelWithdrawalRequest(msg.sender)` — reporter cannot be exiting and participating simultaneously. **Not yet in basecode:** Reporter Registry must be extended with `cancelWithdrawalRequest(address)`, callable only by the Result Registry (e.g. `onlyResultRegistry` and a setter for the Result Registry address), which resets `withdrawalRequestedAt` to 0 when the reporter submits
+- Calls `reporterRegistry.cancelWithdrawalRequest(msg.sender)` — reporter cannot be exiting and participating simultaneously. Resets `withdrawalRequestedAt` to 0 when the reporter submits.
 - Emits `ScoreSubmitted(bytes32 indexed matchId, address indexed reporter, uint8 homeScore, uint8 awayScore)`
 
 **`finaliseMatch(bytes32 matchId)`** — permissionless
@@ -463,7 +463,6 @@ Result public forever
 
 ## Open Items for Future Iterations
 
-- **Result Registry / Reporter Registry:** Implement `cancelWithdrawalRequest(address)` in Reporter Registry, callable only by Result Registry; resets `withdrawalRequestedAt` when a reporter submits a score so they cannot exit while participating.
 - Consider adding `addCompetitions(string[] memory)` batch function to `CompetitionRegistry` for consistency with `TeamRegistry`
 - Cooldown period duration for disputed matches
 - Withdrawal delay duration
