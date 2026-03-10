@@ -17,7 +17,7 @@ contract ReporterRegistryTest is Test {
 
     function setUp() public {
         consensusEngine = new ConsensusEngine();
-        resultRegistry = new ResultRegistry();
+        resultRegistry = new ResultRegistry(address(1));
         registry = new ReporterRegistry(address(consensusEngine), address(resultRegistry));
         reporter1 = makeAddr("reporter1");
         reporter2 = makeAddr("reporter2");
