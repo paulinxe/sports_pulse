@@ -8,7 +8,9 @@
 ## Context & Goals
 
 ### V1 Baseline
+
 The current V1 oracle has the following characteristics:
+
 - Single permissioned signer (controlled by the protocol admin) — `authorizedSigner` in `MatchRegistry`
 - EIP-712 signed score submissions — signer submits `(matchId, homeScore, awayScore)` via `submitMatch`
 - Team list stored on-chain in `TeamRegistry`, seeded at deploy time (currently 20 LaLiga teams)
@@ -18,9 +20,11 @@ The current V1 oracle has the following characteristics:
 - Match identity is `keccak256(abi.encodePacked(competitionId, homeTeamId, awayTeamId, matchDate))` where `matchDate` is `YYYYMMDD` (uint32)
 
 ### Why V2?
+
 V1 is centralised in practice — a single signer means trust is entirely placed in one entity. V2 aims to introduce **genuine decentralisation** by allowing multiple independent reporters and economic accountability through staking and slashing. Reporter rewards and consumer fees are intentionally deferred to V3 — V2 focuses on getting the core protocol mechanics right first.
 
 ### Out of Scope for V2
+
 - Commit-reveal scheme (deferred to V3)
 - Token creation or token-based rewards (ETH only)
 - Reporter rewards and consumer fees (deferred to V3)
@@ -43,11 +47,13 @@ V1 is centralised in practice — a single signer means trust is entirely placed
 ## Components
 
 ### 1. Team Registry
+
 Already implemented as `TeamRegistry.sol`. The admin maintains a canonical on-chain registry of teams. Each team is identified by a `uint32` ID (auto-incremented, starting at 1). This prevents naming ambiguity (e.g. `"Man City"` vs `"Manchester City"`).
 
 **Current state:** `teams.json` expanded with teams for all V2 competitions in scope.
 
 **Responsibilities:**
+
 - Store canonical team IDs and names
 - Controlled by admin (transferable to DAO in future)
 - Referenced by the Match Registry when registering matches
@@ -56,11 +62,13 @@ Already implemented as `TeamRegistry.sol`. The admin maintains a canonical on-ch
 ---
 
 ### 2. Competition Registry
+
 Already implemented as `CompetitionRegistry.sol`. The admin maintains a canonical on-chain registry of competitions. Each competition is identified by a `uint32` ID (auto-incremented, starting at 1).
 
 **Current state:** `competitions.json` expanded with all V2 competitions in scope.
 
 **Responsibilities:**
+
 - Store canonical competition IDs and names
 - Controlled by admin (transferable to DAO in future)
 - Referenced by the Match Registry when registering matches
@@ -69,10 +77,12 @@ Already implemented as `CompetitionRegistry.sol`. The admin maintains a canonica
 ---
 
 ### 3. Match Registry
+
 In V1 this is `MatchRegistry.sol`, which conflates match registration and score submission into a single contract. In V2 the concerns will be separated: the Match Registry tracks upcoming matches, and the Result Registry handles submissions. The `MatchRegistry` name will be reused for this role.
 
 **Match Identity:**
 A match ID is a deterministic hash derived from:
+
 - Competition ID (`uint32`)
 - Season start year (`uint16` or `uint32`) — the calendar year when the season started (e.g. 2025 for 2025/26)
 - Journey/phase number (`uint32`) — the matchday within the competition (e.g. Premier League has 38 journeys)
@@ -106,12 +116,13 @@ struct MatchInput {
 ```
 
 - The array length is capped at **50** matches per call; if more are provided, the call reverts. This keeps gas consumption bounded.
-- For each match in the batch, the contract emits a **`MatchRegistered`** event (one event per match).
+- For each match in the batch, the contract emits a `**MatchRegistered`** event (one event per match).
 - If any match in the batch is invalid (e.g. non-existing team or competition), the **entire transaction reverts** — no partial batches.
 
 **Storage:** Matches are stored as `mapping(bytes32 => bool) public registeredMatches`. The key is the canonical match ID (the `bytes32` derived from the identity formula); the value is a boolean indicating that the match is registered.
 
 **Responsibilities:**
+
 - Maintain the list of valid upcoming matches
 - Be the single source of truth for match existence
 - Prevent consumers from requesting non-existent or duplicate matches
@@ -119,6 +130,7 @@ struct MatchInput {
 ---
 
 ### 4. Reporter Registry
+
 Replaces the V1 simple whitelist. Any address can become a reporter by meeting the minimum ETH stake requirement.
 
 The Reporter Registry is also the staking contract — there is no need to separate them. Staking mechanics and reporter eligibility are tightly coupled: every staking action directly affects reporter status. Any address can become a reporter by staking at least the minimum required ETH.
@@ -149,6 +161,7 @@ Functions:
 - `claimSlashedRewards()` — transfers `claimableRewards` balance to reporter and resets it to 0. Pull model — never pushed automatically. Emits `SlashedRewardsClaimed`.
 
 Events:
+
 - `Staked(address indexed reporter, uint256 amount)`
 - `WithdrawalRequested(address indexed reporter, uint256 claimableAt)`
 - `Withdrawn(address indexed reporter, uint256 amount)`
@@ -156,6 +169,7 @@ Events:
 - `SlashedRewardsClaimed(address indexed reporter, uint256 amount)`
 
 *Eligibility:*
+
 - `isEligible(address reporter) returns (bool)` — called by the Report Aggregator before accepting a submission
 - A reporter is considered eligible if and only if their current staked balance is at or above the minimum stake threshold
 - If a reporter is slashed below the minimum, they immediately lose eligibility and must top up before reporting again — no grace period
@@ -174,11 +188,13 @@ function withdraw() external
 ```
 
 `requestWithdrawal()` guards:
+
 - Reporter must have a non-zero `stakedBalance`
 - No pending withdrawal already in progress (`withdrawalRequestedAt == 0`)
 - Sets `withdrawalRequestedAt = block.timestamp`
 
 `withdraw()` guards:
+
 - A withdrawal must have been requested (`withdrawalRequestedAt != 0`)
 - 7 days must have passed: `block.timestamp >= withdrawalRequestedAt + 7 days`
 - Transfers full `stakedBalance` to reporter
@@ -197,11 +213,13 @@ function slash(
 ```
 
 Logic for each wrong reporter:
+
 - Calculate slash amount: `slashAmount = stakedBalance * 25 / 100`
 - Reduce `stakedBalance` by `slashAmount`
 - Increment `incorrectSubmissions`
 
 Logic for distributing to correct reporters:
+
 - Sum total slashed ETH across all wrong reporters
 - Divide equally: `rewardShare = totalSlashed / correctReporters.length`
 - Add `rewardShare` to each correct reporter's `claimableRewards`
@@ -232,6 +250,7 @@ A related attack is a malicious actor submitting results immediately when the su
 Reputation data is not used for any logic in V2 but is deliberately tracked from day one. In V3, well-behaved reporters (high accuracy, consistent participation) may be eligible for preferential rewards or airdrops. Building this history in V2 ensures that reporters who contribute early are recognised and rewarded retroactively in future versions.
 
 **Parameters:**
+
 - Minimum stake: 0.1 ETH (revisit in V3 when reporter rewards are introduced)
 - Slash percentage: 25% per wrong submission (increase in V3)
 - Unstaking cooldown: 7 days
@@ -239,6 +258,7 @@ Reputation data is not used for any logic in V2 but is deliberately tracked from
 ---
 
 ### 5. Result Registry
+
 The Result Registry owns the full submission lifecycle — from opening the submission window to storing the final consensus result. It is the contract consumers query for match results.
 
 **On Match End Signalling:**
@@ -281,17 +301,19 @@ mapping(bytes32 => mapping(address => SubmittedScore)) public submissions;
 mapping(bytes32 => address[]) public matchReporters;  // iterable list for consensus
 ```
 
-**`signalMatchEnd(bytes32 matchId)`** — `onlyOwner`
+`**signalMatchEnd(bytes32 matchId)**` — `onlyOwner`
 
 Guards:
+
 - `matchRegistry.registeredMatches(matchId)` — match must exist (Match Registry exposes the mapping getter; no `isRegistered` helper in basecode)
 - `results[matchId].status == INACTIVE` — cannot signal twice
 - Sets `status = OPEN`, `windowClosesAt = block.timestamp + 1 hours`, `attemptNumber = 1`
 - Emits `SubmissionWindowOpened(bytes32 indexed matchId, uint256 windowClosesAt)`
 
-**`submitScore(bytes32 matchId, uint8 homeScore, uint8 awayScore, bytes calldata signature)`** — permissionless
+`**submitScore(bytes32 matchId, uint8 homeScore, uint8 awayScore, bytes calldata signature)**` — permissionless
 
 Guards:
+
 - `results[matchId].status == OPEN` — window must be open
 - `block.timestamp <= results[matchId].windowClosesAt` — window must not have expired
 - `reporterRegistry.isEligible(msg.sender)` — must be an eligible reporter (basecode exposes `isEligible`, not `isRegistered`)
@@ -300,35 +322,101 @@ Guards:
 - EIP-712 signature verification — recover signer from signature and verify it matches `msg.sender`
 
 On success:
+
 - Stores `SubmittedScore` for `msg.sender`
 - Pushes `msg.sender` to `matchReporters[matchId]`
 - Calls `reporterRegistry.cancelWithdrawalRequest(msg.sender)` — reporter cannot be exiting and participating simultaneously. Resets `withdrawalRequestedAt` to 0 when the reporter submits.
 - Emits `ScoreSubmitted(bytes32 indexed matchId, address indexed reporter, uint8 homeScore, uint8 awayScore)`
 
+#### 5.1 Consensus Engine
+
+The consensus logic lives inside the Result Registry as a private function — not a separate contract. The algorithm is simple enough in V2 that a separate contract would introduce unnecessary struct duplication and cross-contract coupling. If V3 introduces weighted voting, commit-reveal, or reputation-based logic, extraction into a standalone contract becomes justified at that point.
+
 **`finaliseMatch(bytes32 matchId)`** — permissionless
 
-Callable by anyone once the submission window has closed. Reporters are the most motivated callers as they want slashed rewards distributed. Runs the consensus logic (see Consensus Engine section).
+The public entry point that triggers consensus. Callable by anyone once the submission window has closed. Reporters are the most motivated callers as they want slashed rewards distributed as soon as possible.
 
 Guards:
 - `results[matchId].status == OPEN`
 - `block.timestamp > results[matchId].windowClosesAt`
 
----
+**Algorithm: Majority Vote + Confidence Level**
+If a majority of submissions agree on the same `(homeScore, awayScore)` tuple, the match is finalised. The result is tagged with a confidence level based on the count of reporters who submitted the winning tuple. Any tie triggers the dispute flow.
 
-### 6. Consensus Engine
-Runs after the submission window closes. Determines the final result from the set of submitted reports.
+**Logic:**
+1. If `matchReporters[matchId].length == 0` → mark `DISPUTED` (no submissions)
+2. Tally all submitted `(homeScore, awayScore)` tuples — find the most frequently submitted one:
 
-**Algorithm: Unanimous Agreement + Confidence Level**
-The previous "3 out of 5 hard quorum" model is replaced by a **confidence level model**. If all valid submissions agree on the same `(homeGoals, awayGoals)` tuple, the match is finalised immediately — regardless of how many reporters participated. The result is tagged with a confidence level based on the count of agreeing reporters. Consumers decide what confidence level they are willing to accept for their use case.
+```solidity
+uint8 bestCount = 0;
+uint8 bestHome = 0;
+uint8 bestAway = 0;
+bool tie = false;
 
-A hard quorum punishes low participation even when all reporters agree, producing operationally useless `DISPUTED` results. The confidence model always produces a result when reporters agree, scales naturally as the reporter pool grows, and works from day one with a single reporter.
+for (uint8 i = 0; i < reporters.length; i++) {
+    SubmittedScore memory s = submissions[matchId][reporters[i]];
+    uint8 count = 0;
 
-**Minimum Requirement:** At least 1 valid reporter must submit. A match with zero submissions never finalises and enters the dispute flow when the window expires.
+    for (uint8 j = 0; j < reporters.length; j++) {
+        SubmittedScore memory t = submissions[matchId][reporters[j]];
+        if (s.homeScore == t.homeScore && s.awayScore == t.awayScore) {
+            count++;
+        }
+    }
+    // note: i == j is intentional — every reporter counts themselves,
+    // keeping all counts shifted by 1 equally. this avoids edge cases
+    // where a sole unique submission would have count = 0.
+
+    if (count > bestCount) {
+        bestCount = count;
+        bestHome = s.homeScore;
+        bestAway = s.awayScore;
+        tie = false;
+    } else if (count == bestCount) {
+        if (s.homeScore != bestHome || s.awayScore != bestAway) {
+            tie = true; // two different tuples share the highest frequency
+        }
+    }
+}
+```
+
+3. If `tie || bestCount == 0` → mark `DISPUTED`
+4. If clear winner → mark `FINALISED`, store `bestHome` and `bestAway`, set `validReporterCount = bestCount`, assign confidence level
+5. If `FINALISED` → build correct and wrong reporter arrays, then call `reporterRegistry.slash()`:
+
+```solidity
+address[] memory correctReporters = new address[](reporters.length);
+address[] memory wrongReporters = new address[](reporters.length);
+uint8 correctCount = 0;
+uint8 wrongCount = 0;
+
+for (uint8 i = 0; i < reporters.length; i++) {
+    SubmittedScore memory s = submissions[matchId][reporters[i]];
+    if (s.homeScore == bestHome && s.awayScore == bestAway) {
+        correctReporters[correctCount] = reporters[i];
+        correctCount++;
+    } else {
+        wrongReporters[wrongCount] = reporters[i];
+        wrongCount++;
+    }
+}
+
+// Trim arrays to their actual size before passing to slash().
+// Both arrays were allocated with reporters.length slots upfront,
+// so unfilled slots contain address(0). Without trimming, slash()
+// would silently process those zero-padded slots — not reverting,
+// but incorrectly incrementing correctSubmissions/incorrectSubmissions
+// on address(0) and corrupting reputation data for a non-existent reporter.
+assembly { mstore(correctReporters, correctCount) }
+assembly { mstore(wrongReporters, wrongCount) }
+
+reporterRegistry.slash(wrongReporters, correctReporters);
+```
 
 **Confidence Tiers:**
 
 | Valid Reporters | Confidence Level | Recommended For |
-|---|---|---|
+| --------------- | ---------------- | ----------------------------------------------- |
 | 1 | `VERY_LOW` | Informational use only |
 | 2 | `LOW` | Low-stakes consumers |
 | 3–4 | `MEDIUM` | General use |
@@ -338,26 +426,30 @@ These thresholds are protocol parameters and can be adjusted by the admin over t
 
 **What Consumers Receive:**
 Every finalised result exposes two fields:
-- **Result** — the agreed `(homeGoals, awayGoals)` tuple
+- **Result** — the agreed `(homeScore, awayScore)` tuple
 - **`validReporterCount`** — the number of reporters that submitted this result
 
 **Dispute Trigger:**
-Confidence level does not affect whether a dispute is triggered. The dispute flow is triggered exclusively by reporter **disagreement** — when submissions don't all agree on the same result. Low participation with full agreement always finalises.
+Confidence level does not affect whether a dispute is triggered. The dispute flow is triggered exclusively by reporter **disagreement**. Low participation with full agreement always finalises.
 
 **Possible Outcomes:**
 
 | Outcome | Condition | Next Step |
-|---|---|---|
+| -------------- | ------------------------------------ | ---------------------------------------------------------- |
 | `FINALISED` | All submissions agree (>=1 reporter) | Confidence level assigned, slashing applied, result public |
 | `DISPUTED` | Reporters disagree on first attempt | Retry mechanism activated |
 | `UNRESOLVABLE` | Reporters disagree on retry attempt | Match permanently closed |
 
+**V3:** Extract into a standalone `ConsensusEngine` contract once the algorithm grows in complexity (weighted voting, commit-reveal, reputation weighting).
+
 ---
 
-### 7. Dispute & Retry Mechanism
+### 6. Dispute & Retry Mechanism
+
 If consensus is not reached, the oracle enters a retry flow without any manual intervention.
 
 **Flow:**
+
 1. Match marked as `DISPUTED`
 2. A cooldown period begins automatically (duration TBD — does not affect architecture)
 3. After the cooldown, the submission window reopens and reporters may resubmit
@@ -369,22 +461,27 @@ If consensus is not reached, the oracle enters a retry flow without any manual i
 
 ---
 
-### 8. Slashing
+### 7. Slashing
+
 Triggered at finalization. Wrong reporters lose 25% of their staked ETH. The slashed amount is distributed equally among the honest reporters (those who submitted the winning result) as a claimable reward — using a pull model, never pushed automatically.
 
 **Wrong reporters:**
+
 - Lose 25% of their staked ETH per wrong submission
 - This is intentionally moderate in V2 since reporters earn no rewards yet — harsh slashing with no upside would deter participation
 
 **Honest reporters:**
+
 - Receive an equal share of the total slashed ETH from that match
 - Amount becomes claimable immediately after finalization
 - The more reporters that lied, the larger the honest reporters' share — the system naturally rewards reporters more when attacks occur
 
 **Example:**
+
 > 5 reporters submit. 4 agree on 2-1, 1 submits 3-0. Minimum stake is 0.1 ETH, slash is 25% = 0.025 ETH slashed. Each of the 4 honest reporters can claim 0.00625 ETH.
 
 **V3 Improvements:**
+
 - Slash percentage to be increased once reporters are earning rewards — asymmetric risk/reward becomes viable
 - Slashed ETH distribution weighted by reporter reputation rather than equal split — long-standing honest reporters earn a larger share
 - Commit-reveal will help distinguish genuine data source errors from malicious submissions, enabling more nuanced slashing logic
@@ -433,31 +530,33 @@ Result public forever
 
 ## Key Decisions Log
 
-| Topic | Decision | Notes |
-|---|---|---|
-| Currency | ETH only | No native token |
-| Staking asset | ETH | Reporters stake ETH |
-| Minimum stake | 0.1 ETH | Meaningful commitment without blocking participation; revisit in V3 |
-| Slashing asset | ETH | Wrong reporters lose staked ETH |
-| Slash percentage | 25% per wrong submission | Moderate in V2 since reporters earn no rewards yet; increase in V3 |
-| Slashed ETH destination | Equal split among honest reporters | Claimable via pull model; weighted by reputation in V3 |
-| Reporter rewards | Slashed ETH only in V2 | Consumer fee rewards deferred to V3 |
-| Consumer fees | None in V2 | Deferred to V3 |
-| Consumer access | Always free | Result is public after finalization |
-| Historical data | Free after finalization | Accepted as public good |
-| Consensus algorithm | Unanimous agreement | All submissions must agree; any disagreement triggers dispute |
-| Quorum | Replaced by confidence model | Hard quorum dropped; see confidence tiers |
-| Confidence model | VERY_LOW / LOW / MEDIUM / HIGH | Based on valid reporter count; consumers choose their own threshold |
-| Confidence thresholds | 1 / 2 / 3–4 / 5+ reporters | Protocol parameters, adjustable by admin |
-| Dispute trigger | Reporter disagreement only | Low participation with full agreement always finalises |
-| Commit-reveal | Deferred to V3 | Not needed for football scores in V2 |
-| Dispute retry | 1 automatic retry after cooldown | No manual intervention |
-| Unresolvable matches | Permanently closed | No fee pool to worry about in V2 |
-| Withdrawal delay | Yes (duration TBD) | Prevents reporters escaping slashing |
-| Match end signalling | Admin-controlled in V2 | Timing only, not result control |
-| Reporter reputation | Tracked from V2, unused until V3 | Enables retroactive rewards and airdrops |
-| Match ID scheme | `keccak256(competitionId, seasonYear, journey, homeTeamId, awayTeamId)` | V2: journey/phase + season year (reschedule-stable; no date); replaces V1 date-based scheme |
-| Team/competition IDs | `uint32`, auto-incremented from 1 | Preserves V1 type; `uint16` would be too narrow for multi-league growth |
+
+| Topic                   | Decision                                                                | Notes                                                                                       |
+| ----------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Currency                | ETH only                                                                | No native token                                                                             |
+| Staking asset           | ETH                                                                     | Reporters stake ETH                                                                         |
+| Minimum stake           | 0.1 ETH                                                                 | Meaningful commitment without blocking participation; revisit in V3                         |
+| Slashing asset          | ETH                                                                     | Wrong reporters lose staked ETH                                                             |
+| Slash percentage        | 25% per wrong submission                                                | Moderate in V2 since reporters earn no rewards yet; increase in V3                          |
+| Slashed ETH destination | Equal split among honest reporters                                      | Claimable via pull model; weighted by reputation in V3                                      |
+| Reporter rewards        | Slashed ETH only in V2                                                  | Consumer fee rewards deferred to V3                                                         |
+| Consumer fees           | None in V2                                                              | Deferred to V3                                                                              |
+| Consumer access         | Always free                                                             | Result is public after finalization                                                         |
+| Historical data         | Free after finalization                                                 | Accepted as public good                                                                     |
+| Consensus algorithm     | Unanimous agreement                                                     | All submissions must agree; any disagreement triggers dispute                               |
+| Quorum                  | Replaced by confidence model                                            | Hard quorum dropped; see confidence tiers                                                   |
+| Confidence model        | VERY_LOW / LOW / MEDIUM / HIGH                                          | Based on valid reporter count; consumers choose their own threshold                         |
+| Confidence thresholds   | 1 / 2 / 3–4 / 5+ reporters                                              | Protocol parameters, adjustable by admin                                                    |
+| Dispute trigger         | Reporter disagreement only                                              | Low participation with full agreement always finalises                                      |
+| Commit-reveal           | Deferred to V3                                                          | Not needed for football scores in V2                                                        |
+| Dispute retry           | 1 automatic retry after cooldown                                        | No manual intervention                                                                      |
+| Unresolvable matches    | Permanently closed                                                      | No fee pool to worry about in V2                                                            |
+| Withdrawal delay        | Yes (duration TBD)                                                      | Prevents reporters escaping slashing                                                        |
+| Match end signalling    | Admin-controlled in V2                                                  | Timing only, not result control                                                             |
+| Reporter reputation     | Tracked from V2, unused until V3                                        | Enables retroactive rewards and airdrops                                                    |
+| Match ID scheme         | `keccak256(competitionId, seasonYear, journey, homeTeamId, awayTeamId)` | V2: journey/phase + season year (reschedule-stable; no date); replaces V1 date-based scheme |
+| Team/competition IDs    | `uint32`, auto-incremented from 1                                       | Preserves V1 type; `uint16` would be too narrow for multi-league growth                     |
+
 
 ---
 
@@ -476,3 +575,4 @@ Result public forever
 - **V3: Confidence weighting by reporter reputation, not just count** — a result from 2 high-reputation reporters may be more trustworthy than 5 new ones
 - **V3: Consumer-side on-chain confidence threshold enforcement** — consumers register their minimum accepted confidence level; oracle only delivers results that meet it
 - V3+: DAO governance for admin functions
+
