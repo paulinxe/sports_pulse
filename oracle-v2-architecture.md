@@ -332,11 +332,12 @@ On success:
 
 The consensus logic lives inside the Result Registry as a private function — not a separate contract. The algorithm is simple enough in V2 that a separate contract would introduce unnecessary struct duplication and cross-contract coupling. If V3 introduces weighted voting, commit-reveal, or reputation-based logic, extraction into a standalone contract becomes justified at that point.
 
-**`finaliseMatch(bytes32 matchId)`** — permissionless
+`**finaliseMatch(bytes32 matchId)**` — permissionless
 
 The public entry point that triggers consensus. Callable by anyone once the submission window has closed. Reporters are the most motivated callers as they want slashed rewards distributed as soon as possible.
 
 Guards:
+
 - `results[matchId].status == OPEN`
 - `block.timestamp > results[matchId].windowClosesAt`
 
@@ -344,6 +345,7 @@ Guards:
 If a majority of submissions agree on the same `(homeScore, awayScore)` tuple, the match is finalised. The result is tagged with a confidence level based on the count of reporters who submitted the winning tuple. Any tie triggers the dispute flow.
 
 **Logic:**
+
 1. If `matchReporters[matchId].length == 0` → mark `DISPUTED` (no submissions)
 2. Tally all submitted `(homeScore, awayScore)` tuples — find the most frequently submitted one:
 
@@ -352,11 +354,11 @@ uint8 bestCount = 0;
 uint8 bestHome = 0;
 uint8 bestAway = 0;
 bool tie = false;
-
+ 
 for (uint8 i = 0; i < reporters.length; i++) {
     SubmittedScore memory s = submissions[matchId][reporters[i]];
     uint8 count = 0;
-
+ 
     for (uint8 j = 0; j < reporters.length; j++) {
         SubmittedScore memory t = submissions[matchId][reporters[j]];
         if (s.homeScore == t.homeScore && s.awayScore == t.awayScore) {
@@ -366,7 +368,7 @@ for (uint8 i = 0; i < reporters.length; i++) {
     // note: i == j is intentional — every reporter counts themselves,
     // keeping all counts shifted by 1 equally. this avoids edge cases
     // where a sole unique submission would have count = 0.
-
+ 
     if (count > bestCount) {
         bestCount = count;
         bestHome = s.homeScore;
@@ -380,16 +382,27 @@ for (uint8 i = 0; i < reporters.length; i++) {
 }
 ```
 
-3. If `tie || bestCount == 0` → mark `DISPUTED`
-4. If clear winner → mark `FINALISED`, store `bestHome` and `bestAway`, set `validReporterCount = bestCount`, assign confidence level
-5. If `FINALISED` → build correct and wrong reporter arrays, then call `reporterRegistry.slash()`:
+1. If `tie || bestCount == 0`:
+  - If `results[matchId].attemptNumber == 1` → mark `DISPUTED`, increment `attemptNumber` to 2, emit `MatchDisputed`
+  - If `results[matchId].attemptNumber == 2` → mark `UNRESOLVABLE`, emit `MatchUnresolvable`
+2. If clear winner → assign confidence level, mark `FINALISED`, store `bestHome` and `bestAway`, set `validReporterCount = bestCount`, emit `MatchFinalised`:
+
+```solidity
+ConfidenceLevel confidence;
+if (bestCount >= 5)      confidence = ConfidenceLevel.HIGH;
+else if (bestCount >= 3) confidence = ConfidenceLevel.MEDIUM;
+else if (bestCount == 2) confidence = ConfidenceLevel.LOW;
+else                     confidence = ConfidenceLevel.VERY_LOW;
+```
+
+1. If `FINALISED` → build correct and wrong reporter arrays, then call `reporterRegistry.slash()`:
 
 ```solidity
 address[] memory correctReporters = new address[](reporters.length);
 address[] memory wrongReporters = new address[](reporters.length);
 uint8 correctCount = 0;
 uint8 wrongCount = 0;
-
+ 
 for (uint8 i = 0; i < reporters.length; i++) {
     SubmittedScore memory s = submissions[matchId][reporters[i]];
     if (s.homeScore == bestHome && s.awayScore == bestAway) {
@@ -400,7 +413,7 @@ for (uint8 i = 0; i < reporters.length; i++) {
         wrongCount++;
     }
 }
-
+ 
 // Trim arrays to their actual size before passing to slash().
 // Both arrays were allocated with reporters.length slots upfront,
 // so unfilled slots contain address(0). Without trimming, slash()
@@ -409,56 +422,104 @@ for (uint8 i = 0; i < reporters.length; i++) {
 // on address(0) and corrupting reputation data for a non-existent reporter.
 assembly { mstore(correctReporters, correctCount) }
 assembly { mstore(wrongReporters, wrongCount) }
-
+ 
 reporterRegistry.slash(wrongReporters, correctReporters);
+```
+
+**Events:**
+
+```solidity
+event MatchFinalised(bytes32 indexed matchId, uint8 homeScore, uint8 awayScore, uint8 validReporterCount, ConfidenceLevel confidence);
+event MatchDisputed(bytes32 indexed matchId, uint8 attemptNumber);
+event MatchUnresolvable(bytes32 indexed matchId);
 ```
 
 **Confidence Tiers:**
 
-| Valid Reporters | Confidence Level | Recommended For |
+
+| Valid Reporters | Confidence Level | Recommended For                                 |
 | --------------- | ---------------- | ----------------------------------------------- |
-| 1 | `VERY_LOW` | Informational use only |
-| 2 | `LOW` | Low-stakes consumers |
-| 3–4 | `MEDIUM` | General use |
-| 5+ | `HIGH` | High-stakes consumers (e.g. prediction markets) |
+| 1               | `VERY_LOW`       | Informational use only                          |
+| 2               | `LOW`            | Low-stakes consumers                            |
+| 3–4             | `MEDIUM`         | General use                                     |
+| 5+              | `HIGH`           | High-stakes consumers (e.g. prediction markets) |
+
 
 These thresholds are protocol parameters and can be adjusted by the admin over time.
 
 **What Consumers Receive:**
 Every finalised result exposes two fields:
+
 - **Result** — the agreed `(homeScore, awayScore)` tuple
-- **`validReporterCount`** — the number of reporters that submitted this result
+- `**validReporterCount`** — the number of reporters that submitted this result
 
 **Dispute Trigger:**
-Confidence level does not affect whether a dispute is triggered. The dispute flow is triggered exclusively by reporter **disagreement**. Low participation with full agreement always finalises.
+Confidence level does not affect whether a dispute is triggered. The dispute flow is triggered when there are **zero submissions** or a **tie between two or more tuples**. Low participation with a clear majority always finalises regardless of confidence level.
 
 **Possible Outcomes:**
 
-| Outcome | Condition | Next Step |
-| -------------- | ------------------------------------ | ---------------------------------------------------------- |
-| `FINALISED` | All submissions agree (>=1 reporter) | Confidence level assigned, slashing applied, result public |
-| `DISPUTED` | Reporters disagree on first attempt | Retry mechanism activated |
-| `UNRESOLVABLE` | Reporters disagree on retry attempt | Match permanently closed |
+
+| Outcome        | Condition                                 | Next Step                                                  |
+| -------------- | ----------------------------------------- | ---------------------------------------------------------- |
+| `FINALISED`    | Clear majority tuple found (>=1 reporter) | Confidence level assigned, slashing applied, result public |
+| `DISPUTED`     | Tie or no submissions on first attempt    | Retry mechanism activated                                  |
+| `UNRESOLVABLE` | Tie or no submissions on retry attempt    | Match permanently closed                                   |
+
 
 **V3:** Extract into a standalone `ConsensusEngine` contract once the algorithm grows in complexity (weighted voting, commit-reveal, reputation weighting).
 
 ---
 
 ### 6. Dispute & Retry Mechanism
-
+ 
 If consensus is not reached, the oracle enters a retry flow without any manual intervention.
-
+ 
+**Constants:**
+```solidity
+uint256 public constant SUBMISSION_WINDOW = 1 hours;
+uint256 public constant DISPUTE_COOLDOWN = 2 hours;
+```
+ 
 **Flow:**
-
-1. Match marked as `DISPUTED`
-2. A cooldown period begins automatically (duration TBD — does not affect architecture)
-3. After the cooldown, the submission window reopens and reporters may resubmit
-4. Consensus Engine runs again
-5. If all resubmissions agree → `FINALISED` (with confidence level based on count)
-6. If reporters still disagree → `UNRESOLVABLE`
-
+ 
+1. Match marked as `DISPUTED`, `attemptNumber` incremented to 2
+2. `windowClosesAt` is set to `block.timestamp + DISPUTE_COOLDOWN + SUBMISSION_WINDOW`:
+   - First 2 hours → cooldown period, `submitScore` rejects submissions
+   - Last 1 hour → retry submission window, `submitScore` accepts submissions as normal
+3. After `DISPUTE_COOLDOWN + SUBMISSION_WINDOW` total, anyone can call `finaliseMatch(matchId)` again
+4. Reporters resubmit their EIP-712 signed scores during the 1-hour retry window
+5. `finaliseMatch` is called again once the retry window closes → consensus runs
+6. If clear majority found → `FINALISED` (with confidence level based on count)
+7. If tie or zero submissions → `UNRESOLVABLE`
+ 
 **There is exactly one retry.** A match that reaches `UNRESOLVABLE` is permanently closed.
-
+ 
+**`windowClosesAt` meaning is consistent across both attempts** — it always marks the end of the submission window. This keeps the `finaliseMatch` guard `block.timestamp > windowClosesAt` correct in both attempts without any special casing.
+ 
+**`submitScore` status guard updated to accept retry submissions:**
+```solidity
+require(
+    results[matchId].status == MatchStatus.OPEN ||
+    results[matchId].status == MatchStatus.DISPUTED,
+    "Window not open"
+);
+```
+ 
+**`submitScore` cooldown guard — only applied during retry:**
+```solidity
+if (results[matchId].status == MatchStatus.DISPUTED) {
+    require(
+        block.timestamp > results[matchId].windowClosesAt - SUBMISSION_WINDOW,
+        "Cooldown not elapsed"
+    );
+}
+```
+ 
+The arithmetic is isolated to the `DISPUTED` branch only — explicit, readable, and no extra storage variable needed. The use of the `SUBMISSION_WINDOW` constant avoids magic numbers and keeps the intent clear.
+ 
+**On the 2-hour cooldown:**
+The cooldown is an operational recovery window, not a security mechanism. Its purpose is to give reporters time to notice the dispute, investigate the cause (e.g. data feed disagreement, timing issue, reporter submitted before extra time ended), and correct their tooling before resubmitting. In practice, football scores are confirmed by sports APIs within 15-30 minutes of full time — 2 hours is generous enough to cover any edge case while still delivering a result the same evening in most cases. Both `SUBMISSION_WINDOW` and `DISPUTE_COOLDOWN` are protocol constants and can be adjusted once real operational data is available.
+ 
 ---
 
 ### 7. Slashing
